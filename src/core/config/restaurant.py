@@ -35,13 +35,13 @@ CLOSED_RULES = {
 }
 
 # ============================================
-# MENÚ Y ESPECIALIDADES
+# MENÚ COMPLETO Y CARTA
 # ============================================
 MENU = {
     "specialties": [
         "Cachopos (nuestra especialidad principal, varias variedades)",
         "Platos de inspiración alemana: salchichas y codillo",
-        "Hamburguesas",
+        "Hamburguesas de vaca vieja hechas artesanalmente",
         "Postres caseros"
     ],
     "menu_del_dia": {
@@ -50,13 +50,153 @@ MENU = {
         "hours": "Mediodía hasta las 16:00",
         "excludes": ["fines de semana", "festivos"]
     },
+    
+    # PARA COMPARTIR - Verduras
+    "para_compartir_verduras": {
+        "Berenjenas con miel de flores": 10,
+        "Carpaccio de calabacín con emulsión de mango y picada de frutos secos": 11,
+        "Tempura de verduras con salsa romesco": 12,
+        "Ensalada de brotes, tomate, queso de cabra y atún": 12,
+        "Ensalada de lechuga, pera, queso azul y nueces": 12,
+        "Ensalada de brotes, champiñones, cebolleta y jamón": 12,
+        "Papas arrugadas con dos mojos": 5,
+        "Papas arrugadas doble ración": 10,
+        "Cesta patatas fritas caseras": 2.5,
+        "Taquitos de bacalao en tempura con alioli verde": 12,
+        "Orejita a la gallega": 10,
+        "Puntillitas del sur": 9,
+        "Tosta de tres quesos al horno con nueces y miel": 10,
+        "Calcots de Valls": 15,
+    },
+    
+    # PARA COMPARTIR - De siempre
+    "de_siempre": {
+        "Pizarra de embutidos de León (chorizo, salchichón, cecina)": 12,
+        "Plato de cecina de León": 12,
+        "Patatas fritas caseras con huevos fritos y jamón serrano": 9,
+        "Croquetas de jamón (8 unidades)": 9.50,
+        "Croquetas de chipirón, boletus o surtidas (8 unidades)": 10.50,
+    },
+    
+    # CACHOPOS
+    "cachopos": {
+        "descripcion": "Plato típico asturiano con patatas fritas caseras y pimientos del piquillo flambeados. Perfecto para compartir dos personas.",
+        "Cachopo tradicional (jamón serrano y queso)": 25,
+        "Cachopo de cecina de León y queso de cabra": 27,
+        "Cachopo de jamón serrano y queso picón asturiano": 27,
+        "Cachopo de bacon y queso con salsa carbonara": 27,
+        "Cachopo sin queso, con jamón, setas y pimiento verde (Ju-Do)": 27,
+        "nota": "Pregunta por nuestro Cachopo especial del MES",
+    },
+    
+    # PLATOS ALEMANES
+    "platos_alemanes": {
+        "Salchichas Nuremberg (6) con puré y chucrut": 10,
+        "Currywurst con patatas fritas caseras": 5,
+        "Salchichas de Munich con Bretzel y mostaza": 9,
+        "Surtido de salchichas Luis Thate con puré y chucrut": 13,
+        "Jägerschnitzel (filete empanado) con salsa de setas": 12.80,
+        "Codillo con puré de patata casero y chucrut": 14,
+        "Schlachtplatte (surtido salchichas y codillo con puré)": 33,
+    },
+    
+    # HAMBURGUESAS
+    "hamburguesas": {
+        "descripcion": "Hamburguesas de vaca vieja hechas por nosotros, incluye patatas fritas caseras",
+        "Hamburguesa clásica": 9.50,
+        "Hamburguesa En las Nubes (cecina, tomate confitado, roquefort)": 12,
+        "Hamburguesa americana (bacon, pepino agridulce)": 11,
+        "Hamburguesa mediterránea (pimientos asados, romesco)": 11,
+    },
+    
+    # MENÚ INFANTIL
+    "menu_infantil": {
+        "Salchicha alemana con patatas fritas": 4.50,
+        "Hamburguesa en plato con dos croquetas de jamón": 6,
+        "Cachopín de pollo relleno jamón y queso": 6.50,
+        "Huevo frito con jamón o croquetas y patatas": 5,
+        "Croquetas de jamón (8 unidades)": 9,
+        "Cesta de patatas fritas": 2,
+    },
+    
+    # POSTRES
+    "postres": {
+        "rango_precio": "4 a 6€",
+        "tipo": "Postres caseros",
+    },
+    
+    # EXTRAS
+    "extras": {
+        "Servicio de pan": 0.50,  # por persona
+    },
+    
+    # OPCIONES DIETÉTICAS
     "vegetarian_options": True,
-    "vegan_options": ["Papas arrugadas", "Carpaccio de calabacín con salsa de mango y frutos secos", "Ensaladas variadas", "Tempura de verduras"],
+    "vegan_options": [
+        "Papas arrugadas con dos mojos (5€)",
+        "Carpaccio de calabacín con emulsión de mango (11€)",
+        "Ensaladas (consultar ingredientes)",
+        "Tempura de verduras (12€)"
+    ],
     "gluten_free": {
         "available": True,
-        "cachopo_sin_gluten": {"available": True, "notice_hours": 24, "message": "El cachopo sin gluten requiere 24 horas de antelación"},
+        "cachopo_sin_gluten": {
+            "available": True, 
+            "notice_hours": 24, 
+            "message": "El cachopo sin gluten requiere 24 horas de antelación"
+        },
     }
 }
+
+# CARTA DE VINOS
+CARTA_VINOS = {
+    "tintos_jovenes": {
+        "Cantauri (D.O.Ca. Rioja)": 10,
+        "Valdepalacios (D.O.Ca. Rioja)": 10,
+    },
+    "tintos_crianza": {
+        "Valdepalacios Crianza": 12,
+        "Dominio de Nobleza": 14,
+        "Solabal": 15,
+        "Paco García 🖤": 17,
+        "Valserrano 🖤": 16,
+        "Ramón Bilbao Edición Limitada": 20,
+        "Amaren 🖤": 22,
+        "Paco García Garnacha 🖤": 21,
+        "Pies Negros (Artuke)": 23,
+    },
+    "tintos_otras_do": {
+        "Viña Aguilera (Ribera del Duero)": 16,
+        "Brezo Mencía": 16,
+        "Cunquerio Mencía": 19,
+        "Románico (Toro)": 19,
+    },
+    "tintos_reserva": {
+        "Monterreal (Riojanas)": 22,
+        "Ramón Bilbao Reserva": 22,
+        "Amézola de la Mora": 22,
+    },
+    "blancos": {
+        "Cantauri": 9,
+        "Valdepalacios 🖤": 9,
+        "Dominio de Nobleza": 11,
+        "Valserrano": 16,
+        "Eresma Verdejo": 12,
+        "Anahí (semidulce)": 14,
+        "Casa de Outeiro Godello 🖤": 18,
+        "Mytilus Albariño": 20,
+    },
+    "rosados": {
+        "Valcuerna Clarete": 10,
+        "Cantauri Rosado": 10,
+        "Campolosa Garnacha": 10,
+    },
+    "espumosos": {
+        "AC Frizzante": 11,
+        "Brut Cava Perdiguer": 14,
+    },
+}
+
 
 # ============================================
 # SERVICIOS Y COMODIDADES

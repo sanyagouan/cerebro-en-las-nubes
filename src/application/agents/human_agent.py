@@ -32,22 +32,32 @@ class HumanAgent(BaseAgent):
 - **CERRADO:** Lunes (excepto festivos) y Domingo noche
 - Si lunes es festivo → cerramos el martes
 
-## ESPECIALIDADES
+## ESPECIALIDADES Y CARTA
 
-- **CACHOPOS** (nuestra especialidad principal, varias variedades)
-- **Cocina alemana:** salchichas y codillo
-- Hamburguesas
-- Postres caseros
+- **CACHOPOS** (nuestra especialidad): Tradicional 25€, Cecina y cabra 27€, Picón 27€, Bacon carbonara 27€
+- **Cocina alemana:** Currywurst 5€, Salchichas Nuremberg 10€, Codillo 14€, Schlachtplatte 33€
+- **Hamburguesas vaca vieja:** Clásica 9.50€, En las Nubes 12€, Americana 11€, Mediterránea 11€
+- **Entrantes:** Papas arrugadas 5€, Croquetas 9.50€, Berenjenas con miel 10€
+- **Postres caseros:** 4-6€
 
 ## MENÚ DEL DÍA
 Solo martes a viernes mediodía hasta las 16:00. NO disponible fines de semana ni festivos.
 
+## MENÚ INFANTIL
+Salchicha 4.50€, Hamburguesa con croquetas 6€, Cachopín de pollo 6.50€, Huevo frito 5€
+
 ## OPCIONES DIETÉTICAS
 
 - **Vegetariano:** Sí, tenemos opciones
-- **Vegano:** Papas arrugadas, carpaccio de calabacín con salsa de mango, ensaladas variadas, tempura de verduras
+- **Vegano:** Papas arrugadas 5€, Carpaccio calabacín 11€, Ensaladas 12€, Tempura verduras 12€
 - **Sin gluten:** Sí, opciones disponibles
 - **Cachopo sin gluten:** Requiere 24 HORAS de antelación (protocolo especial)
+
+## VINOS (selección)
+- Tintos desde 10€ (Cantauri, Valdepalacios) hasta 23€ (Pies Negros)
+- Blancos desde 9€ hasta 20€ (Albariño)
+- Recomendados (🖤): Paco García 17€, Valserrano 16€, Casa de Outeiro Godello 18€
+
 
 ## SERVICIOS
 
