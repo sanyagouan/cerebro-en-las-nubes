@@ -76,5 +76,51 @@ class AirtableBookingRepository(BookingRepository):
             return []
 
     def create_booking(self, booking: Booking) -> Booking:
-        # TODO: Implementar creación real
-        return booking
+        """Crea una nueva reserva en Airtable."""
+        try:
+            table_api = self.api.table(self.base_id, TABLES["RESERVAS"])
+            
+            # Preparar datos para Airtable
+            fields = {
+                "Nombre del Cliente": booking.client_name,
+                "Teléfono": booking.client_phone or "",
+                "Fecha de Reserva": booking.date_time.strftime("%Y-%m-%d"),
+                "Hora": booking.date_time.strftime("%H:%M"),
+                "Cantidad de Personas": booking.pax,
+                "Estado": str(booking.status) if booking.status else "Pendiente",
+                "Canal": booking.source or "Voice AI",
+                "Notas Especiales": booking.notes or ""
+            }
+            
+            # Si hay mesa asignada, añadirla (Airtable espera array de IDs)
+            if booking.assigned_table_id:
+                fields["Mesa"] = [booking.assigned_table_id]
+            
+            # Crear registro
+            record = table_api.create(fields)
+            
+            # Actualizar ID del booking con el ID de Airtable
+            booking.id = record["id"]
+            print(f"✅ Reserva creada: {booking.id}")
+            return booking
+            
+        except Exception as e:
+            print(f"❌ Error creando reserva: {e}")
+            raise e
+
+    def update_booking_status(self, booking_id: str, status: str, table_id: str = None) -> bool:
+        """Actualiza el estado de una reserva existente."""
+        try:
+            table_api = self.api.table(self.base_id, TABLES["RESERVAS"])
+            
+            fields = {"Estado": status}
+            if table_id:
+                fields["Mesa"] = [table_id]
+            
+            table_api.update(booking_id, fields)
+            print(f"✅ Reserva {booking_id} actualizada a {status}")
+            return True
+            
+        except Exception as e:
+            print(f"❌ Error actualizando reserva: {e}")
+            return False
