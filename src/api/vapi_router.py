@@ -112,7 +112,7 @@ Sé amable, eficiente y natural. Habla en español de España."""
 
 async def handle_function_call(body: dict) -> dict:
     """
-    Process function calls from VAPI (e.g., make_reservation).
+    Process function calls from VAPI (check_availability, create_reservation).
     """
     message = body.get("message", {})
     function_call = message.get("functionCall", {})
@@ -121,16 +121,52 @@ async def handle_function_call(body: dict) -> dict:
     
     logger.info(f"🔧 Function Call: {function_name} with {parameters}")
     
-    if function_name == "make_reservation":
-        orchestrator = get_orchestrator()
+    orchestrator = get_orchestrator()
+    
+    if function_name == "check_availability":
+        # Check availability for date/time/pax
+        date = parameters.get("date", "")
+        time = parameters.get("time", "")
+        pax = parameters.get("pax", 2)
+        
         result = await orchestrator.process_message(
-            f"Reserva para {parameters.get('pax', 2)} personas",
-            metadata=parameters
+            f"Verificar disponibilidad para {pax} personas el {date} a las {time}",
+            metadata={"date": date, "time": time, "pax": pax, "action": "check_availability"}
         )
         
         if result.get("booking_result", {}).get("available"):
             return {
-                "result": f"Reserva confirmada en {result['booking_result'].get('assigned_table', 'una mesa')}."
+                "result": f"Sí, hay disponibilidad para {pax} personas el {date} a las {time}. ¿Quieres que haga la reserva?"
+            }
+        else:
+            return {
+                "result": f"Lo siento, no hay disponibilidad para ese horario. ¿Quieres que pruebe otra hora?"
+            }
+    
+    elif function_name == "create_reservation" or function_name == "make_reservation":
+        # Create a reservation
+        date = parameters.get("date", "")
+        time = parameters.get("time", "")
+        pax = parameters.get("pax", 2)
+        customer_name = parameters.get("customer_name", parameters.get("client_name", ""))
+        phone = parameters.get("phone", parameters.get("client_phone", ""))
+        
+        result = await orchestrator.process_message(
+            f"Crear reserva para {pax} personas el {date} a las {time}",
+            metadata={
+                "date": date,
+                "time": time,
+                "pax": pax,
+                "client_name": customer_name,
+                "client_phone": phone,
+                "action": "create_reservation"
+            }
+        )
+        
+        if result.get("booking_result", {}).get("available"):
+            table = result.get("booking_result", {}).get("assigned_table", "una mesa")
+            return {
+                "result": f"¡Perfecto! Reserva confirmada para {customer_name}: {pax} personas el {date} a las {time} en {table}. ¡Os esperamos!"
             }
         else:
             return {
