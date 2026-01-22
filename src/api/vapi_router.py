@@ -70,24 +70,36 @@ async def handle_assistant_request(body: dict) -> dict:
     """
     return {
         "assistant": {
-            "name": "En Las Nubes",
-            "firstMessage": "¡Hola! Gracias por llamar a En Las Nubes Restobar. ¿En qué puedo ayudarte?",
+            "name": "Nube",
+            "firstMessage": "¡Hola! Soy Nube, de En Las Nubes Restobar. ¿En qué puedo ayudarte?",
             "model": {
                 "provider": "openai",
                 "model": "gpt-4o",
                 "temperature": 0.7,
-                "systemPrompt": """Eres la recepcionista virtual de En Las Nubes Restobar en Logroño.
+                "systemPrompt": """Eres Nube, la recepcionista virtual de En Las Nubes Restobar en Logroño.
                 
-Puedes:
-- Hacer reservas (pregunta fecha, hora, número de personas, nombre y teléfono)
-- Responder preguntas sobre horarios, ubicación y menú
-- Transferir a un humano si te lo piden
+SOLO HABLAS ESPAÑOL DE ESPAÑA.
+Si el usuario habla en otro idioma, responde amablemente en español.
 
-Sé amable, eficiente y natural. Habla en español de España."""
+INFORMACIÓN DEL RESTAURANTE:
+- Dirección: María Teresa Gil de Gárate 16, Logroño.
+- Horario: X-D 13-16h y 20:30-23:30h. L-M Cerrado.
+
+TU OBJETIVO:
+1. Gestionar reservas (fecha, hora, pax, nombre).
+2. El número de teléfono YA LO TIENES (no lo preguntes).
+3. Ser breve, cálida y eficaz.
+"""
             },
             "voice": {
                 "provider": "11labs",
-                "voiceId": "21m00Tcm4TlvDq8ikWAM"  # Rachel voice
+                "voiceId": "UOIqAnmS11Reiei1Ytkc",  # Carolina (Spanish Spain)
+                "model": "eleven_multilingual_v2"
+            },
+            "transcriber": {
+                "provider": "deepgram",
+                "model": "nova-2",
+                "language": "es"
             },
             "functions": [
                 {
@@ -100,10 +112,23 @@ Sé amable, eficiente y natural. Habla en español de España."""
                             "time": {"type": "string", "description": "Hora de la reserva (HH:MM)"},
                             "pax": {"type": "integer", "description": "Número de personas"},
                             "client_name": {"type": "string", "description": "Nombre del cliente"},
-                            "client_phone": {"type": "string", "description": "Teléfono del cliente"}
+                            "client_phone": {"type": "string", "description": "Teléfono del cliente (opcional, si el usuario lo dicta)"}
                         },
                         "required": ["date", "time", "pax", "client_name"]
                     }
+                },
+                {
+                    "name": "check_availability",
+                     "description": "Verificar si hay mesa disponible",
+                     "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "date": {"type": "string"},
+                            "time": {"type": "string"},
+                            "pax": {"type": "integer"}
+                        },
+                        "required": ["date", "time", "pax"]
+                     }
                 }
             ]
         }
@@ -151,6 +176,15 @@ async def handle_function_call(body: dict) -> dict:
         customer_name = parameters.get("customer_name", parameters.get("client_name", ""))
         phone = parameters.get("phone", parameters.get("client_phone", ""))
         
+        # Extract caller's phone number from VAPI payload
+        call_info = message.get("call", {})
+        customer_info = call_info.get("customer", {})
+        caller_number = customer_info.get("number", "")
+        
+        # Use extracted caller number if parameter is missing/empty, otherwise use parameter
+        # Priority: Parameter (if user explicitly gave a different one) > Caller ID
+        final_phone = phone if phone else caller_number
+
         result = await orchestrator.process_message(
             f"Crear reserva para {pax} personas el {date} a las {time}",
             metadata={
@@ -158,7 +192,7 @@ async def handle_function_call(body: dict) -> dict:
                 "time": time,
                 "pax": pax,
                 "client_name": customer_name,
-                "client_phone": phone,
+                "client_phone": final_phone, # Use the robust phone number
                 "action": "create_reservation"
             }
         )
