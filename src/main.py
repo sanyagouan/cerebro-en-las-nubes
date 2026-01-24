@@ -11,6 +11,8 @@ from src.api.vapi_router import router as vapi_router
 from src.api.whatsapp_router import router as whatsapp_router
 
 # Configuración de Logs
+import os
+os.makedirs("logs", exist_ok=True)
 logger.add("logs/app.log", rotation="500 MB", level="INFO")
 
 app = FastAPI(
@@ -51,4 +53,3 @@ async def root():
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
-
