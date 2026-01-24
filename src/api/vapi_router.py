@@ -1,38 +1,30 @@
+from fastapi import APIRouter, Request, HTTPException
+from typing import Dict, Any, Optional
 import os
 import logging
-from fastapi import APIRouter, HTTPException, Request
-from loguru import logger
-from datetime import datetime, date
-import json
+from datetime import datetime
 
-from src.core.config.airtable_ids import BASE_ID, TABLES
-from src.application.services.schedule_service import get_schedule_service, Servicio, Turno
-from src.application.services.table_assignment import get_table_assignment_service, ZonePreference
-from src.application.orchestrator import Orchestrator
-from src.application.services.escalation_service import get_escalation_service, EscalationReason
+from src.application.services.schedule_service import ScheduleService
+from src.infrastructure.repositories.mock_reservation_repository import MockReservationRepository
+from src.infrastructure.external.twilio_service import TwilioService
+from src.infrastructure.external.airtable_service import AirtableService
+from src.domain.models.reservation import Reservation
 
-router = APIRouter(prefix="/vapi", tags=["vapi"])
+# Configuración de logs
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-# Lazy-loaded orchestrator singleton
-_orchestrator = None
+router = APIRouter()
 
-def get_orchestrator():
-    global _orchestrator
-    if _orchestrator is None:
-        _orchestrator = Orchestrator()
-    return _orchestrator
-
-# ========= CONFIGURACIÓN DEL ASISTENTE (V2) =========
-
-class VAPIMessage(BaseModel):
-    """VAPI webhook message structure."""
-    message: Dict[str, Any]
+# Instanciar servicios
+# En un entorno real, esto se inyectaría mediante dependencias
+reservation_repository = MockReservationRepository()
+schedule_service = ScheduleService()
+twilio_service = TwilioService()
+airtable_service = AirtableService()
 
 
-# ============================================================
-# SYSTEM PROMPT V2 - Prompt completo con menú y políticas
-# ============================================================
-
+# --- CONSTANTES Y PROMPTS ---
 
 SYSTEM_PROMPT_V2 = """Eres Nube, la recepcionista virtual COMPATIBLE y ENCANTADORA de En Las Nubes Restobar en Logroño.
 
@@ -45,20 +37,26 @@ SYSTEM_PROMPT_V2 = """Eres Nube, la recepcionista virtual COMPATIBLE y ENCANTADO
 
 📍 INFORMACIÓN DEL RESTAURANTE:
 - Dirección: María Teresa Gil de Gárate 16, Logroño.
+- NOTA UBICACIÓN: La calle es PEATONAL (no se puede aparcar en la puerta).
+- 🅿️ APARCAMIENTO RECOMENDADO: Calle Pérez Galdós, Calle República Argentina, Calle Huesca y el Parking de Gran Vía.
 - Teléfono: 941 57 84 51.
-- Cocina: Nuestra especialidad son los CACHOPOS y la cocina de inspiración ALEMANA (salchichas, codillo). También tenemos entrantes, hamburguesas y postres caseros.
-- Horarios de Apertura (Referencia):
-  * Comidas (Martes a Domingo): 13:00 - 17:00 (Cocina cierra antes).
-  * Cenas (Jueves): 20:00 - 24:00.
-  * Cenas (Viernes/Sábado): 20:00 - 00:30 (Viernes) / 01:00 (Sábado).
-  * Lunes: CERRADO (salvo festivos).
-  * Domingo noche, Martes noche, Miércoles noche: CERRADO habitual.
+- Cocina: Especialidad en CACHOPOS y cocina de inspiración ALEMANA (salchichas, codillo). También tenemos entrantes, hamburguesas y postres caseros.
+- Carta Sin Gluten: Tenemos variedad de entrantes, hamburguesas y platos alemanes aptos.
+
+🕒 HORARIOS Y TURNOS:
+- Comidas (Martes a Domingo): 13:00 - 17:00 (Cocina cierra antes).
+- Cenas (Jueves): 20:00 - 24:00.
+- Cenas (Viernes/Sábado): 20:00 - 00:30 (Viernes) / 01:00 (Sábado).
+- Lunes: CERRADO (salvo festivos).
+- Domingo noche, Martes noche, Miércoles noche: CERRADO habitual.
+- IMPORTANTE: SÍ existen turnos en días concurridos (fines de semana). El sistema te dirá la disponibilidad.
 
 ✅ TUS REGLAS DE ORO:
 1. SIEMPRE verifica disponibilidad antes de confirmar una reserva usando `check_availability`.
-2. Para grupos de más de 10 personas o días de alta demanda (San Bernabé, San Mateo), informa que necesitas consultar con el equipo y usa `transfer_to_human`.
-3. Si alguien pregunta por "Susana" o dice que es "proveedor", pásale directamente con un humano.
-4. Si preguntan por opciones sin gluten: SÍ tenemos (Cachopo sin gluten requiere aviso 24h).
+2. DATOS OBLIGATORIOS RESERVA: Nombre completo y Número de Teléfono (para enviar confirmación por WhatsApp). DILE AL CLIENTE que recibirá confirmación por WhatsApp.
+3. CACHOPOS SIN GLUTEN: Si piden cachopo sin gluten, PREGUNTA cuál de la carta quieren (tienen que elegir uno específico). Requiere aviso 24h.
+4. Para grupos de más de 10 personas, informa que necesitas consultar con el equipo y usa `transfer_to_human`.
+5. Si alguien pregunta por "Susana" o dice que es "proveedor", pásale directamente con un humano.
 
 SI NO SABES ALGO:
 "Oye, pues esa pregunta es muy buena y no quiero meter la pata. ¿Te importa si te llama mi compañero en un ratito y te lo confirma?"
@@ -66,234 +64,186 @@ SI NO SABES ALGO:
 NOTA IMPORTANTE: Siempre responde en español de España. Sé breve y clara.
 """
 
-@router.post("/webhook")
-async def vapi_webhook(request: Request):
+# --- ENDPOINTS ---
+
+@router.post("/assistant")
+async def get_assistant_config(request: Request):
     """
-    Main VAPI webhook endpoint.
-    Handles different message types from VAPI.
+    Endpoint que VAPI llama para obtener la configuración del asistente.
+    Devuelve el system prompt, la voz, y las herramientas disponibles.
     """
     try:
-        body = await request.json()
+        data = await request.json()
+        logger.info(f"Recibida petición de configuración de asistente: {data}")
         
-        # Robustly handle 'message' which could be a dict or a JSON string
-        message_data = body.get("message", {})
-        if isinstance(message_data, str):
-            try:
-                message_data = json.loads(message_data)
-            except:
-                pass
+        # Aquí podrías personalizar la respuesta según el caller_id, etc.
         
-        message_type = message_data.get("type", "unknown") if isinstance(message_data, dict) else "unknown"
-        
-        logger.info(f"📞 VAPI Event: {message_type}")
-        
-        if message_type == "assistant-request":
-            return await handle_assistant_request(message_data)
-            
-        elif message_type == "function-call":
-            return await handle_function_call(message_data)
-            
-        elif message_type == "transcript":
-            return {"status": "received"}
-            
-        elif message_type == "end-of-call-report":
-            return await handle_call_end(message_data)
-            
-        else:
-            return {"status": "ok", "message_type": message_type}
-            
-    except Exception as e:
-        logger.error(f"❌ VAPI Webhook Error: {e}")
-        # Log stack trace for better debugging
-        import traceback
-        logger.error(traceback.format_exc())
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-async def handle_assistant_request(message: dict) -> dict:
-    """
-    Returns assistant configuration when VAPI initiates a call.
-    """
-    return {
-        "assistant": {
-            "name": "Nube",
-            "firstMessage": "¡Hola! Soy Nube, de En Las Nubes Restobar. ¿En qué puedo ayudarte?",
+        return {
             "model": {
                 "provider": "openai",
                 "model": "gpt-4o",
-                "temperature": 0.7,
-                "systemPrompt": SYSTEM_PROMPT_V2
+                "systemPrompt": SYSTEM_PROMPT_V2,
+                "temperature": 0.7
             },
             "voice": {
                 "provider": "11labs",
-                "voiceId": "UOIqAnmS11Reiei1Ytkc",
-                "model": "eleven_multilingual_v2"
+                "voiceId": "sarah", # Asegúrate de usar un ID de voz válido de 11Labs para español si es posible, o uno de Vapi
             },
+            "firstMessage": "¡Hola! Bienvenido a En Las Nubes Restobar. Soy Nube. ¿En qué puedo ayudarte hoy?",
             "transcriber": {
                 "provider": "deepgram",
                 "model": "nova-2",
                 "language": "es"
-            },
-            "silenceTimeoutSeconds": 20,
-            "functions": [
+            }
+        }
+    except Exception as e:
+        logger.error(f"Error generando configuración del asistente: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/tools/check_availability")
+async def tool_check_availability(request: Request):
+    """
+    Herramienta para verificar disponibilidad.
+    """
+    try:
+        data = await request.json()
+        message = data.get("message", {})
+        tool_call = message.get("toolCalls", [])[0]
+        args = tool_call.get("function", {}).get("arguments", {})
+        
+        logger.info(f"Checking availability with args: {args}")
+        
+        fecha_str = args.get("fecha") # YYYY-MM-DD
+        hora_str = args.get("hora")   # HH:MM
+        personas = args.get("personas")
+        
+        if not fecha_str or not hora_str or not personas:
+            return {"results": [{"toolCallId": tool_call["id"], "result": "Faltan datos para comprobar la disponibilidad. Por favor, pide fecha, hora y número de personas."}]}
+
+        # Parsear fecha y hora
+        try:
+            fecha = datetime.strptime(fecha_str, "%Y-%m-%d").date()
+            hora = datetime.strptime(hora_str, "%H:%M").time()
+        except ValueError:
+             return {"results": [{"toolCallId": tool_call["id"], "result": "Formato de fecha u hora inválido. Usa YYYY-MM-DD y HH:MM."}]}
+
+        is_open, msg_open = schedule_service.es_horario_apertura(fecha, hora)
+        if not is_open:
+             return {"results": [{"toolCallId": tool_call["id"], "result": f"El restaurante está cerrado en ese horario. {msg_open}"}]}
+
+        disponible = reservation_repository.check_availability(fecha, hora, int(personas))
+        
+        if disponible:
+            resultado = "¡Sí! Tenemos mesa disponible para esa hora. ¿Quieres que te la reserve?"
+        else:
+            # Sugerir alternativas (simple implementación)
+            resultado = "Vaya, lo siento mucho, pero para esa hora exacta no me queda nada. ¿Te vendría bien un poco antes o después? Podría mirar a las..."
+            
+        return {
+            "results": [
                 {
-                    "name": "check_availability",
-                    "description": "Verificar disponibilidad de mesa para una fecha/hora/personas",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "date": {"type": "string", "description": "Fecha en formato YYYY-MM-DD"},
-                            "time": {"type": "string", "description": "Hora en formato HH:MM"},
-                            "pax": {"type": "integer", "description": "Número de comensales"},
-                            "zona_preferencia": {
-                                "type": "string", 
-                                "enum": ["Interior", "Terraza", "Sin preferencia"]
-                            }
-                        }
-                    }
-                },
-                {
-                    "name": "make_reservation",
-                    "description": "Confirmar y crear la reserva en el sistema",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "date": {"type": "string"},
-                            "time": {"type": "string"},
-                            "pax": {"type": "integer"},
-                            "client_name": {"type": "string"},
-                            "client_phone": {"type": "string"},
-                            "zona_preferencia": {"type": "string"},
-                            "solicitudes_especiales": {"type": "array", "items": {"type": "string"}}
-                        }
-                    }
-                },
-                {
-                    "name": "transfer_to_human",
-                    "description": "Transferir la llamada a un compañero humano",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "motivo": {"type": "string"}
-                        },
-                        "required": ["motivo"]
-                    }
+                    "toolCallId": tool_call["id"],
+                    "result": resultado
                 }
             ]
         }
-    }
 
-
-async def handle_function_call(message: dict) -> dict:
-    """
-    Process function calls from VAPI.
-    """
-    function_call = message.get("functionCall", {})
-    function_name = function_call.get("name", "")
-    parameters = function_call.get("parameters", {})
-    
-    logger.info(f"🔧 Function Call: {function_name} with {parameters}")
-    
-    # Extract caller phone from VAPI payload
-    call_info = message.get("call", {})
-    customer_info = call_info.get("customer", {})
-    caller_number = customer_info.get("number", "")
-    
-    orchestrator = get_orchestrator()
-    schedule_service = get_schedule_service()
-    assignment_service = get_table_assignment_service()
-    escalation_service = get_escalation_service()
-    
-    if function_name == "check_availability":
-        date_str = parameters.get("date", "")
-        time_str = parameters.get("time", "")
-        pax = parameters.get("pax", 2)
-        zona_pref = parameters.get("zona_preferencia", "Sin preferencia")
-        
-        if not date_str or not time_str:
-            return {"result": "Necesito saber el día y la hora para comprobar huecos."}
-
-        try:
-            from datetime import date as dt_date, time as dt_time
-            fecha = dt_date.fromisoformat(date_str)
-            hora = dt_time.fromisoformat(time_str)
-        except ValueError:
-            return {"result": "No he entendido bien la fecha u hora."}
-        
-        servicio = schedule_service.determinar_servicio(hora)
-        abierto, motivo = schedule_service.esta_abierto(fecha, servicio)
-        
-        if not abierto:
-            return {"result": f"Ese día {motivo}."}
-        
-        escalation = escalation_service.evaluar_escalado(pax, fecha)
-        if escalation.debe_escalar:
-            return {"result": escalation.mensaje_cliente}
-        
-        zona_enum = ZonePreference.TERRAZA if zona_pref == "Terraza" else \
-                    ZonePreference.INTERIOR if zona_pref == "Interior" else \
-                    ZonePreference.NO_PREFERENCE
-        
-        turno = schedule_service.determinar_turno(
-            hora, servicio, 
-            schedule_service.hay_doble_turno(fecha, servicio)
-        )
-        
-        resultado = assignment_service.asignar_mesa(
-            pax=pax,
-            fecha=fecha,
-            turno=turno.value,
-            zona_preferencia=zona_enum
-        )
-        
-        if resultado.exito:
-            return {
-                "result": f"Sí, hay sitio para {pax} el {fecha.strftime('%d/%m')} a las {time_str} en {resultado.zona.lower()}. ¿Confirmamos?"
-            }
-        else:
-            return {"result": f"Lo siento, {resultado.motivo_fallo}."}
-    
-    elif function_name == "make_reservation":
-        # Simplified for V2 logic (already validated in check_availability)
-        date_str = parameters.get("date", "")
-        time_str = parameters.get("time", "")
-        pax = parameters.get("pax", 2)
-        client_name = parameters.get("client_name", "Cliente")
-        phone = parameters.get("client_phone", caller_number)
-        
-        try:
-            fecha = date.fromisoformat(date_str)
-        except:
-            return {"result": "Error con la fecha."}
-            
-        exito, msg = await orchestrator.procesar_reserva(
-            nombre=client_name,
-            telefono=phone,
-            pax=pax,
-            fecha=fecha,
-            hora=time_str,
-            zona_preferada=ZonePreference.NO_PREFERENCE,
-            notas=""
-        )
-        
-        if exito:
-            return {"result": f"¡Hecho! Reserva confirmada para {pax} el {fecha.strftime('%d/%m')} a las {time_str}. ¡Nos vemos!"}
-        else:
-            return {"result": f"No he podido guardarla: {msg}."}
-
-    elif function_name == "transfer_to_human":
-        mensaje = "Te paso con un compañero. Un momento."
+    except Exception as e:
+        logger.error(f"Error checking availability: {str(e)}")
         return {
-            "result": mensaje,
-            "transferDestination": {
-                "type": "number",
-                "number": os.getenv("RESTAURANT_PHONE", "+34941578451")
-            }
+            "results": [
+                {
+                    "toolCallId": tool_call.get("id"),
+                    "result": "Tuve un pequeño problema técnico comprobando la agenda. ¿Te importa repetirme la fecha y hora?"
+                }
+            ]
         }
-    
-    return {"result": "No sé procesar esa función todavía."}
 
+@router.post("/tools/create_reservation")
+async def tool_create_reservation(request: Request):
+    """
+    Herramienta para crear la reserva FINAL.
+    """
+    try:
+        data = await request.json()
+        message = data.get("message", {})
+        tool_call = message.get("toolCalls", [])[0]
+        args = tool_call.get("function", {}).get("arguments", {})
+        
+        logger.info(f"Creating reservation with args: {args}")
 
-async def handle_call_end(message: dict) -> dict:
-    logger.info("📞 Call ended.")
-    return {"status": "success"}
+        nombre = args.get("nombre")
+        telefono = args.get("telefono")
+        fecha_str = args.get("fecha")
+        hora_str = args.get("hora")
+        personas = args.get("personas")
+        notas = args.get("notas", "")
+        
+        if not all([nombre, telefono, fecha_str, hora_str, personas]):
+             return {"results": [{"toolCallId": tool_call["id"], "result": "Me faltan algunos datos para confirmar. Necesito nombre, teléfono, fecha, hora y personas."}]}
+
+        # Crear objeto Reserva
+        reserva = Reservation(
+            nombre_cliente=nombre,
+            telefono_cliente=telefono,
+            fecha=fecha_str,
+            hora=hora_str,
+            num_personas=int(personas),
+            notas=notas,
+            origen="VAPI_VOICE"
+        )
+        
+        # 1. Guardar en BD (Mock)
+        res_id = reservation_repository.create_reservation(reserva)
+        
+        # 2. Guardar en Airtable
+        try:
+             airtable_record = await airtable_service.create_record({
+                "Nombre": nombre,
+                "Teléfono": telefono,
+                "Fecha": fecha_str,
+                "Hora": hora_str,
+                "Personas": int(personas),
+                "Notas": notas,
+                "Estado": "Confirmada",
+                "Origen": "VAPI"
+             })
+             logger.info(f"Reserva guardada en Airtable: {airtable_record}")
+        except Exception as e:
+            logger.error(f"Error guardando en Airtable: {e}")
+            # No fallamos la reserva si falla Airtable, pero logueamos
+        
+        # 3. Enviar SMS Confirmación (Twilio)
+        sms_enviado = False
+        try:
+            msg = f"¡Reserva Confirmada en En Las Nubes! ☁️\nHola {nombre}, te esperamos el {fecha_str} a las {hora_str} ({personas} pax).\n📍 C/ Mª Teresa Gil de Gárate 16.\nSi necesitas cancelar, avísanos por aquí. ¡Gracias!"
+            sid = twilio_service.send_sms(telefono, msg)
+            if sid:
+                sms_enviado = True
+                logger.info(f"SMS enviado: {sid}")
+        except Exception as e:
+            logger.error(f"Error enviando SMS: {e}")
+
+        respuesta_cliente = f"¡Perfecto, {nombre}! Ya está hecha la reserva. Te he enviado un WhatsApp/SMS con la confirmación. ¡Nos vemos en Las Nubes!"
+        if not sms_enviado:
+            respuesta_cliente = f"¡Perfecto, {nombre}! Reserva confirmada. No he podido enviarte el SMS de confirmación por un error técnico, pero tu mesa está guardada. ¡Nos vemos!"
+
+        return {
+            "results": [
+                {
+                    "toolCallId": tool_call["id"],
+                    "result": respuesta_cliente
+                }
+            ]
+        }
+
+    except Exception as e:
+        logger.error(f"Error creating reservation: {str(e)}")
+        return {
+            "results": [
+                {
+                    "toolCallId": tool_call.get("id"), # Safe get
+                    "result": "Lo siento, tuve un error al guardar la reserva. ¿Podrías intentar llamar al restaurante directamente? 941 57 84 51."
+                }
+            ]
+        }

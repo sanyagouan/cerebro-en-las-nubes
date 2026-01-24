@@ -1,23 +1,28 @@
-# Python 3.11 slim image
-FROM python:3.11-slim
 
-# Set working directory
+# Usar una imagen base oficial de Python ligera
+FROM python:3.9-slim
+
+# Establecer directorio de trabajo
 WORKDIR /app
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
+# Instalar dependencias del sistema necesarias
+# curl es útil para healthchecks
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements first for cache efficiency
-COPY requirements.txt ./
+# Copiar el archivo de requerimientos
+COPY requirements.txt .
 
-# Install Python dependencies
+# Instalar dependencias de Python
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy source code
-COPY src/ ./src/
+# Copiar el resto del código de la aplicación
+COPY . .
 
-# Expose port
+# Exponer el puerto en el que correrá la aplicación
 EXPOSE 8000
 
-# Run the application
+# Comando para ejecutar la aplicación usando Uvicorn
 CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000"]

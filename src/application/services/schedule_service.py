@@ -1,288 +1,92 @@
-"""
-Servicio de Horarios - En Las Nubes Restobar
-Gestiona horarios de apertura, turnos y reglas de disponibilidad.
-"""
+from datetime import date, time, datetime
+from typing import Tuple, List, Optional
+import logging
 
-from datetime import date, time, datetime, timedelta
-from typing import Tuple, List, Optional, Literal
-from dataclasses import dataclass
-from enum import Enum
+from src.domain.services.holiday_service import HolidayService
 
-from src.application.services.holiday_service import get_holiday_service
-
-
-class Servicio(str, Enum):
-    COMIDA = "Comida"
-    CENA = "Cena"
-
-
-class Turno(str, Enum):
-    T1 = "T1"  # Primer turno
-    T2 = "T2"  # Segundo turno
-
-
-@dataclass
-class HorarioServicio:
-    """Representa un servicio con sus horarios."""
-    servicio: Servicio
-    hora_apertura: time
-    hora_ultimo_turno: time  # Última hora para reservar
-    hora_cierre_cocina: time
-    hora_cierre_sala: time
-    tiene_doble_turno: bool = False
-
-
-@dataclass
-class InfoTurno:
-    """Información completa de un turno disponible."""
-    turno: Turno
-    hora_inicio: time
-    hora_fin: time
-    es_ultimo: bool = False
-
+logger = logging.getLogger(__name__)
 
 class ScheduleService:
     """
-    Servicio de gestión de horarios del restaurante.
-    Implementa todas las reglas de apertura, cierre y turnos.
+    Servicio de dominio para gestionar horarios y aperturas.
+    Contiene la lógica de negocio sobre cuándo abre el restaurante.
     """
     
-    # Horarios base
-    HORARIOS_COMIDA = HorarioServicio(
-        servicio=Servicio.COMIDA,
-        hora_apertura=time(13, 0),
-        hora_ultimo_turno=time(15, 30),
-        hora_cierre_cocina=time(16, 0),
-        hora_cierre_sala=time(17, 0),
-        tiene_doble_turno=False  # Se activa en días especiales
-    )
-    
-    HORARIOS_CENA = HorarioServicio(
-        servicio=Servicio.CENA,
-        hora_apertura=time(20, 30),
-        hora_ultimo_turno=time(22, 30),
-        hora_cierre_cocina=time(23, 00),
-        hora_cierre_sala=time(23, 30),
-        tiene_doble_turno=False  # Se activa en días especiales
-    )
-    
-    # Horarios con doble turno (viernes noche, sábado, domingo comida)
-    HORARIOS_COMIDA_DOBLE = HorarioServicio(
-        servicio=Servicio.COMIDA,
-        hora_apertura=time(13, 0),
-        hora_ultimo_turno=time(15, 30),
-        hora_cierre_cocina=time(16, 30),
-        hora_cierre_sala=time(17, 30),
-        tiene_doble_turno=True
-    )
-    
-    HORARIOS_CENA_DOBLE = HorarioServicio(
-        servicio=Servicio.CENA,
-        hora_apertura=time(20, 30),
-        hora_ultimo_turno=time(23, 00),
-        hora_cierre_cocina=time(23, 30),
-        hora_cierre_sala=time(00, 30),  # Del día siguiente
-        tiene_doble_turno=True
-    )
-    
-    def __init__(self):
-        self.holiday_service = get_holiday_service()
-    
-    # ========== REGLAS DE APERTURA ==========
-    
-    def esta_abierto(self, fecha: date, servicio: Servicio) -> Tuple[bool, str]:
+    def __init__(self, holiday_service: Optional[HolidayService] = None):
+        self.holiday_service = holiday_service or HolidayService()
+
+    def es_horario_apertura(self, fecha: date, hora: time) -> Tuple[bool, str]:
         """
-        Verifica si el restaurante está abierto para un servicio en una fecha.
-        Retorna (está_abierto, motivo).
+        Determina si el restaurante está abierto en una fecha y hora dadas.
+        Retorna (True/False, Mensaje explicativo).
+        Reglas basadas en la información proporcionada:
+        - Lunes: CERRADO (salvo festivo/víspera, a revisar). Asumimos cerrado por defecto.
+        - Martes, Miércoles: Solo COMIDAS (13:00 - 17:00). CENA CERRADO.
+        - Jueves: COMIDAS (13:00 - 17:00) y CENAS (20:00 - 00:00).
+        - Viernes: COMIDAS (13:00 - 17:00) y CENAS (20:00 - 00:30/01:00).
+        - Sábado: COMIDAS (13:00 - 17:00) y CENAS (20:00 - 01:00).
+        - Domingo: Solo COMIDAS (13:00 - 17:00). DOMINGO NOCHE CERRADO.
         """
-        dia_semana = fecha.weekday()  # 0=Lunes, 6=Domingo
         
-        # ========== LUNES: CERRADO (excepto festivo) ==========
-        if dia_semana == 0:  # Lunes
-            if not self.holiday_service.es_festivo(fecha):
-                return False, "Lunes cerrado"
-            # Si es festivo, abrimos
+        dia_semana = fecha.weekday() # 0=Lunes, 6=Domingo
         
-        # ========== MARTES-MIÉRCOLES-JUEVES NOCHE: CERRADO (excepto víspera festivo) ==========
-        if dia_semana in [1, 2, 3] and servicio == Servicio.CENA:  # M-X-J
-            if not self.holiday_service.es_vispera_festivo(fecha):
-                return False, "Entre semana no hay cenas (solo viernes y sábado)"
+        # 1. Verificar Lunes Cerrado
+        if dia_semana == 0:
+            # Podríamos añadir lógica de excepción por festivos aquí
+            return False, "Los lunes descansamos en las nubes."
+
+        # Definir rangos generales
+        # Comidas: 13:00 a 16:30 (admitimos reservas hasta esa hora, cierre 17:00)
+        inicio_comida = time(13, 0)
+        fin_comida_reserva = time(16, 30) # Límite para reservar
+        fin_comida_cierre = time(17, 0)
         
-        # ========== DOMINGO NOCHE: CERRADO (excepto lunes festivo) ==========
-        if dia_semana == 6 and servicio == Servicio.CENA:  # Domingo
-            lunes = fecha + timedelta(days=1)
-            if not self.holiday_service.es_festivo(lunes):
-                return False, "Domingo noche cerrado"
+        # Cenas
+        inicio_cena = time(20, 0)
+        fin_cena_reserva = time(23, 0) # Límite estándar
+        if dia_semana in [4, 5]: # V y S
+            fin_cena_reserva = time(23, 30)
+            
+        # Determinar si es petición de COMIDA o CENA
+        es_comida = inicio_comida <= hora <= fin_comida_cierre
+        es_cena = inicio_cena <= hora <= time(23, 59) or (time(0,0) <= hora <= time(1, 30)) # Madrugada
         
+        if not (es_comida or es_cena):
+            return False, "Estamos cerrados a esa hora. Nuestro horario es de 13:00 a 17:00 y noches de Jueves a Sábado a partir de las 20:00."
+
+        # 2. Reglas específicas por día
+        if es_cena:
+            # Martes (1), Miércoles (2), Domingo (6) -> CERRADO NOCHE
+            if dia_semana in [1, 2, 6]:
+                # Verificar víspera de festivo si fuera necesario
+                # if not self.holiday_service.es_vispera_festivo(fecha):
+                return False, "Las noches de domingo, martes y miércoles descansamos."
+            
+            # Jueves (3) -> ABIERTO NOCHE (Corregido: Antes decía cerrado)
+            # Viernes (4), Sábado (5) -> ABIERTO NOCHE
+            
+        # 3. Validar hora límite de reserva
+        if es_comida and hora > fin_comida_reserva:
+             return False, f"La cocina cierra pronto a mediodía. La última hora de reserva es a las {fin_comida_reserva.strftime('%H:%M')}."
+             
+        if es_cena:
+             if dia_semana == 3 and hora > time(23,0): # Jueves cierra antes
+                  return False, "Los jueves cerramos un poquito antes, cocina hasta las 23:00."
+             elif hora > fin_cena_reserva:
+                  return False, f"Para cenar, la cocina cierra a eso de las {fin_cena_reserva.strftime('%H:%M')}."
+
         return True, "Abierto"
-    
-    def hay_doble_turno(self, fecha: date, servicio: Servicio) -> bool:
+
+    def obtener_turnos(self, fecha: date, servicio: str) -> List[str]:
         """
-        Verifica si hay doble turno (T1 y T2) para una fecha y servicio.
-        Doble turno en:
-        - Viernes noche
-        - Sábado (comida y cena)
-        - Domingo comida
-        - Festivos y vísperas
+        Devuelve los turnos disponibles si aplican.
         """
+        # Lógica simplificada de turnos para Fines de Semana
         dia_semana = fecha.weekday()
+        if dia_semana in [4, 5, 6]: # V, S, D
+            if servicio == "COMIDA":
+                return ["13:30", "15:15"]
+            elif servicio == "CENA" and dia_semana in [4, 5]:
+                return ["20:30", "22:30"]
         
-        # Viernes noche
-        if dia_semana == 4 and servicio == Servicio.CENA:
-            return True
-        
-        # Sábado (todo el día)
-        if dia_semana == 5:
-            return True
-        
-        # Domingo comida
-        if dia_semana == 6 and servicio == Servicio.COMIDA:
-            return True
-        
-        # Festivos (todo el día)
-        if self.holiday_service.es_festivo(fecha):
-            return True
-        
-        # Víspera de festivo (cena)
-        if servicio == Servicio.CENA and self.holiday_service.es_vispera_festivo(fecha):
-            return True
-        
-        return False
-    
-    # ========== OBTENCIÓN DE HORARIOS ==========
-    
-    def get_horario(self, fecha: date, servicio: Servicio) -> Optional[HorarioServicio]:
-        """
-        Devuelve el horario aplicable para una fecha y servicio.
-        """
-        abierto, _ = self.esta_abierto(fecha, servicio)
-        if not abierto:
-            return None
-        
-        doble = self.hay_doble_turno(fecha, servicio)
-        
-        if servicio == Servicio.COMIDA:
-            return self.HORARIOS_COMIDA_DOBLE if doble else self.HORARIOS_COMIDA
-        else:
-            return self.HORARIOS_CENA_DOBLE if doble else self.HORARIOS_CENA
-    
-    def get_turnos_disponibles(self, fecha: date, servicio: Servicio) -> List[InfoTurno]:
-        """
-        Devuelve los turnos disponibles para una fecha y servicio.
-        """
-        horario = self.get_horario(fecha, servicio)
-        if horario is None:
-            return []
-        
-        turnos = []
-        
-        if servicio == Servicio.COMIDA:
-            # Turno 1: 13:00 - 15:00
-            turnos.append(InfoTurno(
-                turno=Turno.T1,
-                hora_inicio=time(13, 0),
-                hora_fin=time(15, 0),
-                es_ultimo=not horario.tiene_doble_turno
-            ))
-            
-            if horario.tiene_doble_turno:
-                # Turno 2: 15:00 - 16:30
-                turnos.append(InfoTurno(
-                    turno=Turno.T2,
-                    hora_inicio=time(15, 0),
-                    hora_fin=time(16, 30),
-                    es_ultimo=True
-                ))
-        else:
-            # Cena
-            # Turno 1: 20:30 - 22:00
-            turnos.append(InfoTurno(
-                turno=Turno.T1,
-                hora_inicio=time(20, 30),
-                hora_fin=time(22, 0),
-                es_ultimo=not horario.tiene_doble_turno
-            ))
-            
-            if horario.tiene_doble_turno:
-                # Turno 2: 22:00 - 23:30
-                turnos.append(InfoTurno(
-                    turno=Turno.T2,
-                    hora_inicio=time(22, 0),
-                    hora_fin=time(23, 30),
-                    es_ultimo=True
-                ))
-        
-        return turnos
-    
-    def determinar_turno(self, hora: time, servicio: Servicio, doble_turno: bool) -> Turno:
-        """
-        Determina el turno correspondiente a una hora.
-        """
-        if servicio == Servicio.COMIDA:
-            if hora < time(15, 0):
-                return Turno.T1
-            return Turno.T2 if doble_turno else Turno.T1
-        else:
-            if hora < time(22, 0):
-                return Turno.T1
-            return Turno.T2 if doble_turno else Turno.T1
-    
-    def determinar_servicio(self, hora: time) -> Servicio:
-        """
-        Determina si una hora corresponde a comida o cena.
-        """
-        if time(12, 0) <= hora < time(18, 0):
-            return Servicio.COMIDA
-        return Servicio.CENA
-    
-    # ========== VALIDACIONES ==========
-    
-    def validar_hora_reserva(self, fecha: date, hora: time) -> Tuple[bool, str]:
-        """
-        Valida si una hora es válida para reservar.
-        Retorna (válida, mensaje).
-        """
-        servicio = self.determinar_servicio(hora)
-        abierto, motivo = self.esta_abierto(fecha, servicio)
-        
-        if not abierto:
-            return False, motivo
-        
-        horario = self.get_horario(fecha, servicio)
-        if horario is None:
-            return False, "Servicio no disponible"
-        
-        # Verificar que la hora esté dentro del rango de reservas
-        if hora < horario.hora_apertura:
-            return False, f"Abrimos a las {horario.hora_apertura.strftime('%H:%M')}"
-        
-        if hora > horario.hora_ultimo_turno:
-            return False, f"Última hora de reserva: {horario.hora_ultimo_turno.strftime('%H:%M')}"
-        
-        return True, "OK"
-    
-    def es_alta_demanda(self, fecha: date) -> bool:
-        """
-        Verifica si es un día de alta demanda que requiere escalado especial.
-        """
-        # Días de alta demanda conocidos (San Mateo, San Bernabé)
-        if self.holiday_service.es_alta_demanda(fecha):
-            return True
-        
-        # Sábados siempre son alta demanda
-        if fecha.weekday() == 5:
-            return True
-        
-        return False
-
-
-# Singleton global
-_schedule_service: Optional[ScheduleService] = None
-
-
-def get_schedule_service() -> ScheduleService:
-    """Devuelve la instancia singleton del servicio de horarios."""
-    global _schedule_service
-    if _schedule_service is None:
-        _schedule_service = ScheduleService()
-    return _schedule_service
+        return [] # Sin turnos fijos (reservas libres)
