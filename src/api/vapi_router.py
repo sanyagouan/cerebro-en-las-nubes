@@ -49,7 +49,7 @@ SYSTEM_PROMPT_V2 = """Eres Nube, la recepcionista virtual COMPATIBLE y ENCANTADO
 
 📍 INFORMACIÓN DEL RESTAURANTE:
 - Dirección: María Teresa Gil de Gárate 16, Logroño.
-- Teléfono: 941 00 00 00.
+- Teléfono: 941 57 84 51.
 
 🚧 GESTIÓN DE PROVEEDORES Y LLAMADAS NO-CLIENTE:
 - Si quien llama se identifica como PROVEEDOR, REPARTIDOR o VENDEDOR:
@@ -347,7 +347,7 @@ async def handle_function_call(body: dict) -> dict:
             "result": mensaje,
             "transferDestination": {
                 "type": "number",
-                "number": os.getenv("RESTAURANT_PHONE", "+34941000000"),
+                "number": os.getenv("RESTAURANT_PHONE", "+34941578451"),
                 "message": mensaje
             }
         }
