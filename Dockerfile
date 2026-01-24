@@ -7,8 +7,13 @@ WORKDIR /app
 
 # Instalar dependencias del sistema necesarias (aunque la imagen completa suele tenerlas)
 RUN apt-get update && apt-get install -y \
+    build-essential \
     curl \
     wget \
+    ca-certificates \
+    procps \
+    net-tools \
+    iputils-ping \
     && rm -rf /var/lib/apt/lists/*
 
 # Copiar el archivo de requerimientos
