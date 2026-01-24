@@ -11,5 +11,6 @@ TABLES = {
     "LISTA_ESPERA": "tblyy5HsMtWndyM96",   # Nombre real: Lista de Espera
     "DIAS_ESPECIALES": "tblevazN0u8vqM1Td",# Nombre real: Días Especiales
     "FAQ": "tblhxqQrCNQZzfW4F",            # Nombre real: FAQ
-    "CONFIG": "tblJiiZZBhYCEuG6G"          # Nombre real: CONFIGURACIÓN
+    "CONFIG": "tblJiiZZBhYCEuG6G",         # Nombre real: CONFIGURACIÓN
+    "FESTIVOS": "tbl4nWF0F52tm620L"        # Nombre real: Festivos
 }
