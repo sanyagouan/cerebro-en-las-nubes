@@ -10,10 +10,8 @@ load_dotenv()
 from src.api.vapi_router import router as vapi_router
 from src.api.whatsapp_router import router as whatsapp_router
 
-# Configuración de Logs
-import os
-os.makedirs("logs", exist_ok=True)
-logger.add("logs/app.log", rotation="500 MB", level="INFO")
+# Configuración de Logs (Standard Output only for Docker)
+logger.info("Cerebro starts on STDOUT")
 
 app = FastAPI(
     title="Cerebro En Las Nubes",
