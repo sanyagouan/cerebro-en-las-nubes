@@ -1,42 +1,18 @@
-"""
-VAPI Webhook Router V2: Sistema completo de reservas por voz.
-Maneja llamadas entrantes con asignación inteligente de mesas.
-"""
-from fastapi import APIRouter, Request, HTTPException
-from pydantic import BaseModel
-from typing import Optional, Dict, Any
-from datetime import datetime
-import logging
 import os
+import logging
+from fastapi import APIRouter, HTTPException, Request
+from loguru import logger
+from datetime import datetime, date
 
-from src.application.orchestrator import Orchestrator
-from src.application.services.schedule_service import get_schedule_service, Servicio
-from src.application.services.table_assignment import get_table_assignment_service
+from src.core.config.airtable_ids import BASE_ID, TABLES
+from src.application.services.schedule_service import get_schedule_service, Servicio, Turno
+from src.application.services.table_assignment_service import get_table_assignment_service, ZonePreference
+from src.application.services.orchestrator import get_orchestrator
 from src.application.services.escalation_service import get_escalation_service, EscalationReason
-from src.core.entities.booking import ZonePreference, SpecialRequest
 
-router = APIRouter(prefix="/vapi", tags=["VAPI"])
-logger = logging.getLogger(__name__)
+router = APIRouter(prefix="/vapi", tags=["vapi"])
 
-# Lazy-loaded services
-_orchestrator: Optional[Orchestrator] = None
-
-def get_orchestrator() -> Orchestrator:
-    global _orchestrator
-    if _orchestrator is None:
-        _orchestrator = Orchestrator()
-    return _orchestrator
-
-
-class VAPIMessage(BaseModel):
-    """VAPI webhook message structure."""
-    message: Dict[str, Any]
-
-
-# ============================================================
-# SYSTEM PROMPT V2 - Prompt completo con menú y políticas
-# ============================================================
-
+# ========= CONFIGURACIÓN DEL ASISTENTE (V2) =========
 
 SYSTEM_PROMPT_V2 = """Eres Nube, la recepcionista virtual COMPATIBLE y ENCANTADORA de En Las Nubes Restobar en Logroño.
 
@@ -50,33 +26,18 @@ SYSTEM_PROMPT_V2 = """Eres Nube, la recepcionista virtual COMPATIBLE y ENCANTADO
 📍 INFORMACIÓN DEL RESTAURANTE:
 - Dirección: María Teresa Gil de Gárate 16, Logroño.
 - Teléfono: 941 57 84 51.
+- Cocina: Tradicional riojana con un toque moderno y atrevido.
+- Especialidad: Croquetas de amatxu, alcachofas con foie y nuestra selección de vinos de Rioja.
+- Horarios: 
+  * Comidas: Martes a Domingo (13:00 - 15:30).
+  * Cenas: Viernes y Sábados (20:30 - 22:30).
+  * Lunes: CERRADO.
 
-🚧 GESTIÓN DE PROVEEDORES Y LLAMADAS NO-CLIENTE:
-- Si quien llama se identifica como PROVEEDOR, REPARTIDOR o VENDEDOR:
-  - "¡Hola! Disculpa, Susana (la dueña) no puede ponerse ahora mismo."
-  - "¿Quieres que le deje un recado urgente o prefieres que te pase con cocina?"
-  - Si insisten en hablar con ella: USA LA FUNCIÓN `transfer_to_human` con motivo="proveedor".
-
-🍽️ CARTA Y RECOMENDACIONES (Vende la experiencia):
-- Cachopos: "Son nuestra especialidad, ¡perfectos para compartir! El de cecina es espectacular."
-- Menú infantil: "Sí, claro, tenemos opciones para los peques por 8€."
-- Celíacos: "Nos tomamos muy en serio el gluten. Avísanos con 24h para el cachopo, pero tenemos otras opciones seguras."
-
-📋 POLÍTICAS CLAVE:
-1. Mascotas: "Nos encantan los perretes, pero por normativa solo pueden estar en la terraza."
-2. Grupos +10: "¿Sois un grupo grande? ¡Qué bien! Déjame pasarte con mi compañero para organizarlo mejor."
-
-🔄 PROCESO DE RESERVA (Fluido):
-1. "¿Para cuándo te gustaría venir?" (Si no lo dicen).
-2. "¿Cuántos seréis?"
-3. Verifica disponibilidad.
-4. "Genial, tengo sitio. ¿A nombre de quién lo pongo? ... ¿Y un teléfono para enviarte la confirmación por WhatsApp?"
-5. OFRECE AÑADIR DETALLES: "¿Tenéis alguna alergia, necesitáis trona o venís con mascota?" (IMPORTANTE preguntarlo).
-
-🚫 PROHIBIDO:
-- Ser seca o cortante.
-- Inventar precios.
-- Dar el móvil personal de Susana.
+✅ TUS REGLAS DE ORO:
+1. SIEMPRE verifica disponibilidad antes de confirmar una reserva usando `check_availability`.
+2. Para grupos de más de 10 personas o días de alta demanda (San Bernabé, San Mateo), informa que necesitas consultar con el equipo y usa `transfer_to_human`.
+3. Si alguien pregunta por "Susana" o dice que es "proveedor", pásale directamente con un humano.
+4. Si el cliente tiene dudas sobre el menú o alérgenos, sé amable y explica lo que sepas, pero ofrece pasarle con un compañero si la duda es muy específica.
 
 SI NO SABES ALGO:
 "Oye, pues esa pregunta es muy buena y no quiero meter la pata. ¿Te importa si te llama mi compañero en un ratito y te lo confirma?"
@@ -92,7 +53,13 @@ async def vapi_webhook(request: Request):
     """
     try:
         body = await request.json()
-        message_type = body.get("message", {}).get("type", "unknown")
+        logger.info(f"DEBUG: Body type: {type(body)}")
+        logger.info(f"DEBUG: Body content: {body}")
+        
+        message_data = body.get("message", {})
+        logger.info(f"DEBUG: Message type: {type(message_data)}")
+        
+        message_type = message_data.get("type", "unknown") if isinstance(message_data, dict) else "unknown"
         
         logger.info(f"📞 VAPI Event: {message_type}")
         
@@ -150,54 +117,40 @@ async def handle_assistant_request(body: dict) -> dict:
                     "parameters": {
                         "type": "object",
                         "properties": {
-                            "date": {"type": "string", "description": "Fecha (YYYY-MM-DD)"},
-                            "time": {"type": "string", "description": "Hora (HH:MM)"},
-                            "pax": {"type": "integer", "description": "Número de personas"},
+                            "date": {"type": "string", "description": "Fecha en formato YYYY-MM-DD"},
+                            "time": {"type": "string", "description": "Hora en formato HH:MM"},
+                            "pax": {"type": "integer", "description": "Número de comensales"},
                             "zona_preferencia": {
-                                "type": "string",
-                                "description": "Zona preferida: Terraza, Interior, o Sin preferencia",
-                                "enum": ["Terraza", "Interior", "Sin preferencia"]
+                                "type": "string", 
+                                "enum": ["Interior", "Terraza", "Sin preferencia"],
+                                "description": "Preferencia de mesa (interior o terraza)"
                             }
-                        },
-                        "required": ["date", "time", "pax"]
+                        }
                     }
                 },
                 {
                     "name": "make_reservation",
-                    "description": "Crear una reserva confirmada",
+                    "description": "Confirmar y crear la reserva en el sistema",
                     "parameters": {
                         "type": "object",
                         "properties": {
-                            "date": {"type": "string", "description": "Fecha (YYYY-MM-DD)"},
-                            "time": {"type": "string", "description": "Hora (HH:MM)"},
-                            "pax": {"type": "integer", "description": "Número de personas"},
-                            "client_name": {"type": "string", "description": "Nombre del cliente"},
-                            "client_phone": {"type": "string", "description": "Teléfono del cliente"},
-                            "zona_preferencia": {
-                                "type": "string",
-                                "description": "Zona preferida",
-                                "enum": ["Terraza", "Interior", "Sin preferencia"]
-                            },
-                            "solicitudes_especiales": {
-                                "type": "array",
-                                "items": {"type": "string"},
-                                "description": "Solicitudes especiales: trona, mascota, cachopo_sin_gluten, silla_ruedas"
-                            }
-                        },
-                        "required": ["date", "time", "pax", "client_name"]
+                            "date": {"type": "string"},
+                            "time": {"type": "string"},
+                            "pax": {"type": "integer"},
+                            "client_name": {"type": "string"},
+                            "client_phone": {"type": "string"},
+                            "zona_preferencia": {"type": "string"},
+                            "solicitudes_especiales": {"type": "array", "items": {"type": "string"}}
+                        }
                     }
                 },
                 {
                     "name": "transfer_to_human",
-                    "description": "Transferir la llamada a un humano (maître o encargado)",
+                    "description": "Transferir la llamada a un compañero humano",
                     "parameters": {
                         "type": "object",
                         "properties": {
-                            "motivo": {
-                                "type": "string",
-                                "description": "Motivo de la transferencia",
-                                "enum": ["grupo_grande", "alta_demanda", "evento_privado", "sin_disponibilidad", "solicitud_compleja", "peticion_cliente", "proveedor"]
-                            }
+                            "motivo": {"type": "string", "description": "Razón corta de la transferencia"}
                         },
                         "required": ["motivo"]
                     }
@@ -235,12 +188,18 @@ async def handle_function_call(body: dict) -> dict:
         pax = parameters.get("pax", 2)
         zona_pref = parameters.get("zona_preferencia", "Sin preferencia")
         
+        # Graceful handling of missing parameters
+        if not date_str:
+            return {"result": "¿Para qué día te gustaría reservar?"}
+        if not time_str:
+            return {"result": "¿A qué hora querríais venir?"}
+
         try:
             from datetime import date as dt_date, time as dt_time
             fecha = dt_date.fromisoformat(date_str)
             hora = dt_time.fromisoformat(time_str)
-        except:
-            return {"result": "No he entendido bien la fecha u hora. ¿Puedes repetirlo?"}
+        except ValueError:
+            return {"result": "No he entendido bien la fecha u hora. ¿ Puedes repetirlo? Por ejemplo: 'El sábado a las 2 de la tarde'."}
         
         # Check if restaurant is open
         servicio = schedule_service.determinar_servicio(hora)
@@ -287,61 +246,51 @@ async def handle_function_call(body: dict) -> dict:
         time_str = parameters.get("time", "")
         pax = parameters.get("pax", 2)
         client_name = parameters.get("client_name", "")
-        phone = parameters.get("client_phone", caller_number)  # Use caller if not provided
+        phone = parameters.get("client_phone", caller_number)
         zona_pref = parameters.get("zona_preferencia", "Sin preferencia")
         solicitudes = parameters.get("solicitudes_especiales", [])
         
-        # Validate phone
-        if not phone:
-            return {"result": "Necesito un teléfono para confirmar la reserva. ¿Me lo puedes dar?"}
+        # Validate essential data
+        if not date_str or not time_str:
+            return {"result": "Para confirmar la reserva necesito saber el día y la hora. ¿Para cuándo sería?"}
         
         try:
-            from datetime import date as dt_date, time as dt_time
-            fecha = dt_date.fromisoformat(date_str)
-            hora = dt_time.fromisoformat(time_str)
-        except:
-            return {"result": "No he entendido bien la fecha u hora. ¿Puedes repetirlo?"}
+            fecha = date.fromisoformat(date_str)
+        except ValueError:
+            return {"result": "La fecha no parece válida. ¿Puedes decirme el día de nuevo?"}
+
+        # Final table assignment attempt
+        zona_enum = ZonePreference.TERRAZA if zona_pref == "Terraza" else \
+                    ZonePreference.INTERIOR if zona_pref == "Interior" else \
+                    ZonePreference.NO_PREFERENCE
         
-        # Use orchestrator for full booking flow
-        result = await orchestrator.process_message(
-            f"Crear reserva para {pax} personas el {date_str} a las {time_str}",
-            metadata={
-                "date": date_str,
-                "time": time_str,
-                "pax": pax,
-                "client_name": client_name,
-                "client_phone": phone,
-                "zona_preferencia": zona_pref,
-                "solicitudes": solicitudes,
-                "action": "create_reservation"
-            }
+        # Re-check escalation (just in case)
+        escalation = escalation_service.evaluar_escalado(pax, fecha, solicitudes)
+        if escalation.debe_escalar:
+            return {"result": escalation.mensaje_cliente}
+            
+        # Create booking in Orchestrator
+        exito, msg = await orchestrator.procesar_reserva(
+            nombre=client_name,
+            telefono=phone,
+            pax=pax,
+            fecha=fecha,
+            hora=time_str,
+            zona_preferida=zona_enum,
+            notas=", ".join(solicitudes) if solicitudes else ""
         )
         
-        if result.get("booking_result", {}).get("available"):
-            table = result.get("booking_result", {}).get("assigned_table", "una mesa")
-            return {
-                "result": f"¡Perfecto! Reserva confirmada para {client_name}: {pax} personas el {fecha.strftime('%d/%m')} a las {time_str} en {table}. Te envío un WhatsApp de confirmación. ¡Os esperamos!"
-            }
+        if exito:
+            return {"result": f"¡Perfecto! Ya tienes tu mesa para {pax} personas el día {fecha.strftime('%d/%m')} a las {time_str}. Te acabo de enviar un WhatsApp con la confirmación. ¡Te esperamos!"}
         else:
-            return {
-                "result": "Lo siento, ha habido un problema al crear la reserva. ¿Quieres que te pase con mi compañero?"
-            }
-    
+            return {"result": f"Vaya, ha habido un problemilla al guardar la reserva: {msg}. ¿Quieres que lo intente de nuevo o prefieres hablar con un compañero?"}
+
     # ========== TRANSFER TO HUMAN ==========
     elif function_name == "transfer_to_human":
-        motivo = parameters.get("motivo", "peticion_cliente")
+        motivo = parameters.get("motivo", "Solicitud del cliente")
+        logger.info(f"🔄 Transferring to human. Reason: {motivo}")
         
-        mensajes_transfer = {
-            "sin_disponibilidad": "Voy a pasarte con mi compañero para ver alternativas.",
-            "solicitud_compleja": "Para atenderte mejor, te paso con el equipo de sala.",
-            "peticion_cliente": "Por supuesto, te paso con mi compañero ahora mismo.",
-            "proveedor": "Te paso con cocina para que puedan avisar a Susana."
-        }
-        
-        mensaje = mensajes_transfer.get(motivo, "Te paso con mi compañero. Un momento.")
-        
-        # Log transfer for analytics
-        logger.info(f"📞 TRANSFER requested: motivo={motivo}")
+        mensaje = "Te paso con un compañero para que te ayude mejor con eso. Un momento, por favor."
         
         return {
             "result": mensaje,
@@ -352,17 +301,15 @@ async def handle_function_call(body: dict) -> dict:
             }
         }
     
-    return {"result": "No he entendido lo que necesitas. ¿Puedes repetirlo?"}
+    return {"result": "No sé cómo hacer eso todavía, pero puedo ayudarte con reservas."}
 
 
 async def handle_call_end(body: dict) -> dict:
-    """
-    Process end-of-call report for logging/analytics.
-    """
-    message = body.get("message", {})
-    summary = message.get("summary", "Sin resumen")
-    duration = message.get("durationSeconds", 0)
-    
-    logger.info(f"📊 Call ended. Duration: {duration}s. Summary: {summary}")
-    
-    return {"status": "logged"}
+    """Handles logic after a call ends (not used for logic, just logging/reporting)."""
+    logger.info("📞 Call ended. Processing report...")
+    return {"status": "success"}
+
+
+async def handle_call_transcript(body: dict) -> dict:
+    """Optionally process Real-time Transcript if needed."""
+    return {"status": "success"}
