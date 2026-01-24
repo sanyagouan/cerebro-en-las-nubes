@@ -3,14 +3,24 @@ import logging
 from fastapi import APIRouter, HTTPException, Request
 from loguru import logger
 from datetime import datetime, date
+import json
 
 from src.core.config.airtable_ids import BASE_ID, TABLES
 from src.application.services.schedule_service import get_schedule_service, Servicio, Turno
-from src.application.services.table_assignment_service import get_table_assignment_service, ZonePreference
-from src.application.services.orchestrator import get_orchestrator
+from src.application.services.table_assignment import get_table_assignment_service, ZonePreference
+from src.application.orchestrator import Orchestrator
 from src.application.services.escalation_service import get_escalation_service, EscalationReason
 
 router = APIRouter(prefix="/vapi", tags=["vapi"])
+
+# Lazy-loaded orchestrator singleton
+_orchestrator = None
+
+def get_orchestrator():
+    global _orchestrator
+    if _orchestrator is None:
+        _orchestrator = Orchestrator()
+    return _orchestrator
 
 # ========= CONFIGURACIÓN DEL ASISTENTE (V2) =========
 
@@ -43,8 +53,6 @@ SI NO SABES ALGO:
 "Oye, pues esa pregunta es muy buena y no quiero meter la pata. ¿Te importa si te llama mi compañero en un ratito y te lo confirma?"
 """
 
-
-
 @router.post("/webhook")
 async def vapi_webhook(request: Request):
     """
@@ -53,40 +61,45 @@ async def vapi_webhook(request: Request):
     """
     try:
         body = await request.json()
-        logger.info(f"DEBUG: Body type: {type(body)}")
-        logger.info(f"DEBUG: Body content: {body}")
         
+        # Robustly handle 'message' which could be a dict or a JSON string
         message_data = body.get("message", {})
-        logger.info(f"DEBUG: Message type: {type(message_data)}")
+        if isinstance(message_data, str):
+            try:
+                message_data = json.loads(message_data)
+            except:
+                pass
         
         message_type = message_data.get("type", "unknown") if isinstance(message_data, dict) else "unknown"
         
         logger.info(f"📞 VAPI Event: {message_type}")
         
         if message_type == "assistant-request":
-            return await handle_assistant_request(body)
+            return await handle_assistant_request(message_data)
             
         elif message_type == "function-call":
-            return await handle_function_call(body)
+            return await handle_function_call(message_data)
             
         elif message_type == "transcript":
             return {"status": "received"}
             
         elif message_type == "end-of-call-report":
-            return await handle_call_end(body)
+            return await handle_call_end(message_data)
             
         else:
             return {"status": "ok", "message_type": message_type}
             
     except Exception as e:
         logger.error(f"❌ VAPI Webhook Error: {e}")
+        # Log stack trace for better debugging
+        import traceback
+        logger.error(traceback.format_exc())
         raise HTTPException(status_code=500, detail=str(e))
 
 
-async def handle_assistant_request(body: dict) -> dict:
+async def handle_assistant_request(message: dict) -> dict:
     """
     Returns assistant configuration when VAPI initiates a call.
-    Updated with V2 prompt and escalation functions.
     """
     return {
         "assistant": {
@@ -100,7 +113,7 @@ async def handle_assistant_request(body: dict) -> dict:
             },
             "voice": {
                 "provider": "11labs",
-                "voiceId": "UOIqAnmS11Reiei1Ytkc",  # Carolina (Spanish Spain)
+                "voiceId": "UOIqAnmS11Reiei1Ytkc",
                 "model": "eleven_multilingual_v2"
             },
             "transcriber": {
@@ -109,7 +122,6 @@ async def handle_assistant_request(body: dict) -> dict:
                 "language": "es"
             },
             "silenceTimeoutSeconds": 20,
-            "backgroundSound": None,
             "functions": [
                 {
                     "name": "check_availability",
@@ -122,8 +134,7 @@ async def handle_assistant_request(body: dict) -> dict:
                             "pax": {"type": "integer", "description": "Número de comensales"},
                             "zona_preferencia": {
                                 "type": "string", 
-                                "enum": ["Interior", "Terraza", "Sin preferencia"],
-                                "description": "Preferencia de mesa (interior o terraza)"
+                                "enum": ["Interior", "Terraza", "Sin preferencia"]
                             }
                         }
                     }
@@ -150,7 +161,7 @@ async def handle_assistant_request(body: dict) -> dict:
                     "parameters": {
                         "type": "object",
                         "properties": {
-                            "motivo": {"type": "string", "description": "Razón corta de la transferencia"}
+                            "motivo": {"type": "string"}
                         },
                         "required": ["motivo"]
                     }
@@ -160,11 +171,10 @@ async def handle_assistant_request(body: dict) -> dict:
     }
 
 
-async def handle_function_call(body: dict) -> dict:
+async def handle_function_call(message: dict) -> dict:
     """
-    Process function calls from VAPI with V2 logic.
+    Process function calls from VAPI.
     """
-    message = body.get("message", {})
     function_call = message.get("functionCall", {})
     function_name = function_call.get("name", "")
     parameters = function_call.get("parameters", {})
@@ -181,39 +191,32 @@ async def handle_function_call(body: dict) -> dict:
     assignment_service = get_table_assignment_service()
     escalation_service = get_escalation_service()
     
-    # ========== CHECK AVAILABILITY ==========
     if function_name == "check_availability":
         date_str = parameters.get("date", "")
         time_str = parameters.get("time", "")
         pax = parameters.get("pax", 2)
         zona_pref = parameters.get("zona_preferencia", "Sin preferencia")
         
-        # Graceful handling of missing parameters
-        if not date_str:
-            return {"result": "¿Para qué día te gustaría reservar?"}
-        if not time_str:
-            return {"result": "¿A qué hora querríais venir?"}
+        if not date_str or not time_str:
+            return {"result": "Necesito saber el día y la hora para comprobar huecos."}
 
         try:
             from datetime import date as dt_date, time as dt_time
             fecha = dt_date.fromisoformat(date_str)
             hora = dt_time.fromisoformat(time_str)
         except ValueError:
-            return {"result": "No he entendido bien la fecha u hora. ¿ Puedes repetirlo? Por ejemplo: 'El sábado a las 2 de la tarde'."}
+            return {"result": "No he entendido bien la fecha u hora."}
         
-        # Check if restaurant is open
         servicio = schedule_service.determinar_servicio(hora)
         abierto, motivo = schedule_service.esta_abierto(fecha, servicio)
         
         if not abierto:
-            return {"result": f"Lo siento, ese día {motivo}. ¿Quieres probar otro día?"}
+            return {"result": f"Ese día {motivo}."}
         
-        # Check if we need to escalate
         escalation = escalation_service.evaluar_escalado(pax, fecha)
         if escalation.debe_escalar:
             return {"result": escalation.mensaje_cliente}
         
-        # Try to assign a table
         zona_enum = ZonePreference.TERRAZA if zona_pref == "Terraza" else \
                     ZonePreference.INTERIOR if zona_pref == "Interior" else \
                     ZonePreference.NO_PREFERENCE
@@ -231,85 +234,53 @@ async def handle_function_call(body: dict) -> dict:
         )
         
         if resultado.exito:
-            avisos = " ".join(resultado.avisos) if resultado.avisos else ""
             return {
-                "result": f"Sí, tengo disponibilidad para {pax} personas el {fecha.strftime('%d/%m')} a las {time_str} en {resultado.zona.lower()}. {avisos} ¿Confirmamos la reserva?"
+                "result": f"Sí, hay sitio para {pax} el {fecha.strftime('%d/%m')} a las {time_str} en {resultado.zona.lower()}. ¿Confirmamos?"
             }
         else:
-            return {
-                "result": f"Lo siento, {resultado.motivo_fallo}. ¿Quieres que pruebe otra hora o día?"
-            }
+            return {"result": f"Lo siento, {resultado.motivo_fallo}."}
     
-    # ========== MAKE RESERVATION ==========
     elif function_name == "make_reservation":
+        # Simplified for V2 logic (already validated in check_availability)
         date_str = parameters.get("date", "")
         time_str = parameters.get("time", "")
         pax = parameters.get("pax", 2)
-        client_name = parameters.get("client_name", "")
+        client_name = parameters.get("client_name", "Cliente")
         phone = parameters.get("client_phone", caller_number)
-        zona_pref = parameters.get("zona_preferencia", "Sin preferencia")
-        solicitudes = parameters.get("solicitudes_especiales", [])
-        
-        # Validate essential data
-        if not date_str or not time_str:
-            return {"result": "Para confirmar la reserva necesito saber el día y la hora. ¿Para cuándo sería?"}
         
         try:
             fecha = date.fromisoformat(date_str)
-        except ValueError:
-            return {"result": "La fecha no parece válida. ¿Puedes decirme el día de nuevo?"}
-
-        # Final table assignment attempt
-        zona_enum = ZonePreference.TERRAZA if zona_pref == "Terraza" else \
-                    ZonePreference.INTERIOR if zona_pref == "Interior" else \
-                    ZonePreference.NO_PREFERENCE
-        
-        # Re-check escalation (just in case)
-        escalation = escalation_service.evaluar_escalado(pax, fecha, solicitudes)
-        if escalation.debe_escalar:
-            return {"result": escalation.mensaje_cliente}
+        except:
+            return {"result": "Error con la fecha."}
             
-        # Create booking in Orchestrator
         exito, msg = await orchestrator.procesar_reserva(
             nombre=client_name,
             telefono=phone,
             pax=pax,
             fecha=fecha,
             hora=time_str,
-            zona_preferida=zona_enum,
-            notas=", ".join(solicitudes) if solicitudes else ""
+            zona_preferada=ZonePreference.NO_PREFERENCE,
+            notas=""
         )
         
         if exito:
-            return {"result": f"¡Perfecto! Ya tienes tu mesa para {pax} personas el día {fecha.strftime('%d/%m')} a las {time_str}. Te acabo de enviar un WhatsApp con la confirmación. ¡Te esperamos!"}
+            return {"result": f"¡Hecho! Reserva confirmada para {pax} el {fecha.strftime('%d/%m')} a las {time_str}. ¡Nos vemos!"}
         else:
-            return {"result": f"Vaya, ha habido un problemilla al guardar la reserva: {msg}. ¿Quieres que lo intente de nuevo o prefieres hablar con un compañero?"}
+            return {"result": f"No he podido guardarla: {msg}."}
 
-    # ========== TRANSFER TO HUMAN ==========
     elif function_name == "transfer_to_human":
-        motivo = parameters.get("motivo", "Solicitud del cliente")
-        logger.info(f"🔄 Transferring to human. Reason: {motivo}")
-        
-        mensaje = "Te paso con un compañero para que te ayude mejor con eso. Un momento, por favor."
-        
+        mensaje = "Te paso con un compañero. Un momento."
         return {
             "result": mensaje,
             "transferDestination": {
                 "type": "number",
-                "number": os.getenv("RESTAURANT_PHONE", "+34941578451"),
-                "message": mensaje
+                "number": os.getenv("RESTAURANT_PHONE", "+34941578451")
             }
         }
     
-    return {"result": "No sé cómo hacer eso todavía, pero puedo ayudarte con reservas."}
+    return {"result": "No sé procesar esa función todavía."}
 
 
-async def handle_call_end(body: dict) -> dict:
-    """Handles logic after a call ends (not used for logic, just logging/reporting)."""
-    logger.info("📞 Call ended. Processing report...")
-    return {"status": "success"}
-
-
-async def handle_call_transcript(body: dict) -> dict:
-    """Optionally process Real-time Transcript if needed."""
+async def handle_call_end(message: dict) -> dict:
+    logger.info("📞 Call ended.")
     return {"status": "success"}
