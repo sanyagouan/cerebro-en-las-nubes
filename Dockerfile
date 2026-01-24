@@ -1,17 +1,14 @@
 
-# Usar una imagen base oficial de Python ligera
-FROM python:3.9-slim
+# Usar una imagen base oficial de Python completa para evitar problemas de dependencias del sistema
+FROM python:3.9
 
 # Establecer directorio de trabajo
 WORKDIR /app
 
-# Instalar dependencias del sistema necesarias
-# curl es útil para healthchecks
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
+# Instalar dependencias del sistema necesarias (aunque la imagen completa suele tenerlas)
+RUN apt-get update && apt-get install -y \
     curl \
     wget \
-    ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
 # Copiar el archivo de requerimientos
