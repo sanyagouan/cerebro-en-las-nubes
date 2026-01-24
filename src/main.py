@@ -42,7 +42,7 @@ async def root():
     return {
         "message": "Cerebro Logic is Running. Agents are standing by.",
         "endpoints": {
-            "vapi": "/vapi/webhook",
+            "vapi": "/vapi/assistant",
             "whatsapp": "/whatsapp/webhook",
             "health": "/health"
         }

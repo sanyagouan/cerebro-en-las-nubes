@@ -14,7 +14,7 @@ from src.domain.models.reservation import Reservation
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-router = APIRouter()
+router = APIRouter(prefix="/vapi", tags=["VAPI"])
 
 # Instanciar servicios
 # En un entorno real, esto se inyectaría mediante dependencias
@@ -83,17 +83,21 @@ async def get_assistant_config(request: Request):
                 "provider": "openai",
                 "model": "gpt-4o",
                 "systemPrompt": SYSTEM_PROMPT_V2,
-                "temperature": 0.7
+                "temperature": 0.7,
+                # Force Spanish
+                "language": "es" 
             },
             "voice": {
                 "provider": "11labs",
-                "voiceId": "sarah", # Asegúrate de usar un ID de voz válido de 11Labs para español si es posible, o uno de Vapi
+                "voiceId": "sarah", # ID generico
+                "stability": 0.5,
+                "similarityBoost": 0.75
             },
             "firstMessage": "¡Hola! Bienvenido a En Las Nubes Restobar. Soy Nube. ¿En qué puedo ayudarte hoy?",
             "transcriber": {
                 "provider": "deepgram",
                 "model": "nova-2",
-                "language": "es"
+                "language": "es-ES"
             }
         }
     except Exception as e:
