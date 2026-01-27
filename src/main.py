@@ -9,6 +9,11 @@ load_dotenv()
 # Import API Routers
 from src.api.vapi_router import router as vapi_router
 from src.api.whatsapp_router import router as whatsapp_router
+from src.api.metrics_router import router as metrics_router
+
+# Static files for dashboard
+from fastapi.staticfiles import StaticFiles
+from pathlib import Path
 
 # Configuración de Logs (Standard Output only for Docker)
 logger.info("Cerebro starts on STDOUT")
@@ -16,7 +21,7 @@ logger.info("Cerebro starts on STDOUT")
 app = FastAPI(
     title="Cerebro En Las Nubes",
     description="AI Booking Agent Core & Multi-Agent Orchestrator",
-    version="1.0.0"
+    version="2.0.0"
 )
 
 # CORS
@@ -31,6 +36,12 @@ app.add_middleware(
 # Include API Routers
 app.include_router(vapi_router)
 app.include_router(whatsapp_router)
+app.include_router(metrics_router)
+
+# Mount static files for dashboard
+static_path = Path(__file__).parent.parent / "static"
+if static_path.exists():
+    app.mount("/static", StaticFiles(directory=str(static_path)), name="static")
 
 @app.get("/health")
 async def health_check():

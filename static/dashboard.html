@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cerebro Ops | En Las Nubes</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        tailwind.config = {
+            theme: { extend: { colors: { cloud: { 50: '#f0f9ff', 500: '#0ea5e9', 600: '#0284c7' } } } }
+        }
+    </script>
+    <style>
+        .glass {
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(10px);
+        }
+
+        .card-hover:hover {
+            transform: translateY(-2px);
+            transition: all 0.3s ease;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        }
+    </style>
+</head>
+
+<body class="bg-slate-50 text-slate-800 font-sans antialiased min-h-screen">
+    <nav class="bg-white border-b border-slate-200 sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <i class="fa-solid fa-cloud text-cloud-600 text-2xl mr-3"></i>
+                    <span class="font-bold text-xl tracking-tight text-slate-900">Cerebro<span
+                            class="text-cloud-600 font-light ml-1">Ops</span></span>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <div id="data-mode"
+                        class="flex items-center px-3 py-1 rounded-full bg-amber-100 text-amber-800 text-xs font-semibold">
+                        <span class="w-2 h-2 bg-amber-500 rounded-full mr-2 animate-pulse"></span>
+                        <span id="mode-text">CONNECTING...</span>
+                    </div>
+                    <div class="text-sm text-slate-500" id="clock">00:00:00</div>
+                </div>
+            </div>
+        </div>
+    </nav>
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div class="mb-8 flex justify-between items-end">
+            <div>
+                <h1 class="text-2xl font-bold text-slate-900">Panel de Control</h1>
+                <p class="text-slate-500 mt-1">Monitoreo en tiempo real de operaciones.</p>
+            </div>
+            <button onclick="refreshData()"
+                class="px-4 py-2 bg-white border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 shadow-sm">
+                <i class="fa-solid fa-rotate-right mr-2"></i> Actualizar
+            </button>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <div class="bg-white rounded-xl p-6 border border-slate-200 shadow-sm card-hover">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <p class="text-xs font-bold text-slate-500 uppercase tracking-wide">Reservas Hoy</p>
+                        <h3 class="text-3xl font-extrabold text-slate-900 mt-2" id="kpi-reservations">0</h3>
+                    </div>
+                    <div class="p-3 bg-cloud-50 rounded-lg"><i
+                            class="fa-regular fa-calendar-check text-cloud-600 text-xl"></i></div>
+                </div>
+            </div>
+            <div class="bg-white rounded-xl p-6 border border-slate-200 shadow-sm card-hover">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <p class="text-xs font-bold text-slate-500 uppercase tracking-wide">Latencia Media</p>
+                        <h3 class="text-3xl font-extrabold text-slate-900 mt-2" id="kpi-latency">0ms</h3>
+                    </div>
+                    <div class="p-3 bg-purple-50 rounded-lg"><i class="fa-solid fa-bolt text-purple-600 text-xl"></i>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-white rounded-xl p-6 border border-slate-200 shadow-sm card-hover">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <p class="text-xs font-bold text-slate-500 uppercase tracking-wide">Tasa Éxito</p>
+                        <h3 class="text-3xl font-extrabold text-slate-900 mt-2" id="kpi-success">0%</h3>
+                    </div>
+                    <div class="p-3 bg-blue-50 rounded-lg"><i class="fa-solid fa-robot text-blue-600 text-xl"></i></div>
+                </div>
+            </div>
+            <div class="bg-white rounded-xl p-6 border border-slate-200 shadow-sm card-hover">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <p class="text-xs font-bold text-slate-500 uppercase tracking-wide">Coste Est. Hoy</p>
+                        <h3 class="text-3xl font-extrabold text-slate-900 mt-2" id="kpi-cost">$0.00</h3>
+                    </div>
+                    <div class="p-3 bg-orange-50 rounded-lg"><i class="fa-solid fa-coins text-orange-500 text-xl"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+            <div class="bg-white rounded-xl border border-slate-200 shadow-sm lg:col-span-2 p-6">
+                <h3 class="text-base font-bold text-slate-900 mb-4">Actividad (Últimas 12h)</h3>
+                <div class="relative h-64 w-full"><canvas id="reservationsChart"></canvas></div>
+            </div>
+            <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+                <h3 class="text-base font-bold text-slate-900 mb-4">Intenciones</h3>
+                <div class="relative h-64 w-full flex justify-center"><canvas id="intentsChart"></canvas></div>
+            </div>
+        </div>
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+                <h3 class="text-base font-bold text-slate-900 mb-4">Estado Servicios</h3>
+                <div class="space-y-4" id="health-container"></div>
+            </div>
+            <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-6 overflow-hidden">
+                <h3 class="text-base font-bold text-slate-900 mb-4">Últimas Interacciones</h3>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full text-sm text-left text-gray-500">
+                        <thead class="text-xs text-gray-700 uppercase bg-gray-50">
+                            <tr>
+                                <th class="px-4 py-3">Hora</th>
+                                <th class="px-4 py-3">Cliente</th>
+                                <th class="px-4 py-3">Intent</th>
+                                <th class="px-4 py-3">Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody id="interactions-table-body"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </main>
+    <script>
+        const API_BASE = window.location.origin;
+        let isLiveMode = false;
+        const MockService = {
+            getMetrics: () => ({ reservations_today: 18 + Math.floor(Math.random()*5), avg_latency_ms: 600 + Math.floor(Math.random()*100), success_rate: 90 + Math.random()*8, estimated_cost: 4.0 + Math.random()*2 }),
+            gerlyData: () => { const h=[],c=[],r=[]; for(let i=12;i>=0;i--) { const d=new Date(); d.setHours(d.getHours()-i); h.push(d.getHours()+':00'); const hh=d.getHours(); let a=2; if(=15)||(hh>=20&&hh<=22))a=8; c.push(Math.floor(Math.random()*5)+a); r.push(Math.floor(Math.random()*3)+(a>4?2:0)); } return {labels:h,calls:c,reservations:r}; },
+            getIntents: () => ({ labels:['Reservas','Horario','Menú','Humano','Otros'], data:[45,20,15,10,10] }),
+            getInteractions: () => ['Juan','María','Carlos','Ana','Lucía'].map((n,i)=>({time:new Date(Date.now()-i*15*60000).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}),client:n,intent:['reservation','faq_hours','reservation','human_handoff','menu_query'][i],status:['success','success','pending','success','success'][i]})),
+            getHealth: () => ({ services:{vapi:{status:'operational',latency_ms:450},redis:{status:'operational',hit_rate:98},airtable:{status:'operational',api_quota:85},twilio:{status:'operational',delivery_rate:100}} })
+        };
+        const ApiService = {
+            async getMetrics() { const r=await fetch(`${API_BASE}/api/metrics`); if(!r.ok)throw new Error(); return r.json(); },
+            async getHourlyData() { const r=await fetch(`${API_BASE}/api/metrics/hourly`); if(!r.ok)throw new Error(); return r.json(); },
+            async getIntents() { const r=await fetch(`${API_BASE}/api/metrics/intents`); if(!r.ok)throw new Error(); return r.json(); },
+            async getInteractions() { const r=await fetch(`${API_BASE}/api/metrics/interactions`); if(!r.ok)throw new Error(); return r.json(); },
+            async getHealth() { const r=await fetch(`${API_BASE}/api/metrics/health`); if(!r.ok)throw new Error(); return r.json(); }
+        };
+        let reservationsChart=null, intentsChart=null;
+        function updateClock() { document.getElementById('clock').innerText=new Date().toLocaleTimeString(); }
+        function setMode(live) { isLiveMode=live; const m=document.getElementById('data-mode'),t=document.getElementById('mode-text'); if(live){m.className='flex items-center px-3 py-1 rounded- full bg-emerald-100 text -emerald- 800 text-xs font-semibold';t.innerText='LIVE DATA';}else{m.className='flex items-center px-3 py-1 rounded-full bg-amber-100 text-amber-800 text-xs font-semibold';t.innerText='DEMO MODE';} }
+        function renderKPIs(m) { document.getElementById('kpi-reservations').innerText=m.reservations_today; document.getElementById('kpi-latency').innerText=Math.round(m.avg_latency_ms)+'ms'; document.getElementById('kpi-success').innerText=m.success_rate.toFixed(1)+'%'; document.getElementById('kpi-cost').innerText='$'+m.estimated_cost.toFixed(2); }
+        function renderCharts(h,i) { const c1=document.getElementById('reservationsChart').getContext('2d'),c2=document.getElementById('intentsChart').getContext('2d'); if(reservationsChart)reservationsChart.destroy(); if(intentsChart)intentsChart.destroy(); reservationsChart=new Chart(c1,{type:'line',data:{labels:h.labels,datasets:[{label:'Llamadas',data:h.calls,borderColor:'#94a3b8',backgroundColor:'rgba(148,163,184,0.1)',tension:0.4,fill:true},{label:'Reservas',data:h.reservations,borderColor:'#0284c7',backgroundColor:'rgba(2,132,199,0.1)',tension:0.4,fill:true}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom'}},scales:{y:{beginAtZero:true}}}}); intentsChart=new Chart(c2,{type:'doughnut',data:{labels:i.labels,datasets:[{data:i.data,backgroundColor:['#0ea5e9','#6366f1','#10b981','#f59e0b','#cbd5e1'],borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'right',labels:{boxWidth:12,font:{size:10}}}}}}); }
+        function renderHealth(d) { const c=document.getElementById('health-container'),s=d.services,n={vapi:'VAPI',redis:'Redis',airtable:'Airtable',twilio:'Twilio'}; c.innerHTML=Object.keys(n).map(k=>{const st=s[k]?.status||'unknown',ok=st==='operational'||st==='healthy',cl=ok?'bg-emerald-500':'bg-red-500',bg=ok?'<span class="px-2 py-0.5 rounded text-xs bg-emerald-100 text-emerald-800 font-bold">OK</span>':'<span class="px-2 py-0.5 rounded text-xs bg-red-100 text-red-800 font-bold">DOWN</span>';return `<div class="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-100"><div class="flex items-center"><div class="w-2 h-2 rounded-full ${cl} mr-3"></div><span class="font-medium text-slate-700">${n[k]}</span></div>${bg}</div>`;}).join(''); }
+        function renderTable(d) { const t=document.getElementById('interactions-table-body'); t.innerHTML=''; d.forEach(r=>{const tr=document.createElement('tr');tr.className='border-b hover:bg-slate-50 bg-white';let b=r.status==='success'?'<span class="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded">OK</span>':'<span class="bg-yellow-100 text-yellow-800 text-xs font-medium px-2.5 py-0.5 rounded">Pending</span>';tr.innerHTML=`<td class="px-4 py-3 font-medium text-slate-900">${r.time}</td><td class="px-4 py-3">${r.client}</td><td class="px-4 py-3"><span class="px-2 py-1 bg-slate-100 rounded text-xs text-slate-600 font-mono">${r.intent}</span></td><td class="px-4 py-3">${b}</td>`;t.appendChild(tr);}); }
+        async function refreshData() { let m,h,i,d,hh; try { [m,h,i,d,hh]=await Promise.all([ApiService.getMetrics(),ApiService.getHourlyData(),ApiService.getIntents(),ApiService.getInteriService.getHealth()]); setMode(true); } catch(e) { m=MockService.getMetrics();h=MockService.getHourlyData();i=MockService.getIntents();d=MockService.getInteractions();hh=MockService.getHealth(); setMode(false); } renderKPIs(m);renderCharts(h,i);renderTable(d);renderHealth(hh); }
+        setInterval(updateClock,1000); updateClock(); refreshData(); setInterval(refreshData,30000);
+    </script>
+</body>
+
+</html>
