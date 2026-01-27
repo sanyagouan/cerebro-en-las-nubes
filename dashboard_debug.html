@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DEBUG | Cerebro Ops</title>
+
+    <style>
+        #debug-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #fff;
+            color: #333;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-family: monospace;
+            padding: 20px;
+        }
+
+        .status-line {
+            margin: 5px 0;
+        }
+
+        .success {
+            color: green;
+        }
+
+        .error {
+            color: red;
+            font-weight: bold;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+    </style>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com" onerror="logError('Tailwind CDN failed to load')"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js" onerror="logError('Chart.js CDN failed to load')"></script>
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+        onerror="logError('FontAwesome CDN failed to load')">
+</head>
+
+<body class="bg-gray-100">
+
+    <div id="debug-overlay">
+        <h1>Dashboard Diagnostic Mode</h1>
+        <div id="log-container">Initializing...</div>
+        <button onclick="dismissDebug()" style="margin-top:20px; padding:10px 20px; font-size:16px;">
+            Continue to Dashboard
+        </button>
+    </div>
+
+    <script>
+        function log(msg, type = 'info') {
+            const el = document.createElement('div');
+            el.className = 'status-line ' + type;
+            el.innerText = `[${new Date().toLocaleTimeString()}] ${msg}`;
+            document.getElementById('log-container').appendChild(el);
+            console.log(msg);
+        }
+
+        function logError(msg) {
+            log(msg, 'error');
+            alert("ERROR CRITICO: " + msg + "\n\nVerifica tu conexión a internet.");
+        }
+
+        window.onload = function () {
+            log("Window loaded");
+
+            if (typeof tailwind === 'undefined') {
+                logError("TailwindCSS is NOT loaded");
+            } else {
+                log("TailwindCSS loaded successfully", "success");
+            }
+
+            if (typeof Chart === 'undefined') {
+                logError("Chart.js is NOT loaded");
+            } else {
+                log("Chart.js loaded successfully", "success");
+            }
+
+            try {
+                // Initialize Tailwind Config
+                tailwind.config = {
+                    theme: {
+                        extend: {
+                            colors: {
+                                cloud: { 50: '#f0f9ff', 100: '#e0f2fe', 500: '#0ea5e9', 600: '#0284c7', 900: '#0c4a6e' },
+                                vapi: '#7c3aed'
+                            }
+                        }
+                    }
+                }
+                log("Tailwind Configured", "success");
+            } catch (e) {
+                logError("Config Error: " + e.message);
+            }
+
+            log("Ready. Click button to view dashboard.");
+        };
+
+        function dismissDebug() {
+            document.getElementById('debug-overlay').classList.add('hidden');
+            // Try to initialize dashboard logic
+            if (typeof refreshData === 'function') {
+                refreshData();
+                setInterval(updateClock, 1000);
+            }
+        }
+    </script>
+
+
+    <!-- Top Navigation -->
+    <nav class="bg-white border-b border-gray-200 sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <span class="font-bold text-xl tracking-tight text-gray-900">Cerebro<span
+                            class="text-blue-600 font-light ml-1">Ops</span></span>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <div class="text-sm text-gray-500" id="clock">00:00:00</div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <h1 class="text-2xl font-bold mb-4">Dashboard Test</h1>
+
+        <!-- Metric Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <div class="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
+                <p class="text-xs font-bold text-gray-500 uppercase">Reservas Hoy</p>
+                <h3 class="text-3xl font-extrabold text-gray-900 mt-2" id="kpi-reservations">0</h3>
+            </div>
+            <div class="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
+                <p class="text-xs font-bold text-gray-500 uppercase">Latencia</p>
+                <h3 class="text-3xl font-extrabold text-gray-900 mt-2" id="kpi-latency">0</h3>
+            </div>
+        </div>
+
+        <!-- Charts -->
+        <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-6 mb-8">
+            <h3 class="text-base font-bold text-gray-900 mb-4">Prueba de Gráfico</h3>
+            <div class="relative h-64 w-full">
+                <canvas id="reservationsChart"></canvas>
+            </div>
+        </div>
+    </main>
+
+    <!-- App Logic -->
+    <script>
+        // Minimal Mock Logic for Test
+        function updateClock() {
+            document.getElementById('clock').innerText = new Date().toLocaleTimeString();
+        }
+
+        function refreshData() {
+            console.log("Refreshing mock data...");
+            document.getElementById('kpi-reservations').innerText = Math.floor(Math.random() * 50);
+            document.getElementById('kpi-latency').innerText = Math.floor(Math.random() * 800) + 'ms';
+
+            if (typeof Chart !== 'undefined') {
+                const ctx = document.getElementById('reservationsChart').getContext('2d');
+                if (window.myChart) window.myChart.destroy();
+
+                window.myChart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: ['10:00', '11:00', '12:00', '13:00', '14:00'],
+                        datasets: [{
+                            label: 'Test Data',
+                            data: [10, 20, 15, 30, 25],
+                            borderColor: '#0284c7',
+                            tension: 0.1
+                        }]
+                    },
+                    options: { responsive: true, maintainAspectRatio: false }
+                });
+            }
+        }
+    </script>
+</body>
+
+</html>

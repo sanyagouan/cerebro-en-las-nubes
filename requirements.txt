@@ -16,3 +16,4 @@ pydantic-settings>=2.0.0
 # External Services
 pyairtable>=2.0.0
 twilio>=9.0.0
+redis>=5.0.0

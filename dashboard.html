@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cerebro Ops | En Las Nubes</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        cloud: {
+                            50: '#f0f9ff',
+                            100: '#e0f2fe',
+                            500: '#0ea5e9',
+                            600: '#0284c7',
+                            900: '#0c4a6e',
+                        },
+                        vapi: '#7c3aed',
+                        airtable: '#facc15',
+                        redis: '#ef4444',
+                        twilio: '#f97316'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .glass {
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .card-hover:hover {
+            transform: translateY(-2px);
+            transition: all 0.3s ease;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans antialiased min-h-screen">
+
+    <!-- Top Navigation -->
+    <nav class="bg-white border-b border-slate-200 sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <i class="fa-solid fa-cloud text-cloud-600 text-2xl mr-3"></i>
+                    <span class="font-bold text-xl tracking-tight text-slate-900">Cerebro<span class="text-cloud-600 font-light ml-1">Ops</span></span>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <div class="flex items-center px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 text-xs font-semibold">
+                        <span class="w-2 h-2 bg-emerald-500 rounded-full mr-2 animate-pulse"></span>
+                        SYSTEM ONLINE
+                    </div>
+                    <div class="text-sm text-slate-500" id="clock">00:00:00</div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        
+        <!-- Welcome Section -->
+        <div class="mb-8 flex justify-between items-end">
+            <div>
+                <h1 class="text-2xl font-bold text-slate-900">Panel de Control</h1>
+                <p class="text-slate-500 mt-1">Monitoreo en tiempo real de operaciones y agentes.</p>
+            </div>
+            <button onclick="refreshData()" class="px-4 py-2 bg-white border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 shadow-sm transition-colors">
+                <i class="fa-solid fa-rotate-right mr-2"></i> Actualizar
+            </button>
+        </div>
+
+        <!-- Metric Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <!-- Card 1 -->
+            <div class="bg-white rounded-xl p-6 border border-slate-200 shadow-sm card-hover">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <p class="text-xs font-bold text-slate-500 uppercase tracking-wide">Reservas Hoy</p>
+                        <h3 class="text-3xl font-extrabold text-slate-900 mt-2" id="kpi-reservations">0</h3>
+                        <p class="text-xs text-emerald-600 mt-2 font-medium flex items-center">
+                            <i class="fa-solid fa-arrow-trend-up mr-1"></i> +12% vs ayer
+                        </p>
+                    </div>
+                    <div class="p-3 bg-cloud-50 rounded-lg">
+                        <i class="fa-regular fa-calendar-check text-cloud-600 text-xl"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Card 2 -->
+            <div class="bg-white rounded-xl p-6 border border-slate-200 shadow-sm card-hover">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <p class="text-xs font-bold text-slate-500 uppercase tracking-wide">Latencia Media (VAPI)</p>
+                        <h3 class="text-3xl font-extrabold text-slate-900 mt-2" id="kpi-latency">0ms</h3>
+                        <p class="text-xs text-emerald-600 mt-2 font-medium flex items-center">
+                            <i class="fa-solid fa-check mr-1"></i> Óptima (< 800ms)
+                        </p>
+                    </div>
+                    <div class="p-3 bg-purple-50 rounded-lg">
+                        <i class="fa-solid fa-bolt text-vapi text-xl"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Card 3 -->
+            <div class="bg-white rounded-xl p-6 border border-slate-200 shadow-sm card-hover">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <p class="text-xs font-bold text-slate-500 uppercase tracking-wide">Tasa Éxito Agente</p>
+                        <h3 class="text-3xl font-extrabold text-slate-900 mt-2" id="kpi-success">0%</h3>
+                        <p class="text-xs text-slate-500 mt-2 font-medium">
+                            Logic Agent Leader
+                        </p>
+                    </div>
+                    <div class="p-3 bg-blue-50 rounded-lg">
+                        <i class="fa-solid fa-robot text-blue-600 text-xl"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Card 4 -->
+            <div class="bg-white rounded-xl p-6 border border-slate-200 shadow-sm card-hover">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <p class="text-xs font-bold text-slate-500 uppercase tracking-wide">Coste Est. Hoy</p>
+                        <h3 class="text-3xl font-extrabold text-slate-900 mt-2" id="kpi-cost">$0.00</h3>
+                        <p class="text-xs text-orange-500 mt-2 font-medium flex items-center">
+                            <i class="fa-solid fa-triangle-exclamation mr-1"></i> Proy: $450/mes
+                        </p>
+                    </div>
+                    <div class="p-3 bg-orange-50 rounded-lg">
+                        <i class="fa-solid fa-coins text-orange-500 text-xl"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Charts Section -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+            <!-- Main Chart -->
+            <div class="bg-white rounded-xl border border-slate-200 shadow-sm lg:col-span-2 p-6">
+                <h3 class="text-base font-bold text-slate-900 mb-4">Actividad & Reservas (Últimas 24h)</h3>
+                <div class="relative h-64 w-full">
+                    <canvas id="reservationsChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Secondary Chart -->
+            <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+                <h3 class="text-base font-bold text-slate-900 mb-4">Intenciones de Usuarios</h3>
+                <div class="relative h-64 w-full flex justify-center">
+                    <canvas id="intentsChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Health & Status -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            
+            <!-- Service Health -->
+            <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+                <h3 class="text-base font-bold text-slate-900 mb-4">Estado de Servicios (Health Checks)</h3>
+                <div class="space-y-4">
+                    <!-- VAPI -->
+                    <div class="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-100">
+                        <div class="flex items-center">
+                            <div class="w-2 h-2 rounded-full bg-emerald-500 mr-3"></div>
+                            <span class="font-medium text-slate-700">VAPI Voice AI</span>
+                        </div>
+                        <div class="flex items-center space-x-4">
+                            <span class="text-xs text-slate-500">Latency: 450ms</span>
+                            <span class="px-2 py-0.5 rounded text-xs bg-emerald-100 text-emerald-800 font-bold">OPERATIONAL</span>
+                        </div>
+                    </div>
+                    <!-- Redis -->
+                    <div class="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-100">
+                        <div class="flex items-center">
+                            <div class="w-2 h-2 rounded-full bg-emerald-500 mr-3"></div>
+                            <span class="font-medium text-slate-700">Redis Cache</span>
+                        </div>
+                        <div class="flex items-center space-x-4">
+                            <span class="text-xs text-slate-500">Hit Rate: 98%</span>
+                            <span class="px-2 py-0.5 rounded text-xs bg-emerald-100 text-emerald-800 font-bold">OPERATIONAL</span>
+                        </div>
+                    </div>
+                    <!-- Airtable -->
+                    <div class="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-100">
+                        <div class="flex items-center">
+                            <div class="w-2 h-2 rounded-full bg-emerald-500 mr-3"></div>
+                            <span class="font-medium text-slate-700">Airtable DB</span>
+                        </div>
+                        <div class="flex items-center space-x-4">
+                            <span class="text-xs text-slate-500">API Quota: 85%</span>
+                            <span class="px-2 py-0.5 rounded text-xs bg-emerald-100 text-emerald-800 font-bold">OPERATIONAL</span>
+                        </div>
+                    </div>
+                     <!-- Twilio -->
+                     <div class="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-100">
+                        <div class="flex items-center">
+                            <div class="w-2 h-2 rounded-full bg-emerald-500 mr-3"></div>
+                            <span class="font-medium text-slate-700">Twilio / WhatsApp</span>
+                        </div>
+                        <div class="flex items-center space-x-4">
+                            <span class="text-xs text-slate-500">Delivered: 100%</span>
+                            <span class="px-2 py-0.5 rounded text-xs bg-emerald-100 text-emerald-800 font-bold">OPERATIONAL</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Interactions Table -->
+            <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-6 overflow-hidden">
+                <h3 class="text-base font-bold text-slate-900 mb-4">Últimas Interacciones</h3>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full text-sm text-left text-gray-500">
+                        <thead class="text-xs text-gray-700 uppercase bg-gray-50">
+                            <tr>
+                                <th scope="col" class="px-4 py-3">Hora</th>
+                                <th scope="col" class="px-4 py-3">Cliente</th>
+                                <th scope="col" class="px-4 py-3">Intent</th>
+                                <th scope="col" class="px-4 py-3">Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody id="interactions-table-body">
+                            <!-- Populated by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div>
+
+    </main>
+
+    <!-- JS Logic -->
+    <script>
+        // --- 1. MOCK DATA GENERATOR ---
+        // Simulates real backend data for demonstration purposes
+        
+        const MockService = {
+            getRandomInt: (min, max) => Math.floor(Math.random() * (max - min + 1)) + min,
+            
+            getMetrics: () => {
+                return {
+                    reservations_today: 18,
+                    avg_latency_ms: 642,
+                    success_rate: 94.5,
+                    estimated_cost: 4.25
+                };
+            },
+
+            getHourlyData: () => {
+                // Generate last 12 hours data
+                const hours = [];
+                const reservations = [];
+                const calls = [];
+                
+                for (let i = 12; i >= 0; i--) {
+                    const d = new Date();
+                    d.setHours(d.getHours() - i);
+                    hours.push(d.getHours() + ':00');
+                    // Peak hours logic (lunch: 13-15, dinner: 20-22)
+                    const h = d.getHours();
+                    let activity = 2;
+                    if ((h >= 13 && h <= 15) || (h >= 20 && h <= 22)) activity = 8;
+                    
+                    calls.push(Math.floor(Math.random() * 5) + activity);
+                    reservations.push(Math.floor(Math.random() * 3) + (activity > 4 ? 2 : 0));
+                }
+                return { labels: hours, calls, reservations };
+            },
+
+            getIntents: () => {
+                return {
+                    labels: ['Reservas', 'Consultas Horario', 'Menú/Carta', 'Hablar Humano', 'Otros'],
+                    data: [45, 20, 15, 10, 10]
+                };
+            },
+
+            getInteractions: () => {
+                const names = ["Juan Pérez", "María García", "Carlos López", "Ana Martínez", "Lucía Ruiz"];
+                const intents = ["reservation", "faq_hours", "reservation", "human_handoff", "menu_query"];
+                const statuses = ["success", "success", "pending", "success", "success"];
+                
+                return names.map((name, i) => ({
+                    time: new Date(Date.now() - i * 15 * 60000).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
+                    client: name,
+                    intent: intents[i],
+                    status: statuses[i]
+                }));
+            }
+        };
+
+        // --- 2. DASHBOARD LOGIC ---
+
+        let reservationsChart = null;
+        let intentsChart = null;
+
+        function updateClock() {
+            document.getElementById('clock').innerText = new Date().toLocaleTimeString();
+        }
+
+        function renderKPIs(metrics) {
+            document.getElementById('kpi-reservations').innerText = metrics.reservations_today;
+            document.getElementById('kpi-latency').innerText = metrics.avg_latency_ms + 'ms';
+            document.getElementById('kpi-success').innerText = metrics.success_rate + '%';
+            document.getElementById('kpi-cost').innerText = '$' + metrics.estimated_cost.toFixed(2);
+        }
+
+        function renderCharts(hourlyData, intentData) {
+            const ctx1 = document.getElementById('reservationsChart').getContext('2d');
+            const ctx2 = document.getElementById('intentsChart').getContext('2d');
+            
+            // Destroy existing if update
+            if (reservationsChart) reservationsChart.destroy();
+            if (intentsChart) intentsChart.destroy();
+
+            // Line Chart
+            reservationsChart = new Chart(ctx1, {
+                type: 'line',
+                data: {
+                    labels: hourlyData.labels,
+                    datasets: [
+                        {
+                            label: 'Llamadas Totales',
+                            data: hourlyData.calls,
+                            borderColor: '#94a3b8',
+                            backgroundColor: 'rgba(148, 163, 184, 0.1)',
+                            tension: 0.4,
+                            fill: true
+                        },
+                        {
+                            label: 'Reservas Confirmadas',
+                            data: hourlyData.reservations,
+                            borderColor: '#0284c7', // Cloud 600
+                            backgroundColor: 'rgba(2, 132, 199, 0.1)',
+                            borderWidth: 2,
+                            tension: 0.4,
+                            fill: true
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'bottom' } },
+                    scales: { y: { beginAtZero: true, grid: { borderDash: [2, 4] } }, x: { grid: { display: false } } }
+                }
+            });
+
+            // Doughnut Chart
+            intentsChart = new Chart(ctx2, {
+                type: 'doughnut',
+                data: {
+                    labels: intentData.labels,
+                    datasets: [{
+                        data: intentData.data,
+                        backgroundColor: ['#0ea5e9', '#6366f1', '#10b981', '#f59e0b', '#cbd5e1'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'right', labels: { boxWidth: 12, font: { size: 10 } } } }
+                }
+            });
+        }
+
+        function renderTable(interactions) {
+            const tbody = document.getElementById('interactions-table-body');
+            tbody.innerHTML = '';
+            
+            interactions.forEach(row => {
+                const tr = document.createElement('tr');
+                tr.className = 'border-b hover:bg-slate-50 transition-colors bg-white';
+                
+                let statusBadge = '';
+                if(row.status === 'success') statusBadge = '<span class="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded">Confirmada</span>';
+                else if(row.status === 'pending') statusBadge = '<span class="bg-yellow-100 text-yellow-800 text-xs font-medium px-2.5 py-0.5 rounded">Pendiente</span>';
+                else statusBadge = '<span class="bg-red-100 text-red-800 text-xs font-medium px-2.5 py-0.5 rounded">Fallida</span>';
+
+                tr.innerHTML = `
+                    <td class="px-4 py-3 font-medium text-slate-900">${row.time}</td>
+                    <td class="px-4 py-3">${row.client}</td>
+                    <td class="px-4 py-3"><span class="px-2 py-1 bg-slate-100 rounded text-xs text-slate-600 font-mono">${row.intent}</span></td>
+                    <td class="px-4 py-3">${statusBadge}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function refreshData() {
+            // In a real app, this would fetch from API
+            console.log("Refreshing dashboard data...");
+            
+            // 1. Get Mock Data
+            const metrics = MockService.getMetrics();
+            const hourly = MockService.getHourlyData();
+            const intents = MockService.getIntents();
+            const interactions = MockService.getInteractions();
+
+            // 2. Add randomness for "Live" feel
+            metrics.reservations_today += Math.floor(Math.random() * 2);
+            metrics.estimated_cost += Math.random() * 0.5;
+
+            // 3. Render
+            renderKPIs(metrics);
+            renderCharts(hourly, intents);
+            renderTable(interactions);
+        }
+
+        // Init
+        setInterval(updateClock, 1000);
+        updateClock();
+        refreshData();
+        
+        // Auto-refresh every 30s
+        setInterval(refreshData, 30000);
+
+    </script>
+</body>
+</html>
