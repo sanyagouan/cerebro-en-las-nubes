@@ -5,6 +5,7 @@ from pyairtable import Api
 
 from src.infrastructure.cache.redis_cache import get_cache
 from src.core.logging import logger
+from src.core.utils.sanitization import sanitize_reservation_data  # SECURITY: Import sanitization
 
 
 class AirtableService:
@@ -32,14 +33,17 @@ class AirtableService:
     async def create_record(
         self, fields: Dict[str, Any], table_name: Optional[str] = None
     ) -> Optional[Dict]:
+        # SECURITY: Sanitize fields to prevent formula injection
+        sanitized_fields = sanitize_reservation_data(fields)
+        
         if not self.api or not self.base_id:
-            logger.warning(f"Mocking Airtable create record: {fields}")
-            return {"id": "recMOCK12345", "fields": fields}
+            logger.warning(f"Mocking Airtable create record: {sanitized_fields}")
+            return {"id": "recMOCK12345", "fields": sanitized_fields}
 
         target_table = table_name or self.table_name
         try:
             table = self.api.table(self.base_id, target_table)
-            record = table.create(fields)
+            record = table.create(sanitized_fields)
 
             # Invalidate cache for this table
             cache_key = f"airtable:{target_table}:*"
