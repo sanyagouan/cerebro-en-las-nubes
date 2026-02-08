@@ -8,7 +8,7 @@ from src.application.services.schedule_service import ScheduleService
 from src.infrastructure.repositories.mock_reservation_repository import MockReservationRepository
 from src.infrastructure.external.twilio_service import TwilioService
 from src.infrastructure.external.airtable_service import AirtableService
-from src.domain.models.reservation import Reservation
+from src.core.entities.booking import Booking  # FIXED: era src.domain.models.reservation
 
 # Configuración de logs
 logging.basicConfig(level=logging.INFO)
@@ -189,7 +189,7 @@ async def tool_create_reservation(request: Request):
              return {"results": [{"toolCallId": tool_call["id"], "result": "Me faltan algunos datos para confirmar. Necesito nombre, teléfono, fecha, hora y personas."}]}
 
         # Crear objeto Reserva
-        reserva = Reservation(
+        reserva = Booking(  # FIXED: era Reservation
             nombre_cliente=nombre,
             telefono_cliente=telefono,
             fecha=fecha_str,
