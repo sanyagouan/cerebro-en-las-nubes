@@ -1,19 +1,14 @@
-# Core Framework
-fastapi==0.115.12
-uvicorn==0.34.0
-python-dotenv==1.1.0
-loguru>=0.7.0
-python-multipart>=0.0.6
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+python-dotenv==1.0.0
+pydantic==2.5.0
+pydantic-settings==2.1.0
+python-jose[cryptography]==22.0.0
+httpx==0.25.0
+redis==5.0.1
 
-# LLM Clients
-openai>=1.0.0
-httpx>=0.25.0
+# Airtable
+pyairtable==2.3.0
 
-# Data & Validation
-pydantic>=2.0.0
-pydantic-settings>=2.0.0
-
-# External Services
-pyairtable>=2.0.0
-twilio>=9.0.0
-redis>=5.0.0
+# Supabase
+supabase==2.3.3
