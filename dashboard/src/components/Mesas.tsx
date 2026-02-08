@@ -1,11 +1,9 @@
 import { CheckCircle, XCircle, MapPin, Users } from 'lucide-react';
-import { MESAS_EJEMPLO } from '../types';
+import { MESAS_EJEMPLO, Mesa } from '../types';
 
-export default function Mesas() {
-  const mesasInterior = MESAS_EJEMPLO.filter(m => m.ubicacion === 'Interior');
-  const mesasTerraza = MESAS_EJEMPLO.filter(m => m.ubicacion === 'Terraza');
-
-  const MesaCard = ({ mesa }: { mesa: typeof MESAS_EJEMPLO[0] }) => (
+// Componente MesaCard extraído fuera de Mesas para evitar recreación en cada render
+function MesaCard({ mesa }: { mesa: Mesa }) {
+  return (
     <div className={`p-4 rounded-xl border-2 transition-all ${
       mesa.disponible 
         ? 'border-green-200 bg-green-50 hover:border-green-300' 
@@ -19,6 +17,7 @@ export default function Mesas() {
             {mesa.ubicacion}
           </div>
         </div>
+        
         <div className={`p-2 rounded-full ${
           mesa.disponible ? 'bg-green-200' : 'bg-red-200'
         }`}>
@@ -60,6 +59,11 @@ export default function Mesas() {
       </div>
     </div>
   );
+}
+
+export default function Mesas() {
+  const mesasInterior = MESAS_EJEMPLO.filter(m => m.ubicacion === 'Interior');
+  const mesasTerraza = MESAS_EJEMPLO.filter(m => m.ubicacion === 'Terraza');
 
   return (
     <div className="space-y-8">

@@ -1,3 +1,4 @@
+import { Check, X, Edit3 } from 'lucide-react';
 import { useState } from 'react';
 import { Search, Filter, Phone, MessageSquare, Calendar, Users } from 'lucide-react';
 import { RESERVAS_EJEMPLO } from '../types';
@@ -85,7 +86,7 @@ export default function Reservas() {
                 <td className="px-6 py-4">
                   <div className="flex items-center gap-2">
                     <Users size={16} className="text-gray-400" />
-                    {reserva.personas}
+                    {reserva.pax}
                   </div>
                 </td>
                 <td className="px-6 py-4">
@@ -107,23 +108,23 @@ export default function Reservas() {
                 </td>
                 <td className="px-6 py-4">
                   <span className={`px-3 py-1 rounded-full text-sm ${
-                    reserva.origen === 'VAPI' ? 'bg-purple-100 text-purple-700' :
-                    reserva.origen === 'WhatsApp' ? 'bg-green-100 text-green-700' :
+                    reserva.canal === 'VAPI' ? 'bg-purple-100 text-purple-700' :
+                    reserva.canal === 'WhatsApp' ? 'bg-green-100 text-green-700' :
                     'bg-blue-100 text-blue-700'
                   }`}>
-                    {reserva.origen}
+                    {reserva.canal}
                   </span>
                 </td>
                 <td className="px-6 py-4">
                   <div className="flex gap-2">
                     <button className="p-2 text-primary-600 hover:bg-primary-50 rounded-lg" title="Editar">
-                      ✏️
+                      <Edit3 size={18} />
                     </button>
                     <button className="p-2 text-green-600 hover:bg-green-50 rounded-lg" title="Confirmar">
-                      ✅
+                      <Check size={18} />
                     </button>
                     <button className="p-2 text-red-600 hover:bg-red-50 rounded-lg" title="Cancelar">
-                      ❌
+                      <X size={18} />
                     </button>
                   </div>
                 </td>

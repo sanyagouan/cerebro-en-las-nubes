@@ -73,7 +73,7 @@ export default function Dashboard() {
                   <div>
                     <p className="font-medium text-gray-900">{reserva.nombre}</p>
                     <p className="text-sm text-gray-500">
-                      {reserva.fecha} • {reserva.hora} • {reserva.personas} personas
+                      {reserva.fecha} • {reserva.hora} • {reserva.pax} personas
                     </p>
                     {reserva.mesa && (
                       <p className="text-sm text-primary-600">{reserva.mesa}</p>

@@ -4,11 +4,11 @@ export interface Reserva {
   telefono: string;
   fecha: string;
   hora: string;
-  personas: number;
+  pax: number;  // Cambiado de 'personas' para coincidir con backend
   mesa?: string;
-  estado: 'Pendiente' | 'Confirmada' | 'Cancelada' | 'Completada';
+  estado: 'Pendiente' | 'Confirmada' | 'Cancelada' | 'Completada' | 'Sentada' | 'NoShow';
   notas?: string;
-  origen: 'VAPI' | 'WhatsApp' | 'Telefono' | 'Presencial';
+  canal: 'VAPI' | 'WhatsApp' | 'Telefono' | 'Presencial';  // Cambiado de 'origen'
   creado: string;
 }
 
@@ -46,11 +46,11 @@ export const RESERVAS_EJEMPLO: Reserva[] = [
     telefono: '+34600123456',
     fecha: '2026-02-08',
     hora: '21:00',
-    personas: 4,
+    pax: 4,  // Cambiado de 'personas'
     mesa: 'Mesa 2T',
     estado: 'Confirmada',
     notas: 'Prefieren terraza',
-    origen: 'VAPI',
+    canal: 'VAPI',  // Cambiado de 'origen'
     creado: '2026-02-07T10:30:00Z'
   },
   {
@@ -59,9 +59,9 @@ export const RESERVAS_EJEMPLO: Reserva[] = [
     telefono: '+34600987654',
     fecha: '2026-02-08',
     hora: '21:30',
-    personas: 2,
+    pax: 2,  // Cambiado de 'personas'
     estado: 'Pendiente',
-    origen: 'WhatsApp',
+    canal: 'WhatsApp',  // Cambiado de 'origen'
     creado: '2026-02-08T14:20:00Z'
   },
   {
@@ -70,11 +70,11 @@ export const RESERVAS_EJEMPLO: Reserva[] = [
     telefono: '+34600555111',
     fecha: '2026-02-08',
     hora: '20:00',
-    personas: 6,
+    pax: 6,  // Cambiado de 'personas'
     mesa: 'Mesa 3I',
     estado: 'Confirmada',
     notas: 'Celebración cumpleaños',
-    origen: 'Telefono',
+    canal: 'Telefono',  // Cambiado de 'origen'
     creado: '2026-02-06T09:15:00Z'
   },
 ];
