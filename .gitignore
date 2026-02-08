@@ -1,0 +1,151 @@
+# ========================================
+# SECRETS Y CONFIGURACIONES SENSIBLES
+# ========================================
+.env
+.env.local
+.env.*.local
+.env.mcp
+*.key
+*.pem
+*.p12
+*.pfx
+
+# Backups con secrets
+.backups/
+*.backup
+*.bak
+*.json.backup
+
+# ========================================
+# PYTHON
+# ========================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+venv/
+.venv/
+ENV/
+env/
+env.bak/
+venv.bak/
+
+# Pytest
+.pytest_cache/
+.coverage
+htmlcov/
+coverage/
+.tox/
+.nox/
+
+# ========================================
+# NODE.JS / JAVASCRIPT
+# ========================================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+.pnpm-debug.log*
+package-lock.json
+
+# Build outputs
+.next/
+out/
+dist/
+build/
+.cache/
+.parcel-cache/
+
+# Testing
+coverage/
+.nyc_output/
+
+# ========================================
+# ARCHIVOS DE PRUEBA Y DESARROLLO
+# ========================================
+# Scripts de prueba con tokens hardcodeados
+discover_fields*.py
+get_*.py
+find_*.py
+test_airtable.py
+setup_airtable*.py
+sync_vapi*.py
+inject_*.py
+list_*.py
+verify_fix.py
+create_festivos.py
+comprehensive_redis_test.py
+test_redis_performance.py
+
+# ========================================
+# LOGS Y TEMPORALES
+# ========================================
+logs/
+*.log
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+nul
+
+# ========================================
+# IDEs Y EDITORES
+# ========================================
+.vscode/
+.idea/
+*.sublime-*
+*.code-workspace
+
+# ========================================
+# GIT Y WORKTREES
+# ========================================
+.worktrees/
+*.orig
+
+# ========================================
+# SISTEMA OPERATIVO
+# ========================================
+.DS_Store
+.AppleDouble
+.LSOverride
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# ========================================
+# DOCKER
+# ========================================
+.docker/
+
+# ========================================
+# DOCUMENTACION TEMPORAL
+# ========================================
+*.draft
+*.wip
+
+# ========================================
+# LEGACY / OBSOLETO
+# ========================================
+workflows/
+*.bat
