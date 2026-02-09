@@ -33,7 +33,6 @@ ENV PATH=/root/.local/bin:$PATH
 
 # Copiar código fuente
 COPY src/ ./src/
-COPY main.py .
 
 # Crear directorio para logs
 RUN mkdir -p /app/logs

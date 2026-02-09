@@ -1,390 +1,278 @@
-# 🏗️ ARQUITECTURA DEL SISTEMA - En Las Nubes Asistente de Voz
+# ARQUITECTURA DEL SISTEMA - Cerebro En Las Nubes
 
-> **Proyecto:** Cerebro En Las Nubes - Asistente de Voz Restobar  
-> **Ubicación:** Logroño, España  
-> **Fecha:** 2026-02-08  
-> **Versión:** 2.0 (Post-migración de seguridad)
+## Resumen Ejecutivo
 
----
-
-## 🎯 VISIÓN GENERAL
-
-Sistema multi-agente de asistente de voz para gestión de reservas del restaurante "En Las Nubes Restobar" en Logroño, España.
-
-### Funcionalidades Principales:
-- ✅ Reservas por voz (VAPI)
-- ✅ Confirmación por WhatsApp (Twilio)
-- ✅ Gestión de mesas y disponibilidad (Airtable)
-- ✅ Autenticación y backend (Supabase)
-- ✅ Deployment automatizado (Coolify)
+**Cerebro En Las Nubes** es un sistema integral de gestión de reservas para el restaurante "En Las Nubes Restobar" que consta de 3 componentes principales, TODOS en un único repositorio (`cerebro-en-las-nubes`).
 
 ---
 
-## 🏗️ ARQUITECTURA MULTI-AGENTE
+## Componentes del Sistema
 
-```mermaid
-graph TD
-    A[Usuario/Cliente] -->|Interacción de Voz| B[VAPI]
-    B -->|Transcripción| C[RouterAgent]
-    C -->|Enrutamiento| D[LogicAgent]
-    C -->|Escalamiento| E[HumanAgent]
-    
-    D -->|Consultas DB| F[Airtable]
-    D -->|Auth/Backend| G[Supabase]
-    D -->|Notificaciones| H[Twilio/WhatsApp]
-    
-    I[Developer] -->|Deploy| J[Coolify]
-    J -->|Gestiona| K[VPS]
-    K -->|Contiene| D
-    K -->|Contiene| F
-    K -->|Contiene| G
-    
-    L[GitHub] -->|CI/CD| J
-```
+### 1. ASISTENTE DE VOZ (VAPI) + Backend
+**Ubicación:** `src/` (Python/FastAPI)
 
----
-
-## 🤖 AGENTES DEL SISTEMA
-
-### 1. **RouterAgent** (gpt-4o-mini)
-**Responsabilidad:** Enrutamiento inteligente de consultas
-
-- Analiza la intención del usuario
-- Decide si es consulta simple o compleja
-- Escala a LogicAgent o HumanAgent según sea necesario
-- Gestiona el contexto de conversación
-
-**Modelo:** `gpt-4o-mini` (rápido, eficiente para enrutamiento)
-
----
-
-### 2. **LogicAgent** (deepseek-chat)
-**Responsabilidad:** Lógica de negocio y operaciones
-
-- Valida disponibilidad de mesas
-- Procesa reservas completas
-- Consulta/actualiza base de datos (Airtable)
+**Función:**
+- Recibe llamadas telefónicas de clientes
+- Procesa la conversación con IA (RouterAgent → LogicAgent → HumanAgent)
+- Gestiona reservas en Airtable
 - Envía confirmaciones por WhatsApp (Twilio)
-- Maneja reglas de negocio del restaurante
 
-**Modelo:** `deepseek-chat` (costo-efectivo para lógica compleja)
-
-**Reglas de Negocio:**
-- Horarios: Almuerzo (12:00-16:00), Cena (20:00-00:00)
-- Capacidad: X mesas (ver Airtable para configuración actual)
-- Anticipación mínima: 2 horas
-- Política de cancelación: X horas antes (verificar en NotebookLM)
+**Tecnologías:**
+- Python 3.11 + FastAPI
+- VAPI (Voice AI)
+- Twilio (WhatsApp)
+- Airtable (Base de datos principal)
+- Redis (Caché)
 
 ---
 
-### 3. **HumanAgent** (gpt-4o)
-**Responsabilidad:** Handoff a humano en casos complejos
+### 2. DASHBOARD WEB (Administración)
+**Ubicación:** `dashboard/` (React + TypeScript + Vite)
 
-- Solicitudes especiales (eventos, grupos grandes)
-- Quejas o problemas que requieren empatía
-- Situaciones ambiguas que necesitan juicio humano
-- Transferencia a personal del restaurante
+**Función:**
+- Interfaz web para administradores/encargados
+- Gestión visual de reservas, mesas, personal
+- Reportes y analytics
+- Configuración del sistema
 
-**Modelo:** `gpt-4o` (alta calidad para interacción humana)
+**Usuarios:**
+- Administradora/Dueña
+- Encargada del restaurante
 
----
-
-## 🔗 INTEGRACIONES CRÍTICAS
-
-### 🎙️ **VAPI** (Sistema de Voz) - CRÍTICO
-**Función:** Motor de voz del asistente
-
-- Convierte voz a texto (STT)
-- Convierte texto a voz (TTS)
-- Gestiona flujo de conversación
-- Integración con agentes mediante API
-
-**Configuración:**
-- Archivo: `run-vapi-mcp.cmd`
-- No requiere credenciales (autenticación local)
-- MCP Server habilitado
-
-**Endpoints:**
-- (Documentar endpoints VAPI si están disponibles)
+**Tecnologías:**
+- React 18 + TypeScript
+- Vite (build tool)
+- Tailwind CSS
+- WebSocket client (tiempo real)
 
 ---
 
-### 📊 **Airtable** (Base de Datos) - CRÍTICO
-**Función:** Base de datos principal de reservas
+### 3. APP ANDROID (Personal del restaurante)
+**Ubicación:** `android-app/` (Kotlin + Jetpack Compose)
 
-**Tablas:**
-- `Reservas`: Registro de todas las reservas
-- `Mesas`: Configuración de mesas y capacidades
-- `Clientes`: Información de clientes recurrentes
-- `Disponibilidad`: Slots de tiempo disponibles
+**Función:**
+- App móvil para camareros, cocineros, encargada
+- Comunicación en tiempo real con el sistema
+- Actualización de estado de mesas y reservas
+- Notificaciones push
 
-**Credenciales:**
-- Variable: `AIRTABLE_API_KEY`
-- Scopes: `data.records:read`, `data.records:write`, `schema.bases:read`
-- Regenerar: https://airtable.com/create/tokens
+**Usuarios:**
+- Camareros (ver reservas, actualizar estado mesas)
+- Cocineros (vista de ocupación por hora)
+- Encargada (gestión completa)
+- Administradora (todos los permisos)
 
-**Base ID:** `appcUoRqLVqxQm7K2` (verificar)
-
----
-
-### 📱 **Twilio** (WhatsApp/SMS) - CRÍTICO
-**Función:** Notificaciones y confirmaciones
-
-**Uso:**
-- Confirmación de reserva por WhatsApp
-- Recordatorios automáticos (X horas antes)
-- Notificaciones de cancelación
-- Alertas al personal del restaurante
-
-**Credenciales:**
-- `TWILIO_ACCOUNT_SID`
-- `TWILIO_AUTH_TOKEN`
-- `TWILIO_FROM_NUMBER`: +358454910405
-
-**Flujo:**
-1. LogicAgent crea reserva en Airtable
-2. LogicAgent envía confirmación vía Twilio
-3. Cliente recibe WhatsApp con detalles
+**Tecnologías:**
+- Kotlin
+- Jetpack Compose (UI moderna)
+- WebSocket (Scarlet)
+- Firebase Cloud Messaging (notificaciones)
 
 ---
 
-### 🗄️ **Supabase** (Backend/Auth) - CRÍTICO
-**Función:** Backend secundario y autenticación
+## Diagrama de Arquitectura
 
-**Uso:**
-- Autenticación de usuarios (si aplica)
-- Storage de archivos (menús, imágenes)
-- Logs y analytics
-- Base de datos PostgreSQL complementaria
-
-**Credenciales:**
-- `SUPABASE_URL`: https://supabasekong-bo4cc0k0swg0c08k40ockog8.app.generaia.site/mcp
-- `SUPABASE_ACCESS_TOKEN`
-
----
-
-### ☁️ **Coolify** (Deployment) - CRÍTICO
-**Función:** Gestión de infraestructura VPS
-
-**Uso:**
-- Deploy automático de código
-- Gestión de contenedores Docker
-- Logs y monitoreo
-- Configuración de entorno
-
-**Credenciales:**
-- `COOLIFY_API_URL`: https://coolify.generaia.site
-- `COOLIFY_API_TOKEN` (versión 14)
-
-**Servicios Deployados:**
-- Sistema multi-agente (RouterAgent, LogicAgent, HumanAgent)
-- APIs de integración (Airtable, Twilio, Supabase)
-- Sistema de caché (Redis - opcional)
-
----
-
-### 🐙 **GitHub** (Control de Versiones)
-**Función:** Repositorio de código
-
-**Uso:**
-- Control de versiones
-- CI/CD pipeline
-- Documentación técnica
-- Issues y tracking
-
-**Credenciales:**
-- `GITHUB_PERSONAL_ACCESS_TOKEN`
-
----
-
-### 📚 **NotebookLM** (Fuente de Verdad de Negocio)
-**Función:** Documentación de reglas de negocio
-
-**Uso:**
-- Políticas del restaurante
-- Horarios especiales
-- Menús y precios
-- Procedimientos operativos
-
-**Configuración:**
-- Autenticación manual vía OAuth
-- MCP Server habilitado
-- Prioridad: NotebookLM > Código (para conflictos)
-
----
-
-## 🔐 SEGURIDAD
-
-### Variables de Entorno Permanentes
-
-**Ubicación:** Variables de entorno de usuario de Windows  
-**Cargadas automáticamente:** Sí (después de reiniciar Verdent)
-
-**Variables Críticas:**
 ```
-GITHUB_PERSONAL_ACCESS_TOKEN=ghp_***
-COOLIFY_API_URL=https://coolify.generaia.site
-COOLIFY_API_TOKEN=14|***
-TWILIO_ACCOUNT_SID=ACd370***
-TWILIO_AUTH_TOKEN=730d87***
-TWILIO_FROM_NUMBER=+358454910405
-AIRTABLE_API_KEY=patAif9***
-SUPABASE_URL=https://supabasekong-bo4cc0k0swg0c08k40ockog8.app.generaia.site/mcp
-SUPABASE_ACCESS_TOKEN=eyJ0eX***
-```
-
-**Archivo Local (NO commitear):**
-- `.env.mcp` - Contiene todos los secrets
-- Protegido por `.gitignore`
-
----
-
-## 🚀 FLUJO COMPLETO DE RESERVA
-
-```mermaid
-sequenceDiagram
-    participant U as Usuario
-    participant V as VAPI
-    participant R as RouterAgent
-    participant L as LogicAgent
-    participant A as Airtable
-    participant T as Twilio
-    
-    U->>V: "Quiero reservar para 4 personas mañana a las 20:00"
-    V->>R: Transcripción de texto
-    R->>R: Analiza intención: RESERVA_NUEVA
-    R->>L: Delega a LogicAgent
-    
-    L->>A: Consulta disponibilidad (fecha/hora/capacidad)
-    A-->>L: Mesa disponible: Mesa #5
-    
-    L->>A: Crea reserva (Mesa #5, 4 personas, mañana 20:00)
-    A-->>L: Reserva ID: RES-2026-001
-    
-    L->>T: Envía confirmación WhatsApp
-    T-->>U: "✅ Reserva confirmada: Mesa #5, mañana 20:00, 4 personas"
-    
-    L-->>R: Operación completada
-    R-->>V: Respuesta al usuario
-    V-->>U: "Tu reserva está confirmada. Te hemos enviado los detalles por WhatsApp."
+┌─────────────────────────────────────────────────────────────────────────┐
+│                         CEREBRO EN LAS NUBES                             │
+│                    (Repositorio único: cerebro-en-las-nubes)             │
+└─────────────────────────────────────────────────────────────────────────┘
+                                    │
+        ┌───────────────────────────┼───────────────────────────┐
+        │                           │                           │
+        ▼                           ▼                           ▼
+┌───────────────┐          ┌───────────────┐          ┌───────────────┐
+│   ASISTENTE   │          │   DASHBOARD   │          │  APP ANDROID  │
+│    DE VOZ     │          │     WEB       │          │   (Personal)  │
+│   (Backend)   │          │  (Admin Web)  │          │  (Camareros)  │
+└───────┬───────┘          └───────┬───────┘          └───────┬───────┘
+        │                          │                          │
+        │                    ┌─────┴─────┐                    │
+        │                    │           │                    │
+        ▼                    ▼           ▼                    ▼
+   ┌─────────┐         ┌─────────┐  ┌─────────┐         ┌─────────┐
+   │ Cliente │         │  Admin  │  │Encargada│         │Camarero │
+   │  Llama  │         │  Dueña  │  │         │         │Cocinero │
+   └─────────┘         └─────────┘  └─────────┘         └─────────┘
+        │                                               
+        ▼                                               
+   ┌─────────┐                                         
+   │  VAPI   │                                         
+   │(Voz AI) │                                         
+   └────┬────┘                                         
+        │                                               
+        ▼                                               
+┌─────────────────────────────────────────────────────┐
+│              BACKEND (Python/FastAPI)                │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  │
+│  │   Router    │  │    Logic    │  │   Human     │  │
+│  │    Agent    │→ │    Agent    │→ │    Agent    │  │
+│  └─────────────┘  └─────────────┘  └─────────────┘  │
+│         │                │                │          │
+│         └────────────────┼────────────────┘          │
+│                          ▼                           │
+│              ┌───────────────────────┐               │
+│              │     Airtable (BD)     │               │
+│              └───────────────────────┘               │
+│                          │                           │
+│         ┌────────────────┼────────────────┐          │
+│         ▼                ▼                ▼          │
+│    ┌─────────┐      ┌─────────┐      ┌─────────┐    │
+│    │  Redis  │      │Supabase │      │ Twilio  │    │
+│    │ (Caché) │      │  (Auth) │      │(WhatsApp│    │
+│    └─────────┘      └─────────┘      └─────────┘    │
+└─────────────────────────────────────────────────────┘
+                          │
+         ┌────────────────┼────────────────┐
+         ▼                ▼                ▼
+   ┌─────────────┐  ┌─────────────┐  ┌─────────────┐
+   │   Dashboard │  │ App Android │  │   WebSocket  │
+   │    (React)  │  │   (Kotlin)  │  │ (Tiempo Real)│
+   └─────────────┘  └─────────────┘  └─────────────┘
 ```
 
 ---
 
-## 🛠️ FLUJO DE DEPLOYMENT
+## Estructura del Repositorio (Monorepo)
 
-```mermaid
-graph LR
-    A[Commit to GitHub] --> B[GitHub Actions CI]
-    B --> C{Tests Pass?}
-    C -->|No| D[Notify Developer]
-    C -->|Yes| E[Coolify Webhook]
-    E --> F[Coolify Pull & Build]
-    F --> G[Deploy to VPS]
-    G --> H[Health Check]
-    H --> I{Healthy?}
-    I -->|No| J[Rollback]
-    I -->|Yes| K[Live]
+```
+cerebro-en-las-nubes/
+│
+├── src/                          # BACKEND (Python/FastAPI)
+│   ├── api/
+│   │   ├── vapi_router.py        # Webhook llamadas VAPI
+│   │   ├── whatsapp_router.py    # Webhook WhatsApp Twilio
+│   │   ├── mobile/
+│   │   │   └── mobile_api.py     # API para app Android
+│   │   ├── websocket/
+│   │   │   └── reservations_ws.py # WebSocket tiempo real
+│   │   └── sync/
+│   │       └── sync_api.py       # Sincronización Airtable↔Supabase
+│   ├── application/
+│   │   ├── orchestrator.py       # Orquestador principal
+│   │   └── agents/
+│   │       ├── router_agent.py   # Clasifica intenciones
+│   │       ├── logic_agent.py    # Lógica de negocio
+│   │       └── human_agent.py    # Respuestas naturales
+│   ├── services/
+│   │   ├── auth_service.py       # Autenticación JWT
+│   │   ├── sync_service.py       # Sincronización BD
+│   │   └── push_notification_service.py # Notificaciones FCM
+│   └── core/
+│       └── config/
+│           └── settings.py       # Configuración centralizada
+│
+├── dashboard/                    # DASHBOARD WEB (React)
+│   ├── src/
+│   │   ├── components/           # Componentes UI
+│   │   │   ├── Reservas.tsx
+│   │   │   ├── Mesas.tsx
+│   │   │   └── Dashboard.tsx
+│   │   ├── types.ts              # Tipos TypeScript
+│   │   └── App.tsx
+│   ├── package.json
+│   └── vite.config.ts
+│
+├── android-app/                  # APP ANDROID (Kotlin)
+│   └── app/src/main/java/com/enlasnubes/restobar/
+│       ├── MainActivity.kt
+│       ├── data/
+│       │   ├── websocket/        # WebSocket Manager
+│       │   ├── repository/       # Repositorios
+│       │   └── remote/           # API client
+│       └── presentation/
+│           ├── auth/             # Login
+│           ├── reservations/     # Pantalla reservas
+│           ├── tables/           # Pantalla mesas
+│           ├── kitchen/          # Pantalla cocina
+│           └── admin/            # Pantalla admin
+│
+├── scripts/                      # Scripts utilidad
+│   ├── deploy.sh                 # Deploy a Coolify
+│   └── load_mcp_secrets.ps1      # Cargar secrets
+│
+├── Dockerfile                    # Contenedor backend
+├── coolify.yaml                  # Config Coolify
+├── requirements.txt              # Dependencias Python
+└── README.md
 ```
 
 ---
 
-## 📊 STACK TECNOLÓGICO
+## Flujo de Datos
 
-### Backend
-- **Lenguaje:** Python (FastAPI) / Node.js (verificar)
-- **Framework:** FastAPI / Express
-- **ORM:** SQLAlchemy / Prisma
-- **Testing:** pytest / Jest
+### 1. Cliente hace reserva por teléfono:
+```
+Cliente → VAPI → Backend (RouterAgent) → LogicAgent → Airtable
+                                        ↓
+                                    WhatsApp (confirmación)
+                                        ↓
+                                    App Android (notificación push)
+```
 
-### Frontend (si aplica)
-- **Framework:** React / Next.js (verificar si existe UI de admin)
-- **Styling:** Tailwind CSS
-- **State Management:** Zustand / Redux
+### 2. Encargada gestiona desde Dashboard:
+```
+Dashboard Web → Backend API → Airtable
+                   ↓
+              WebSocket → App Android (actualización tiempo real)
+```
 
-### Infraestructura
-- **Hosting:** VPS (gestionado por Coolify)
-- **Containerización:** Docker
-- **Orchestration:** Coolify
-- **CI/CD:** GitHub Actions
-
-### Base de Datos
-- **Principal:** Airtable (NoSQL/Relacional híbrido)
-- **Secundaria:** Supabase PostgreSQL
-- **Caché:** Redis (opcional)
-
----
-
-## 🔍 OBSERVABILIDAD
-
-### Logs
-- **Ubicación:** Coolify Logs Dashboard
-- **Formato:** JSON estructurado (verificar)
-- **Retention:** X días (configurar)
-
-### Métricas
-- **Tool:** (Verificar si hay Grafana/Prometheus)
-- **Dashboards:** (A implementar)
-
-### Alertas
-- **Canal:** (Email/Slack - configurar)
-- **Condiciones:** (Errores críticos, downtime)
+### 3. Camarero actualiza desde App:
+```
+App Android → Backend API → Airtable
+                 ↓
+            WebSocket → Dashboard (sincronización)
+                 ↓
+            Push FCM → Otros dispositivos
+```
 
 ---
 
-## 🚧 ÁREAS DE MEJORA IDENTIFICADAS
+## Tecnologías Clave
 
-### 1. Observabilidad (FASE 4)
-- [ ] Implementar logging estructurado
-- [ ] Configurar métricas de negocio (reservas/día, tasa de éxito)
-- [ ] Dashboards en tiempo real
-- [ ] Alertas proactivas
-
-### 2. Optimización (FASE 5)
-- [ ] Redis connection pooling
-- [ ] Airtable query optimization
-- [ ] Rate limiting en APIs
-- [ ] Circuit breaker para resiliencia
-
-### 3. Testing
-- [ ] Tests unitarios (coverage > 80%)
-- [ ] Tests de integración para flujo completo
-- [ ] Tests de carga (simular picos de demanda)
-- [ ] Contract tests con Airtable/Twilio
-
-### 4. Documentación
-- [ ] API documentation (OpenAPI/Swagger)
-- [ ] Runbooks para incidentes
-- [ ] Onboarding para nuevos developers
-- [ ] Diagramas actualizados en tiempo real
+| Componente | Stack | Propósito |
+|------------|-------|-----------|
+| **Backend** | Python + FastAPI | API REST, WebSocket, lógica de negocio |
+| **Base de Datos** | Airtable | Datos operativos (reservas, mesas) |
+| **Autenticación** | Supabase Auth | JWT para app móvil |
+| **Caché** | Redis | Sesiones, disponibilidad en tiempo real |
+| **Voz** | VAPI | Asistente de voz telefónico |
+| **WhatsApp** | Twilio | Confirmaciones y comunicaciones |
+| **Dashboard** | React + Vite | Interfaz de administración web |
+| **App Móvil** | Kotlin + Compose | App Android para personal |
+| **Tiempo Real** | WebSocket | Sincronización entre sistemas |
+| **Notificaciones** | Firebase FCM | Push a móviles del personal |
+| **Hosting** | Coolify VPS | Deploy de todo el sistema |
 
 ---
 
-## 📞 CONTACTOS Y RECURSOS
+## URLs del Sistema (Después del deploy)
 
-### URLs Críticas
-- **Coolify Dashboard:** https://coolify.generaia.site
-- **Airtable Base:** https://airtable.com/appcUoRqLVqxQm7K2 (verificar ID)
-- **Supabase Dashboard:** https://supabasekong-bo4cc0k0swg0c08k40ockog8.app.generaia.site
-- **GitHub Repo:** (URL del repositorio)
-
-### Regeneración de Tokens
-- **GitHub:** https://github.com/settings/tokens
-- **Airtable:** https://airtable.com/create/tokens
-- **Coolify:** https://coolify.generaia.site/security/api-tokens
+| Servicio | URL Ejemplo |
+|----------|---------------|
+| Backend API | `https://api.enlasnubes.com` |
+| WebSocket | `wss://api.enlasnubes.com/ws` |
+| Dashboard | `https://admin.enlasnubes.com` |
+| App Android | APK instalado en dispositivos |
 
 ---
 
-## 📝 NOTAS IMPORTANTES
+## Próximos Pasos para Poner en Producción
 
-1. **NotebookLM es la fuente de verdad** para reglas de negocio
-2. **n8n NO se usa** en este proyecto (deshabilitado)
-3. **VAPI es CRÍTICO** para el funcionamiento del asistente de voz
-4. **Todas las reservas deben confirmarse por WhatsApp**
-5. **LogicAgent usa deepseek-chat** para optimizar costos
+1. **Configurar dominio** en Coolify
+2. **Actualizar URL del API** en `android-app/app/build.gradle.kts`
+3. **Configurar AIRTABLE_WEBHOOK_SECRET** en `.env.mcp`
+4. **Implementar login real** con Supabase Auth
+5. **Deploy a Coolify** con `scripts/deploy.sh`
+6. **Compilar APK** de Android y distribuir al personal
 
 ---
 
-**Última actualización:** 2026-02-08  
-**Mantenido por:** Verdent AI + Equipo de Desarrollo  
-**Próxima revisión:** Después de FASE 4 (Auditoría Arquitectónica)
+## Nota sobre los Repositorios
+
+Actualmente existen 3 repos en GitHub por confusiones previas:
+- ✅ **`cerebro-en-las-nubes`** (CORRECTO - usar este)
+- ❌ `asistente-voz-en-las-nubes` (obsoleto)
+- ❌ `NUEVO-ASISTENTE-EN-LAS-NUBES` (obsoleto)
+
+**Recomendación:** Archivar o eliminar los repos obsoletos y trabajar únicamente con `cerebro-en-las-nubes`.
