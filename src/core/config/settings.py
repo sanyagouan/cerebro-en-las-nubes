@@ -40,6 +40,7 @@ class Settings:
     TWILIO_ACCOUNT_SID: Optional[str] = os.getenv("TWILIO_ACCOUNT_SID")
     TWILIO_AUTH_TOKEN: Optional[str] = os.getenv("TWILIO_AUTH_TOKEN")
     TWILIO_FROM_NUMBER: Optional[str] = os.getenv("TWILIO_FROM_NUMBER")
+    TWILIO_SKIP_VALIDATION: str = os.getenv("TWILIO_SKIP_VALIDATION", "false")
     
     # VAPI
     VAPI_API_KEY: Optional[str] = os.getenv("VAPI_API_KEY")

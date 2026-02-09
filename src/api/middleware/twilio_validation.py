@@ -22,10 +22,10 @@ async def validate_twilio_signature(request: Request) -> bool:
 
     url = str(request.url)
     form_data = await request.form()
-    params = dict(form_data)
+    params = {k: v if isinstance(v, str) else str(v) for k, v in form_data.items()}
 
     sorted_params = sorted(params.items())
-    data = url + "".join([str(v) for k, v in sorted_params])
+    data = url + "".join([v for k, v in sorted_params])
 
     expected = hmac.new(
         auth_token.encode(),
@@ -39,7 +39,7 @@ async def validate_twilio_signature(request: Request) -> bool:
 class TwilioValidationMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         if "/whatsapp/webhook" in request.url.path and request.method == "POST":
-            skip = getattr(settings, "ENVIRONMENT", "development") == "development"
+            skip = getattr(settings, "TWILIO_SKIP_VALIDATION", "false").lower() == "true"
             if not skip:
                 is_valid = await validate_twilio_signature(request)
                 if not is_valid:

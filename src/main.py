@@ -17,6 +17,9 @@ from src.api.mobile.mobile_api import router as mobile_router
 from src.api.websocket.reservations_ws import router as websocket_router
 from src.api.sync.sync_api import router as sync_router
 
+# Import Middleware
+from src.api.middleware.twilio_validation import TwilioValidationMiddleware
+
 # Get CORS origins from environment
 allowed_origins = os.getenv("ALLOWED_ORIGINS", "*").split(",")
 if os.getenv("ENVIRONMENT") == "production":
@@ -45,6 +48,9 @@ app.add_middleware(
     allow_methods=["GET", "POST", "OPTIONS", "DELETE"],
     allow_headers=["Content-Type", "Authorization", "X-Request-ID"],
 )
+
+# Twilio Signature Validation - Protects webhooks from spoofing
+app.add_middleware(TwilioValidationMiddleware)
 
 # Include API Routers
 app.include_router(vapi_router)
