@@ -1,100 +1,48 @@
 """
-Middleware de validación de firma Twilio para webhooks.
+Middleware de validacion de firma Twilio para webhooks FastAPI.
 Protege contra requests falsas que simulen ser de Twilio.
 """
-import os
 import hmac
 import hashlib
-from functools import wraps
-from flask import request, abort
-import logging
-
-logger = logging.getLogger(__name__)
-
-
-def validate_twilio_signature(func):
-    """
-    Decorador para validar la firma X-Twilio-Signature en webhooks.
-    
-    Usage:
-        @app.route('/twilio/webhook', methods=['POST'])
-        @validate_twilio_signature
-        def twilio_webhook():
-            # Tu código aquí - la firma ya fue validada
-            pass
-    """
-    @wraps(func)
-    def decorated_function(*args, **kwargs):
-        # En desarrollo, permitir bypass con variable de entorno
-        if os.getenv('TWILIO_SKIP_VALIDATION', 'false').lower() == 'true':
-            logger.warning("⚠️  Validación Twilio deshabilitada (modo desarrollo)")
-            return func(*args, **kwargs)
-        
-        # Obtener credenciales
-        auth_token = os.getenv('TWILIO_AUTH_TOKEN')
-        if not auth_token:
-            logger.error("❌ TWILIO_AUTH_TOKEN no configurado")
-            abort(500, "Configuración incompleta")
-        
-        # Obtener firma del header
-        signature = request.headers.get('X-Twilio-Signature', '')
-        if not signature:
-            logger.warning("🚫 Webhook sin firma Twilio")
-            abort(403, "Firma requerida")
-        
-        # Construir URL completa
-        url = request.url
-        
-        # Obtener parámetros del formulario
-        params = request.form.to_dict()
-        
-        # Calcular firma esperada
-        # Twilio concatena: URL + todos los valores de los parámetros ordenados
-        sorted_params = sorted(params.items())
-        data = url + ''.join([v for k, v in sorted_params])
-        
-        expected_signature = hmac.new(
-            auth_token.encode(),
-            data.encode(),
-            hashlib.sha1
-        ).hexdigest()
-        
-        # Comparar firmas (timing-safe)
-        if not hmac.compare_digest(signature, expected_signature):
-            logger.warning(f"🚫 Firma Twilio inválida. Esperada: {expected_signature[:20]}..., Recibida: {signature[:20]}...")
-            abort(403, "Firma inválida")
-        
-        logger.info("✅ Firma Twilio validada correctamente")
-        return func(*args, **kwargs)
-    
-    return decorated_function
+from fastapi import Request, HTTPException
+from starlette.middleware.base import BaseHTTPMiddleware
+from src.core.config import settings
+from src.core.logging import logger
 
 
-def validate_twilio_request_flask():
-    """
-    Función standalone para validar requests Twilio en Flask.
-    Retorna True si es válido, False si no.
-    """
-    auth_token = os.getenv('TWILIO_AUTH_TOKEN')
+async def validate_twilio_signature(request: Request) -> bool:
+    auth_token = getattr(settings, "TWILIO_AUTH_TOKEN", None)
     if not auth_token:
-        logger.error("❌ TWILIO_AUTH_TOKEN no configurado")
+        logger.error("TWILIO_AUTH_TOKEN no configurado")
         return False
-    
-    signature = request.headers.get('X-Twilio-Signature', '')
+
+    signature = request.headers.get("X-Twilio-Signature", "")
     if not signature:
         return False
-    
-    url = request.url
-    params = request.form.to_dict()
-    
-    # Calcular firma esperada
+
+    url = str(request.url)
+    form_data = await request.form()
+    params = dict(form_data)
+
     sorted_params = sorted(params.items())
-    data = url + ''.join([v for k, v in sorted_params])
-    
-    expected_signature = hmac.new(
+    data = url + "".join([str(v) for k, v in sorted_params])
+
+    expected = hmac.new(
         auth_token.encode(),
         data.encode(),
         hashlib.sha1
     ).hexdigest()
-    
-    return hmac.compare_digest(signature, expected_signature)
+
+    return hmac.compare_digest(signature, expected)
+
+
+class TwilioValidationMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        if "/whatsapp/webhook" in request.url.path and request.method == "POST":
+            skip = getattr(settings, "ENVIRONMENT", "development") == "development"
+            if not skip:
+                is_valid = await validate_twilio_signature(request)
+                if not is_valid:
+                    logger.warning("Firma Twilio invalida rechazada")
+                    raise HTTPException(status_code=403, detail="Invalid Twilio signature")
+        return await call_next(request)

@@ -1,32 +1,24 @@
-# Conectar app a red Docker y lanzar deploy
-$appUuid = "g40o0os008wc8sgoog84w48c"
-$apiUrl = $env:COOLIFY_API_URL
-$token = $env:COOLIFY_API_TOKEN
-
-$headers = @{
-    Authorization = "Bearer $token"
+$h = @{
+    Authorization = "Bearer $env:COOLIFY_API_TOKEN"
     Accept = "application/json"
-    "Content-Type" = "application/json"
 }
 
-# Paso 1: Actualizar configuracion de red
-Write-Host "[1/2] Configurando red Docker..." -ForegroundColor Yellow
-try {
-    $body = '{"connect_to_docker_network":true}'
-    $url = "$apiUrl/api/v1/applications/$appUuid"
-    Invoke-RestMethod -Uri $url -Headers $headers -Method PATCH -Body $body
-    Write-Host "[OK] Red Docker configurada" -ForegroundColor Green
-} catch {
-    Write-Host "[WARN] No se pudo configurar red: $($_.Exception.Message)" -ForegroundColor Yellow
-}
+$appUuid = "g40o0os008wc8sgoog84w48c"
+$url = "$env:COOLIFY_API_URL/api/v1/deploy?uuid=$appUuid&force=true"
 
-# Paso 2: Lanzar deploy
-Write-Host "[2/2] Lanzando deploy..." -ForegroundColor Yellow
+Write-Host "Deploying cerebro-backend..." -ForegroundColor Cyan
+Write-Host "URL: $url" -ForegroundColor Gray
+
 try {
-    $url = "$apiUrl/api/v1/applications/$appUuid/deploy"
-    $result = Invoke-RestMethod -Uri $url -Headers $headers -Method POST
-    $result | ConvertTo-Json -Depth 3
+    $result = Invoke-RestMethod -Uri $url -Headers $h -Method GET
     Write-Host "[OK] Deploy iniciado" -ForegroundColor Green
+    $result | ConvertTo-Json -Depth 5
 } catch {
-    Write-Host "[FAIL] Error en deploy: $($_.Exception.Message)" -ForegroundColor Red
+    Write-Host "[FAIL] $($_.Exception.Message)" -ForegroundColor Red
+    if ($_.Exception.Response) {
+        $reader = New-Object System.IO.StreamReader($_.Exception.Response.GetResponseStream())
+        $reader.BaseStream.Position = 0
+        $responseBody = $reader.ReadToEnd()
+        Write-Host "Response: $responseBody" -ForegroundColor Yellow
+    }
 }
