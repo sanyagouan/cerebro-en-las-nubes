@@ -3,7 +3,7 @@ uvicorn[standard]==0.24.0
 python-dotenv==1.0.0
 pydantic==2.5.0
 pydantic-settings==2.1.0
-python-jose[cryptography]==22.0.0
+python-jose[cryptography]==3.3.0
 httpx==0.25.0
 redis==5.0.1
 
