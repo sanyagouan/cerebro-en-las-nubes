@@ -1,5 +1,6 @@
 import json
 import os  # FIXED: faltaba para os.getenv()
+import socket  # FIXED: faltaba para constantes TCP
 import zlib
 import time
 from typing import Optional, Any, Dict, List
@@ -169,9 +170,9 @@ class RedisCache:
                 retry_on_timeout=True,
                 socket_keepalive=True,
                 socket_keepalive_options={
-                    "TCP_KEEPIDLE": 300,
-                    "TCP_KEEPINTVL": 60,
-                    "TCP_KEEPCNT": 3,
+                    socket.TCP_KEEPIDLE: 300,
+                    socket.TCP_KEEPINTVL: 60,
+                    socket.TCP_KEEPCNT: 3,
                 },
             )
 
