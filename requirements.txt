@@ -16,4 +16,4 @@ python-multipart==0.0.9
 pyairtable==2.3.0
 
 # Supabase
-supabase==2.3.3
+supabase==2.15.0
