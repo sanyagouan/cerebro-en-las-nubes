@@ -1,4 +1,4 @@
-import { TrendingUp, Users, Clock, AlertCircle, CheckCircle, XCircle } from 'lucide-react';
+import { TrendingUp, Users, Clock, AlertCircle, CheckCircle } from 'lucide-react';
 import { METRICAS_EJEMPLO, RESERVAS_EJEMPLO } from '../types';
 
 export default function Dashboard() {

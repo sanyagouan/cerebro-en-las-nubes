@@ -1,6 +1,6 @@
 import { Check, X, Edit3 } from 'lucide-react';
 import { useState } from 'react';
-import { Search, Filter, Phone, MessageSquare, Calendar, Users } from 'lucide-react';
+import { Search, Phone, Calendar, Users } from 'lucide-react';
 import { RESERVAS_EJEMPLO } from '../types';
 
 export default function Reservas() {
