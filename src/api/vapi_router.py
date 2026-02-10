@@ -26,6 +26,47 @@ twilio_service = TwilioService()
 airtable_service = AirtableService()
 
 
+@router.post("/webhook")
+async def vapi_voice_webhook(request: Request):
+    """
+    Webhook para llamadas entrantes de Twilio.
+    Devuelve TwiML para conectar la llamada con VAPI.
+    """
+    try:
+        form_data = await request.form()
+        from_number = form_data.get("From", "unknown")
+        to_number = form_data.get("To", "unknown")
+        call_sid = form_data.get("CallSid", "unknown")
+        
+        logger.info(f"Incoming call from {from_number} to {to_number}, SID: {call_sid}")
+        
+        from fastapi import Response
+        
+        twiml_response = f"""<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+    <Connect>
+        <Stream url="wss://api.vapi.ai/twilio/stream">
+            <Parameter name="assistantId" value="9a1f2df2-1c2d-4061-b11c-bdde7568c85d"/>
+            <Parameter name="customerPhoneNumber" value="{from_number}"/>
+        </Stream>
+    </Connect>
+</Response>"""
+        
+        return Response(content=twiml_response, media_type="application/xml")
+        
+    except Exception as e:
+        logger.error(f"Error handling voice webhook: {str(e)}")
+        from fastapi import Response
+        error_twiml = """<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+    <Say voice="alice" language="es-ES">
+        Lo sentimos, ha ocurrido un error técnico. Por favor, llame al restaurante directamente al 941 57 84 51.
+    </Say>
+    <Hangup/>
+</Response>"""
+        return Response(content=error_twiml, media_type="application/xml")
+
+
 # --- CONSTANTES Y PROMPTS ---
 
 SYSTEM_PROMPT_V2 = """Eres Nube, la recepcionista virtual COMPATIBLE y ENCANTADORA de En Las Nubes Restobar en Logroño.
