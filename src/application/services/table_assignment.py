@@ -9,11 +9,10 @@ from dataclasses import dataclass
 from enum import Enum
 
 from src.core.entities.table import (
-    Table, TableZone, TableStatus, 
-    get_all_tables, get_tables_by_zone, get_table_by_id,
-    MESAS_TERRAZA, MESAS_INTERIOR, MESAS_AUXILIARES
+    Table, TableZone, TableStatus
 )
 from src.core.entities.booking import ZonePreference, SpecialRequest
+from src.infrastructure.repositories.table_repository import TableRepository
 from src.infrastructure.services.weather_service import get_weather_service
 
 
@@ -29,7 +28,8 @@ class AsignacionResult:
     avisos: List[str] = None
     motivo_fallo: Optional[str] = None
     requiere_escalado: bool = False
-    
+    sugerir_waitlist: bool = False  # NUEVO: Indica si se debe ofrecer lista de espera
+
     def __post_init__(self):
         if self.avisos is None:
             self.avisos = []
@@ -44,12 +44,15 @@ class TableAssignmentService:
     # Capacidad máxima antes de escalado obligatorio
     MAX_PAX_SIN_ESCALADO = 10
     
-    def __init__(self):
+    def __init__(self, table_repository: Optional[TableRepository] = None):
         self.weather_service = get_weather_service()
+        self.table_repository = table_repository or TableRepository()
         # Estado de ocupación (en producción vendría de Airtable)
         self._ocupacion: dict = {}  # {mesa_id: {fecha: {turno: reserva_id}}}
+        # Cache de mesas cargadas desde Airtable
+        self._mesas_cache: Optional[List[Table]] = None
     
-    def asignar_mesa(
+    async def asignar_mesa(
         self,
         pax: int,
         fecha: date,
@@ -95,7 +98,7 @@ class TableAssignmentService:
                 avisos.extend(weather_avisos)
         
         # ========== BUSCAR MESA SEGÚN CAPACIDAD ==========
-        resultado = self._buscar_mesa_por_capacidad(
+        resultado = await self._buscar_mesa_por_capacidad(
             pax=pax,
             fecha=fecha,
             turno=turno,
@@ -118,10 +121,11 @@ class TableAssignmentService:
         return AsignacionResult(
             exito=False,
             motivo_fallo="No hay mesas disponibles para ese número de personas en la fecha y turno seleccionados",
-            avisos=avisos
+            avisos=avisos,
+            sugerir_waitlist=True  # Ofrecer lista de espera cuando no hay mesas
         )
     
-    def _buscar_mesa_por_capacidad(
+    async def _buscar_mesa_por_capacidad(
         self,
         pax: int,
         fecha: date,
@@ -135,27 +139,27 @@ class TableAssignmentService:
         
         # ========== 1-2 PERSONAS ==========
         if pax <= 2:
-            return self._buscar_1_2_personas(fecha, turno, zona_preferencia)
+            return await self._buscar_1_2_personas(fecha, turno, zona_preferencia)
         
         # ========== 3 PERSONAS ==========
         elif pax == 3:
-            return self._buscar_3_personas(fecha, turno, zona_preferencia)
+            return await self._buscar_3_personas(fecha, turno, zona_preferencia)
         
         # ========== 4-6 PERSONAS ==========
         elif pax <= 6:
-            return self._buscar_4_6_personas(fecha, turno, zona_preferencia)
+            return await self._buscar_4_6_personas(fecha, turno, zona_preferencia)
         
         # ========== 7-8 PERSONAS ==========
         elif pax <= 8:
-            return self._buscar_7_8_personas(fecha, turno)
+            return await self._buscar_7_8_personas(fecha, turno)
         
         # ========== 9-10 PERSONAS ==========
         elif pax <= 10:
-            return self._buscar_9_10_personas(fecha, turno)
+            return await self._buscar_9_10_personas(fecha, turno)
         
         return None
     
-    def _buscar_1_2_personas(
+    async def _buscar_1_2_personas(
         self, fecha: date, turno: str, zona_pref: ZonePreference
     ) -> Optional[Tuple[dict, bool, Optional[str]]]:
         """Lógica para 1-2 personas: priorizar mesas pequeñas."""
@@ -174,11 +178,13 @@ class TableAssignmentService:
         
         for mesa_id in candidatas:
             if self._esta_disponible(mesa_id, fecha, turno):
-                return self._get_mesa_dict(mesa_id), False, None
+                mesa_dict = await self._get_mesa_dict(mesa_id)
+                if mesa_dict:
+                    return mesa_dict, False, None
         
         return None
     
-    def _buscar_3_personas(
+    async def _buscar_3_personas(
         self, fecha: date, turno: str, zona_pref: ZonePreference
     ) -> Optional[Tuple[dict, bool, Optional[str]]]:
         """Lógica para 3 personas: C2-B flexible, luego C6-A/B."""
@@ -195,11 +201,13 @@ class TableAssignmentService:
         
         for mesa_id in candidatas:
             if self._esta_disponible(mesa_id, fecha, turno):
-                return self._get_mesa_dict(mesa_id), False, None
+                mesa_dict = await self._get_mesa_dict(mesa_id)
+                if mesa_dict:
+                    return mesa_dict, False, None
         
         return None
     
-    def _buscar_4_6_personas(
+    async def _buscar_4_6_personas(
         self, fecha: date, turno: str, zona_pref: ZonePreference
     ) -> Optional[Tuple[dict, bool, Optional[str]]]:
         """Lógica para 4-6 personas: mesas de 6 o terraza."""
@@ -221,11 +229,13 @@ class TableAssignmentService:
         # Fallback: mesas grandes si no hay de 6
         for mesa_id in ["C8-A", "C8-B", "C8-C", "C7"]:
             if self._esta_disponible(mesa_id, fecha, turno):
-                return self._get_mesa_dict(mesa_id), False, None
+                mesa_dict = await self._get_mesa_dict(mesa_id)
+                if mesa_dict:
+                    return mesa_dict, False, None
         
         return None
     
-    def _buscar_7_8_personas(
+    async def _buscar_7_8_personas(
         self, fecha: date, turno: str
     ) -> Optional[Tuple[dict, bool, Optional[str]]]:
         """Lógica para 7-8 personas: mesas de 8 (SIN terraza)."""
@@ -235,15 +245,19 @@ class TableAssignmentService:
         
         for mesa_id in orden:
             if self._esta_disponible(mesa_id, fecha, turno):
-                return self._get_mesa_dict(mesa_id), False, None
+                mesa_dict = await self._get_mesa_dict(mesa_id)
+                if mesa_dict:
+                    return mesa_dict, False, None
         
         # Último recurso: C6-B con auxiliar AUX-4
         if self._esta_disponible("C6-B", fecha, turno) and self._esta_disponible("AUX-4", fecha, turno):
-            return self._get_mesa_dict("C6-B"), True, "AUX-4"
+            mesa_dict = await self._get_mesa_dict("C6-B")
+            if mesa_dict:
+                return mesa_dict, True, "AUX-4"
         
         return None
     
-    def _buscar_9_10_personas(
+    async def _buscar_9_10_personas(
         self, fecha: date, turno: str
     ) -> Optional[Tuple[dict, bool, Optional[str]]]:
         """Lógica para 9-10 personas: requiere auxiliar obligatoriamente."""
@@ -257,7 +271,9 @@ class TableAssignmentService:
         
         for mesa_id, aux_id in configs:
             if self._esta_disponible(mesa_id, fecha, turno) and self._esta_disponible(aux_id, fecha, turno):
-                return self._get_mesa_dict(mesa_id), True, aux_id
+                mesa_dict = await self._get_mesa_dict(mesa_id)
+                if mesa_dict:
+                    return mesa_dict, True, aux_id
         
         return None
     
@@ -278,12 +294,32 @@ class TableAssignmentService:
         key = (mesa_id, fecha.isoformat(), turno)
         self._ocupacion.pop(key, None)
     
-    def _get_mesa_dict(self, mesa_id: str) -> Optional[dict]:
-        """Obtiene el diccionario de configuración de una mesa."""
-        all_mesas = MESAS_TERRAZA + MESAS_INTERIOR + MESAS_AUXILIARES
-        for mesa in all_mesas:
-            if mesa["id"] == mesa_id:
-                return mesa
+    async def _cargar_mesas_cache(self) -> List[Table]:
+        """Carga todas las mesas desde Airtable y las cachea."""
+        if self._mesas_cache is None:
+            self._mesas_cache = await self.table_repository.list_all()
+        return self._mesas_cache
+    
+    def _invalidar_cache(self):
+        """Invalida el cache de mesas."""
+        self._mesas_cache = None
+    
+    async def _get_mesa_dict(self, mesa_id: str) -> Optional[dict]:
+        """Obtiene el diccionario de configuración de una mesa desde Airtable."""
+        mesas = await self._cargar_mesas_cache()
+        for mesa in mesas:
+            if mesa.id == mesa_id:
+                return {
+                    "id": mesa.id,
+                    "nombre": mesa.nombre,
+                    "zona": mesa.zona.value,
+                    "capacidad_min": mesa.capacidad_min,
+                    "capacidad_max": mesa.capacidad_max,
+                    "ampliable": mesa.ampliable,
+                    "requiere_aviso": mesa.requiere_aviso,
+                    "notas": mesa.notas,
+                    "prioridad": mesa.prioridad
+                }
         return None
     
     def _get_avisos_mesa(self, mesa: dict) -> List[str]:

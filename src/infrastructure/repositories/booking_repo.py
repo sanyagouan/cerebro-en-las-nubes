@@ -219,12 +219,74 @@ class AirtableBookingRepository(BookingRepository):
             # Append is safer.
             record = table_api.get(booking_id)
             current_notes = record["fields"].get("Notas", "")
-            
+
             updated_note = f"{current_notes}\n[WhatsApp]: {new_note}".strip()
-            
+
             table_api.update(booking_id, {"Notas": updated_note})
             print(f"✅ Notas actualizadas para {booking_id}")
             return True
         except Exception as e:
             print(f"❌ Error updating notes: {e}")
+            return False
+
+    def list_by_date(self, fecha: datetime.date) -> List[Booking]:
+        """
+        Obtiene todas las reservas para una fecha específica.
+        Usado por scheduler para enviar recordatorios 24h antes.
+
+        Args:
+            fecha: Fecha para filtrar reservas (datetime.date object)
+
+        Returns:
+            Lista de reservas para esa fecha
+        """
+        try:
+            table_api = self.api.table(self.base_id, TABLES["RESERVAS"])
+
+            # Format date for Airtable formula
+            date_str = fecha.strftime("%Y-%m-%d")
+
+            # Formula: buscar reservas de esta fecha que NO estén canceladas
+            formula = f"AND(IS_SAME({{Fecha de Reserva}}, '{date_str}', 'day'), {{Estado de Reserva}} != 'Cancelada')"
+
+            records = table_api.all(formula=formula)
+            bookings = []
+
+            for r in records:
+                booking = self._map_record_to_booking(r)
+                if booking:
+                    bookings.append(booking)
+
+            print(f"✅ Found {len(bookings)} bookings for {date_str}")
+            return bookings
+
+        except Exception as e:
+            print(f"❌ Error listing bookings by date: {e}")
+            return []
+
+    def update_booking_reminder_sent(self, booking_id: str) -> bool:
+        """
+        Marca una reserva como que ya recibió recordatorio 24h.
+
+        Args:
+            booking_id: ID de la reserva en Airtable
+
+        Returns:
+            True si se actualizó correctamente
+        """
+        try:
+            table_api = self.api.table(self.base_id, TABLES["RESERVAS"])
+
+            # Update fields
+            fields = {
+                "Recordatorio Enviado": True,
+                "Recordatorio Enviado At": datetime.now().isoformat()
+            }
+
+            table_api.update(booking_id, fields)
+            print(f"✅ Recordatorio marcado como enviado para {booking_id}")
+            return True
+
+        except Exception as e:
+            print(f"❌ Error marking reminder as sent: {e}")
             return False
