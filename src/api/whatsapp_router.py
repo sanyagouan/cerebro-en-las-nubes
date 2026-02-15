@@ -6,6 +6,7 @@ from fastapi.responses import Response
 import logging
 
 from src.application.orchestrator import Orchestrator
+from src.api.middleware.rate_limiting import webhook_limit
 
 router = APIRouter(prefix="/whatsapp", tags=["WhatsApp"])
 logger = logging.getLogger(__name__)
@@ -21,6 +22,7 @@ def get_orchestrator():
 
 
 @router.post("/webhook")
+@webhook_limit()
 async def whatsapp_webhook(
     From: str = Form(...),
     Body: str = Form(...),

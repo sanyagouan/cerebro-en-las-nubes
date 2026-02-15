@@ -478,5 +478,15 @@ class SupabaseAirtableSync:
         return self._sync_history[-100:]  # Últimas 100
 
 
-# Instancia singleton
-sync_service = SupabaseAirtableSync()
+# Lazy singleton - initialize on first use to ensure env vars are loaded
+_sync_service_instance = None
+
+def get_sync_service() -> SupabaseAirtableSync:
+    """Get or create the singleton sync service instance."""
+    global _sync_service_instance
+    if _sync_service_instance is None:
+        _sync_service_instance = SupabaseAirtableSync()
+    return _sync_service_instance
+
+# For backward compatibility
+sync_service = property(lambda self: get_sync_service())

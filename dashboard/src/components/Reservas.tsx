@@ -1,18 +1,117 @@
 import { Check, X, Edit3 } from 'lucide-react';
 import { useState } from 'react';
 import { Search, Phone, Calendar, Users } from 'lucide-react';
-import { RESERVAS_EJEMPLO } from '../types';
+import {
+  useReservations,
+  useUpdateReservationStatus,
+  useCreateReservation,
+  useUpdateReservation,
+  Reservation,
+  ReservationStatus,
+} from '../hooks/useReservations';
+import { useAuth } from '../contexts/AuthContext';
+import ReservaDetalle from './ReservaDetalle';
+import ReservaForm from './ReservaForm';
 
 export default function Reservas() {
+  const { token } = useAuth();
   const [filtroEstado, setFiltroEstado] = useState<string>('todos');
   const [busqueda, setBusqueda] = useState('');
+  const [selectedReserva, setSelectedReserva] = useState<Reservation | null>(null);
+  const [isDetalleOpen, setIsDetalleOpen] = useState(false);
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [formMode, setFormMode] = useState<'create' | 'edit'>('create');
+  const [selectedReservaForEdit, setSelectedReservaForEdit] = useState<Reservation | null>(null);
 
-  const reservasFiltradas = RESERVAS_EJEMPLO.filter(reserva => {
-    const matchEstado = filtroEstado === 'todos' || reserva.estado.toLowerCase() === filtroEstado;
+  // Fetch reservations with filters
+  const { data, isLoading, error } = useReservations(
+    filtroEstado !== 'todos' ? { estado: filtroEstado as ReservationStatus } : undefined,
+    0,
+    100,
+    token
+  );
+  const updateStatusMutation = useUpdateReservationStatus();
+  const createMutation = useCreateReservation();
+  const updateMutation = useUpdateReservation();
+
+  // Filter by search term (client-side filtering for name/phone)
+  const reservasFiltradas = data?.reservations.filter(reserva => {
     const matchBusqueda = reserva.nombre.toLowerCase().includes(busqueda.toLowerCase()) ||
                          reserva.telefono.includes(busqueda);
-    return matchEstado && matchBusqueda;
-  });
+    return matchBusqueda;
+  }) || [];
+
+  // Handlers
+  const handleRowClick = (reserva: Reservation) => {
+    setSelectedReserva(reserva);
+    setIsDetalleOpen(true);
+  };
+
+  const handleConfirm = async (reserva: Reservation) => {
+    if (reserva.estado === 'Confirmada') return;
+    try {
+      await updateStatusMutation.mutateAsync({ id: reserva.id, estado: 'Confirmada' });
+      setIsDetalleOpen(false);
+    } catch (error) {
+      console.error('Error confirming reservation:', error);
+    }
+  };
+
+  const handleSeat = async (reserva: Reservation) => {
+    if (reserva.estado === 'Sentada') return;
+    try {
+      await updateStatusMutation.mutateAsync({ id: reserva.id, estado: 'Sentada' });
+      setIsDetalleOpen(false);
+    } catch (error) {
+      console.error('Error seating reservation:', error);
+    }
+  };
+
+  const handleComplete = async (reserva: Reservation) => {
+    if (reserva.estado === 'Completada') return;
+    try {
+      await updateStatusMutation.mutateAsync({ id: reserva.id, estado: 'Completada' });
+      setIsDetalleOpen(false);
+    } catch (error) {
+      console.error('Error completing reservation:', error);
+    }
+  };
+
+  const handleCancel = async (reserva: Reservation) => {
+    if (reserva.estado === 'Cancelada') return;
+    try {
+      await updateStatusMutation.mutateAsync({ id: reserva.id, estado: 'Cancelada' });
+      setIsDetalleOpen(false);
+    } catch (error) {
+      console.error('Error cancelling reservation:', error);
+    }
+  };
+
+  const handleCreateClick = () => {
+    setFormMode('create');
+    setSelectedReservaForEdit(null);
+    setIsFormOpen(true);
+  };
+
+  const handleEditClick = (reserva: Reservation) => {
+    setFormMode('edit');
+    setSelectedReservaForEdit(reserva);
+    setIsFormOpen(true);
+  };
+
+  const handleFormSubmit = async (data: Partial<Reservation>) => {
+    try {
+      if (formMode === 'create') {
+        await createMutation.mutateAsync(data);
+      } else if (selectedReservaForEdit) {
+        await updateMutation.mutateAsync({ id: selectedReservaForEdit.id, data });
+      }
+      setIsFormOpen(false);
+    } catch (error) {
+      console.error('Form submission error:', error);
+      throw error; // Re-throw to keep form open on error
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -43,7 +142,10 @@ export default function Reservas() {
               <option value="completada">Completada</option>
             </select>
             
-            <button className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700">
+            <button 
+              onClick={handleCreateClick}
+              className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
+            >
               <Calendar size={18} />
               Nueva Reserva
             </button>
@@ -51,8 +153,23 @@ export default function Reservas() {
         </div>
       </div>
 
+      {/* Loading State */}
+      {isLoading && (
+        <div className="flex items-center justify-center py-12">
+          <div className="w-8 h-8 border-4 border-primary-600 border-t-transparent rounded-full animate-spin" />
+        </div>
+      )}
+
+      {/* Error State */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-800">
+          Error al cargar reservas: {error.message}
+        </div>
+      )}
+
       {/* Tabla de Reservas */}
-      <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+      {!isLoading && !error && (
+        <div className="bg-white rounded-xl shadow-sm overflow-hidden">
         <table className="w-full">
           <thead className="bg-gray-50 border-b">
             <tr>
@@ -67,7 +184,11 @@ export default function Reservas() {
           </thead>
           <tbody className="divide-y">
             {reservasFiltradas.map((reserva) => (
-              <tr key={reserva.id} className="hover:bg-gray-50">
+              <tr 
+                key={reserva.id} 
+                className="hover:bg-gray-50 cursor-pointer"
+                onClick={() => handleRowClick(reserva)}
+              >
                 <td className="px-6 py-4">
                   <div>
                     <p className="font-medium text-gray-900">{reserva.nombre}</p>
@@ -117,22 +238,75 @@ export default function Reservas() {
                 </td>
                 <td className="px-6 py-4">
                   <div className="flex gap-2">
-                    <button className="p-2 text-primary-600 hover:bg-primary-50 rounded-lg" title="Editar">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleEditClick(reserva);
+                      }}
+                      className="p-2 text-primary-600 hover:bg-primary-50 rounded-lg"
+                      title="Editar"
+                      disabled={updateStatusMutation.isPending || createMutation.isPending || updateMutation.isPending}
+                    >
                       <Edit3 size={18} />
                     </button>
-                    <button className="p-2 text-green-600 hover:bg-green-50 rounded-lg" title="Confirmar">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleConfirm(reserva);
+                      }}
+                      className="p-2 text-green-600 hover:bg-green-50 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                      title="Confirmar"
+                      disabled={reserva.estado === 'Confirmada' || updateStatusMutation.isPending}
+                    >
                       <Check size={18} />
                     </button>
-                    <button className="p-2 text-red-600 hover:bg-red-50 rounded-lg" title="Cancelar">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleCancel(reserva);
+                      }}
+                      className="p-2 text-red-600 hover:bg-red-50 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                      title="Cancelar"
+                      disabled={reserva.estado === 'Cancelada' || updateStatusMutation.isPending}
+                    >
                       <X size={18} />
                     </button>
                   </div>
                 </td>
               </tr>
             ))}
+            {reservasFiltradas.length === 0 && (
+              <tr>
+                <td colSpan={7} className="px-6 py-12 text-center text-gray-500">
+                  No se encontraron reservas con los filtros actuales
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>
+      )}
+
+      {/* Reservation Form Modal */}
+      <ReservaForm
+        isOpen={isFormOpen}
+        onClose={() => setIsFormOpen(false)}
+        onSubmit={handleFormSubmit}
+        initialData={selectedReservaForEdit}
+        mode={formMode}
+      />
+
+      {/* Reservation Detail Modal */}
+      <ReservaDetalle
+        isOpen={isDetalleOpen}
+        onClose={() => setIsDetalleOpen(false)}
+        reserva={selectedReserva}
+        onConfirm={handleConfirm}
+        onSeat={handleSeat}
+        onComplete={handleComplete}
+        onCancel={handleCancel}
+        isUpdating={updateStatusMutation.isPending}
+      />
     </div>
   );
 }

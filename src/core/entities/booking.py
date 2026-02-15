@@ -62,6 +62,7 @@ class Booking(BaseModel):
     estado: BookingStatus = Field(BookingStatus.PENDING)
     confirmada_whatsapp: bool = Field(False, description="Si confirmó por WhatsApp")
     recordatorio_enviado: bool = Field(False, description="Si se envió recordatorio 24h antes")
+    recordatorio_enviado_at: Optional[datetime] = Field(None, description="Timestamp de envío de recordatorio")
     
     # Solicitudes especiales
     solicitudes: List[SpecialRequest] = Field(default_factory=list)

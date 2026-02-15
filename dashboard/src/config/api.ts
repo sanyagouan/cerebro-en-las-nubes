@@ -1,6 +1,9 @@
 // Configuración de la API
 // @ts-ignore - Vite env vars
-const API_BASE_URL = (import.meta as any).env?.VITE_API_URL || 'https://go84sgscs4ckcs08wog84o0o.app.generaia.site';
+// In development, use empty string to trigger Vite proxy (configured to forward /api to localhost:8000)
+// In production, use the full production URL
+const isDevelopment = (import.meta as any).env?.MODE === 'development';
+const API_BASE_URL = isDevelopment ? '' : ((import.meta as any).env?.VITE_API_URL || 'https://go84sgscs4ckcs08wog84o0o.app.generaia.site');
 
 export const config = {
   API_BASE_URL,

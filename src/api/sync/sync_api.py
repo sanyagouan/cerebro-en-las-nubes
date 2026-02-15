@@ -9,7 +9,7 @@ import logging
 import hmac
 import hashlib
 
-from src.services.sync_service import sync_service, SupabaseAirtableSync
+from src.services.sync_service import get_sync_service, SupabaseAirtableSync
 from src.api.mobile.mobile_api import get_current_user, TokenData
 from src.core.config import settings
 
@@ -75,7 +75,7 @@ async def run_sync(
         if request.table:
             # Buscar config para tabla específica
             config = next(
-                (c for c in sync_service.sync_configs if c.table_name == request.table),
+                (c for c in get_sync_service().sync_configs if c.table_name == request.table),
                 None
             )
             if not config:
@@ -84,11 +84,11 @@ async def run_sync(
                     detail=f"Table {request.table} not configured for sync"
                 )
             
-            result = await sync_service.sync_table(config, request.full_sync)
+            result = await get_sync_service().sync_table(config, request.full_sync)
             results = {request.table: result}
         else:
             # Sincronizar todas
-            results = await sync_service.sync_all(request.full_sync)
+            results = await get_sync_service().sync_all(request.full_sync)
         
         return SyncResponse(
             status="success",
@@ -115,7 +115,7 @@ async def get_sync_history(
             detail="Only admin or manager can view sync history"
         )
     
-    return SyncHistoryResponse(history=sync_service.get_sync_history())
+    return SyncHistoryResponse(history=get_sync_service().get_sync_history())
 
 
 @router.get("/status")
@@ -137,9 +137,9 @@ async def get_sync_status(
                 "airtable_table": c.airtable_table_id,
                 "supabase_table": c.supabase_table
             }
-            for c in sync_service.sync_configs
+            for c in get_sync_service().sync_configs
         ],
-        "last_syncs": sync_service.get_sync_history()[-5:]
+        "last_syncs": get_sync_service().get_sync_history()[-5:]
     }
 
 
@@ -179,14 +179,14 @@ async def airtable_webhook(
         
         # Buscar config por table_id
         config = next(
-            (c for c in sync_service.sync_configs if c.airtable_table_id == table_id),
+            (c for c in get_sync_service().sync_configs if c.airtable_table_id == table_id),
             None
         )
         
         if config:
             # Sincronizar tabla específica
             background_tasks.add_task(
-                sync_service.sync_table,
+                get_sync_service().sync_table,
                 config,
                 full_sync=False
             )

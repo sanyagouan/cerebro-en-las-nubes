@@ -9,6 +9,8 @@ from src.infrastructure.repositories.mock_reservation_repository import MockRese
 from src.infrastructure.external.twilio_service import TwilioService
 from src.infrastructure.external.airtable_service import AirtableService
 from src.core.entities.booking import Booking  # FIXED: era src.domain.models.reservation
+from src.application.services.waitlist_service import WaitlistService
+from src.api.middleware.rate_limiting import webhook_limit
 
 # Configuración de logs
 logging.basicConfig(level=logging.INFO)
@@ -24,9 +26,11 @@ reservation_repository = MockReservationRepository()
 schedule_service = ScheduleService()
 twilio_service = TwilioService()
 airtable_service = AirtableService()
+waitlist_service = WaitlistService()
 
 
 @router.post("/webhook")
+@webhook_limit()
 async def vapi_voice_webhook(request: Request):
     """
     Webhook para llamadas entrantes de Twilio.
@@ -96,10 +100,14 @@ SYSTEM_PROMPT_V2 = """Eres Nube, la recepcionista virtual COMPATIBLE y ENCANTADO
 
 ✅ TUS REGLAS DE ORO:
 1. SIEMPRE verifica disponibilidad antes de confirmar una reserva usando `check_availability`.
-2. DATOS OBLIGATORIOS RESERVA: Nombre completo y Número de Teléfono (para enviar confirmación por WhatsApp). DILE AL CLIENTE que recibirá confirmación por WhatsApp.
-3. CACHOPOS SIN GLUTEN: Si piden cachopo sin gluten, PREGUNTA cuál de la carta quieren (tienen que elegir uno específico). Requiere aviso 24h.
-4. Para grupos de más de 10 personas, informa que necesitas consultar con el equipo y usa `transfer_to_human`.
-5. Si alguien pregunta por "Susana" o dice que es "proveedor", pásale directamente con un humano.
+2. DATOS OBLIGATORIOS RESERVA: Nombre completo y Número de Teléfono (para enviar confirmación por WhatsApp). DILE AL CLIENTE que recibirá:
+   - Confirmación inmediata por WhatsApp
+   - Recordatorio 24h antes por WhatsApp
+   - Puede cancelar respondiendo al WhatsApp o llamando
+3. LISTA DE ESPERA: Si no hay mesa disponible, OFRECE apuntar al cliente en la lista de espera. Le avisaremos por WhatsApp si se libera mesa (tienen 15 min para confirmar). Usa `add_to_waitlist`.
+4. CACHOPOS SIN GLUTEN: Si piden cachopo sin gluten, PREGUNTA cuál de la carta quieren (tienen que elegir uno específico). Requiere aviso 24h.
+5. Para grupos de más de 10 personas, informa que necesitas consultar con el equipo y usa `transfer_to_human`.
+6. Si alguien pregunta por "Susana" o dice que es "proveedor", pásale directamente con un humano.
 
 SI NO SABES ALGO:
 "Oye, pues esa pregunta es muy buena y no quiero meter la pata. ¿Te importa si te llama mi compañero en un ratito y te lo confirma?"
@@ -183,8 +191,12 @@ async def tool_check_availability(request: Request):
         if disponible:
             resultado = "¡Sí! Tenemos mesa disponible para esa hora. ¿Quieres que te la reserve?"
         else:
-            # Sugerir alternativas (simple implementación)
-            resultado = "Vaya, lo siento mucho, pero para esa hora exacta no me queda nada. ¿Te vendría bien un poco antes o después? Podría mirar a las..."
+            # Sugerir waitlist si no hay disponibilidad
+            resultado = (
+                "Vaya, lo siento mucho, pero para esa hora exacta no me queda mesa disponible. "
+                "¿Te vendría bien un poco antes o después? También puedo apuntarte en nuestra lista de espera "
+                "y te aviso por WhatsApp si se libera algo. ¿Qué prefieres?"
+            )
             
         return {
             "results": [
@@ -260,20 +272,20 @@ async def tool_create_reservation(request: Request):
             logger.error(f"Error guardando en Airtable: {e}")
             # No fallamos la reserva si falla Airtable, pero logueamos
         
-        # 3. Enviar SMS Confirmación (Twilio)
-        sms_enviado = False
+        # 3. Enviar WhatsApp Confirmación (Twilio)
+        whatsapp_enviado = False
         try:
-            msg = f"¡Reserva Confirmada en En Las Nubes! ☁️\nHola {nombre}, te esperamos el {fecha_str} a las {hora_str} ({personas} pax).\n📍 C/ Mª Teresa Gil de Gárate 16.\nSi necesitas cancelar, avísanos por aquí. ¡Gracias!"
-            sid = twilio_service.send_sms(telefono, msg)
+            msg = f"¡Reserva Confirmada en En Las Nubes! ☁️\n\nHola {nombre}, te esperamos el {fecha_str} a las {hora_str} para {personas} personas.\n\n📍 C/ Mª Teresa Gil de Gárate 16, Logroño\n🅿️ Aparcamiento en C/ Pérez Galdós o Gran Vía\n\n⏰ Te enviaremos un recordatorio 24h antes.\n\nSi necesitas cancelar, responde a este mensaje o llama al 941 57 84 51.\n\n¡Gracias!"
+            sid = twilio_service.send_whatsapp(telefono, msg)
             if sid:
-                sms_enviado = True
-                logger.info(f"SMS enviado: {sid}")
+                whatsapp_enviado = True
+                logger.info(f"WhatsApp confirmación enviado: {sid}")
         except Exception as e:
-            logger.error(f"Error enviando SMS: {e}")
+            logger.error(f"Error enviando WhatsApp: {e}")
 
-        respuesta_cliente = f"¡Perfecto, {nombre}! Ya está hecha la reserva. Te he enviado un WhatsApp/SMS con la confirmación. ¡Nos vemos en Las Nubes!"
-        if not sms_enviado:
-            respuesta_cliente = f"¡Perfecto, {nombre}! Reserva confirmada. No he podido enviarte el SMS de confirmación por un error técnico, pero tu mesa está guardada. ¡Nos vemos!"
+        respuesta_cliente = f"¡Perfecto, {nombre}! Ya está hecha la reserva. Te he enviado un WhatsApp con la confirmación y todos los detalles. ¡Nos vemos en Las Nubes!"
+        if not whatsapp_enviado:
+            respuesta_cliente = f"¡Perfecto, {nombre}! Reserva confirmada. No he podido enviarte el WhatsApp de confirmación por un error técnico, pero tu mesa está guardada. Te llamaremos para confirmar. ¡Nos vemos!"
 
         return {
             "results": [
@@ -293,4 +305,259 @@ async def tool_create_reservation(request: Request):
                     "result": "Lo siento, tuve un error al guardar la reserva. ¿Podrías intentar llamar al restaurante directamente? 941 57 84 51."
                 }
             ]
+        }
+
+
+@router.post("/tools/cancel_reservation")
+async def tool_cancel_reservation(request: Request):
+    """
+    Herramienta para CANCELAR una reserva existente por voz.
+
+    Parámetros esperados del tool call:
+    - telefono: Teléfono del cliente (para identificar la reserva)
+    - motivo: Motivo de la cancelación (opcional)
+
+    Returns:
+        JSON con resultado para VAPI
+    """
+    try:
+        body = await request.json()
+        logger.info(f"Cancel Reservation Tool Call: {body}")
+
+        message = body.get("message", {})
+        tool_calls = message.get("toolCalls", [])
+
+        if not tool_calls:
+            return {"results": [{"result": "No recibí información para cancelar. ¿Puedes repetir?"}]}
+
+        tool_call = tool_calls[0]
+        params = tool_call.get("function", {}).get("arguments", {})
+
+        # Obtener parámetros
+        telefono = params.get("telefono", "").strip()
+        motivo = params.get("motivo", "Cancelación solicitada por el cliente vía telefónica")
+
+        if not telefono:
+            return {
+                "results": [{
+                    "toolCallId": tool_call["id"],
+                    "result": "Necesito tu número de teléfono para buscar la reserva. ¿Cuál es tu número?"
+                }]
+            }
+
+        # Importar cliente Airtable
+        from src.infrastructure.mcp.airtable_client import airtable_client
+        from src.api.mobile.airtable_helpers import AIRTABLE_FIELD_MAP, build_airtable_filter
+        from datetime import date
+
+        AIRTABLE_BASE_ID = "appQ2ZXAR68cqDmJt"
+        RESERVATIONS_TABLE_NAME = "Reservas"
+
+        # Buscar reserva activa (Pendiente o Confirmada) del cliente para hoy o futuras
+        filter_formula = f"AND({{{AIRTABLE_FIELD_MAP['telefono']}}}='{telefono}', IS_AFTER({{{AIRTABLE_FIELD_MAP['fecha']}}}, DATEADD(TODAY(), -1, 'days')), OR({{{AIRTABLE_FIELD_MAP['estado']}}}='Pendiente', {{{AIRTABLE_FIELD_MAP['estado']}}}='Confirmada'))"
+
+        records_result = await airtable_client.list_records(
+            base_id=AIRTABLE_BASE_ID,
+            table_name=RESERVATIONS_TABLE_NAME,
+            filterByFormula=filter_formula,
+            max_records=5
+        )
+
+        records = records_result.get("records", [])
+
+        if not records:
+            return {
+                "results": [{
+                    "toolCallId": tool_call["id"],
+                    "result": f"No encontré ninguna reserva activa con el teléfono {telefono}. ¿Estás seguro del número?"
+                }]
+            }
+
+        # Si hay múltiples reservas, tomar la más próxima
+        if len(records) > 1:
+            # Ordenar por fecha (asumiendo que vienen ordenadas por Airtable)
+            record_to_cancel = records[0]
+            logger.warning(f"Multiple active reservations found for {telefono}, cancelling first one")
+        else:
+            record_to_cancel = records[0]
+
+        reservation_id = record_to_cancel["id"]
+        fields = record_to_cancel.get("fields", {})
+        nombre = fields.get(AIRTABLE_FIELD_MAP["nombre"], "Cliente")
+        fecha = fields.get(AIRTABLE_FIELD_MAP["fecha"], "")
+        hora = fields.get(AIRTABLE_FIELD_MAP["hora"], "")
+        pax = fields.get(AIRTABLE_FIELD_MAP["pax"], "")
+
+        # Actualizar reserva a Cancelada y liberar mesa
+        update_fields = {
+            AIRTABLE_FIELD_MAP["estado"]: "Cancelada",
+            AIRTABLE_FIELD_MAP["mesa_asignada"]: []  # Liberar mesa
+        }
+
+        # Agregar motivo en notas
+        notas_actuales = fields.get(AIRTABLE_FIELD_MAP["notas"], "")
+        motivo_completo = f"\n[CANCELACIÓN TELEFÓNICA] {motivo}"
+        update_fields[AIRTABLE_FIELD_MAP["notas"]] = notas_actuales + motivo_completo
+
+        # Actualizar en Airtable
+        await airtable_client.update_record(
+            base_id=AIRTABLE_BASE_ID,
+            table_name=RESERVATIONS_TABLE_NAME,
+            record_id=reservation_id,
+            fields=update_fields
+        )
+
+        logger.info(f"Reservation {reservation_id} cancelled via voice: {nombre}, {fecha} {hora}")
+
+        # Enviar confirmación por WhatsApp
+        try:
+            await twilio_service.send_whatsapp(
+                to=telefono,
+                message=f"Hola {nombre}, tu reserva para {fecha} a las {hora} ha sido cancelada. Si tienes dudas, contáctanos al 941 57 84 51. - En Las Nubes Resto Bar"
+            )
+        except Exception as e:
+            logger.error(f"Error sending WhatsApp confirmation: {e}")
+
+        # Broadcast WebSocket
+        from src.api.websocket.connection_manager import manager
+        await manager.broadcast_reservation_update(
+            {
+                "id": reservation_id,
+                "estado": "Cancelada",
+                "mesa_asignada": None,
+                "cancelled_via": "voice",
+                "motivo": motivo
+            },
+            event_type="cancelled"
+        )
+
+        # Respuesta a VAPI para que se la diga al cliente
+        respuesta_cliente = (
+            f"Perfecto {nombre}, he cancelado tu reserva para el {fecha} a las {hora} "
+            f"({pax} personas). Te enviaré una confirmación por WhatsApp. "
+            f"Si cambias de opinión, llámanos al 941 57 84 51. ¡Hasta pronto!"
+        )
+
+        return {
+            "results": [
+                {
+                    "toolCallId": tool_call["id"],
+                    "result": respuesta_cliente
+                }
+            ]
+        }
+
+    except Exception as e:
+        logger.error(f"Error cancelling reservation: {str(e)}", exc_info=True)
+        return {
+            "results": [
+                {
+                    "toolCallId": tool_call.get("id"),
+                    "result": "Lo siento, tuve un error al cancelar la reserva. ¿Podrías llamar directamente al restaurante? 941 57 84 51."
+                }
+            ]
+        }
+
+
+@router.post("/tools/add_to_waitlist")
+async def tool_add_to_waitlist(request: Request):
+    """
+    Herramienta para añadir un cliente a la lista de espera cuando no hay mesa disponible.
+
+    Parámetros esperados (JSON en toolCall.function.arguments):
+    - nombre: Nombre del cliente
+    - telefono: Teléfono del cliente (formato E.164, ej: +34666123456)
+    - fecha: Fecha deseada (YYYY-MM-DD)
+    - hora: Hora deseada (HH:MM)
+    - personas: Número de personas
+    - zona_preferida: (Opcional) Interior/Terraza
+    - notas: (Opcional) Notas adicionales
+    """
+    try:
+        data = await request.json()
+        message = data.get("message", {})
+        tool_call = message.get("toolCalls", [])[0]
+        args = tool_call.get("function", {}).get("arguments", {})
+
+        logger.info(f"Adding to waitlist with args: {args}")
+
+        # Extraer argumentos
+        nombre = args.get("nombre")
+        telefono = args.get("telefono")
+        fecha_str = args.get("fecha")
+        hora_str = args.get("hora")
+        personas = args.get("personas")
+        zona_preferida = args.get("zona_preferida")
+        notas = args.get("notas", "")
+
+        # Validación básica
+        if not all([nombre, telefono, fecha_str, hora_str, personas]):
+            return {
+                "results": [{
+                    "toolCallId": tool_call["id"],
+                    "result": "Me faltan algunos datos para apuntarte en la lista de espera. Necesito nombre, teléfono, fecha, hora y número de personas."
+                }]
+            }
+
+        # Parsear fecha y hora
+        try:
+            from datetime import datetime
+            fecha = datetime.strptime(fecha_str, "%Y-%m-%d").date()
+            hora = datetime.strptime(hora_str, "%H:%M").time()
+        except ValueError:
+            return {
+                "results": [{
+                    "toolCallId": tool_call["id"],
+                    "result": "Formato de fecha u hora inválido. Usa YYYY-MM-DD y HH:MM."
+                }]
+            }
+
+        # Añadir a la waitlist
+        try:
+            entry = await waitlist_service.add_to_waitlist(
+                nombre=nombre,
+                telefono=telefono,
+                fecha=fecha,
+                hora=hora,
+                pax=int(personas),
+                zona_preferida=zona_preferida,
+                notas=notas
+            )
+
+            posicion_texto = f"en la posición {entry.posicion}" if entry.posicion else "en nuestra lista"
+
+            respuesta_cliente = (
+                f"¡Perfecto, {nombre}! Te he apuntado {posicion_texto} de espera para el {fecha_str} a las {hora_str} "
+                f"para {personas} personas. Te avisaré por WhatsApp en cuanto se libere una mesa. "
+                f"¿Hay algo más en lo que pueda ayudarte?"
+            )
+
+            logger.info(f"Cliente {nombre} añadido a waitlist: posición {entry.posicion}")
+
+            return {
+                "results": [{
+                    "toolCallId": tool_call["id"],
+                    "result": respuesta_cliente
+                }]
+            }
+
+        except Exception as e:
+            logger.error(f"Error adding to waitlist: {e}", exc_info=True)
+            return {
+                "results": [{
+                    "toolCallId": tool_call["id"],
+                    "result": (
+                        "Lo siento, tuve un error al apuntarte en la lista de espera. "
+                        "¿Podrías llamar directamente al restaurante? 941 57 84 51."
+                    )
+                }]
+            }
+
+    except Exception as e:
+        logger.error(f"Error in add_to_waitlist tool: {str(e)}", exc_info=True)
+        return {
+            "results": [{
+                "toolCallId": tool_call.get("id"),
+                "result": "Lo siento, tuve un error técnico. ¿Podrías llamar al restaurante? 941 57 84 51."
+            }]
         }

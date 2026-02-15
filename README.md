@@ -145,10 +145,11 @@ VAPI_ASSISTANT_ID=YOUR_VAPI_ASSISTANT_ID
 AIRTABLE_API_KEY=patYOUR_AIRTABLE_API_KEY_HERE
 AIRTABLE_BASE_ID=appYOUR_AIRTABLE_BASE_ID
 
-# --- Twilio (WhatsApp/SMS) ---
+# --- Twilio (WhatsApp) ---
+# NOTA: TODO por WhatsApp, NO se usan SMS tradicionales
 TWILIO_ACCOUNT_SID=ACYOUR_TWILIO_ACCOUNT_SID
 TWILIO_AUTH_TOKEN=YOUR_TWILIO_AUTH_TOKEN
-TWILIO_WHATSAPP_NUMBER=+YOUR_TWILIO_WHATSAPP_NUMBER
+TWILIO_WHATSAPP_NUMBER=whatsapp:+14155238886  # Twilio Sandbox o número verificado
 
 # --- Coolify (Deployment) ---
 COOLIFY_API_TOKEN=YOUR_COOLIFY_API_TOKEN
@@ -224,7 +225,11 @@ pytest --cov=src --cov-report=html tests/
 
 - ✅ **Reservas por voz**: Procesamiento de llamadas con VAPI (GPT-4o + ElevenLabs)
 - ✅ **Asignación inteligente de mesas**: Algoritmo basado en capacidad y disponibilidad
-- ✅ **WhatsApp confirmations**: Envío automático de confirmaciones por Twilio
+- ✅ **WhatsApp confirmaciones y recordatorios**: TODO por WhatsApp (NO SMS)
+  - Confirmación inmediata post-reserva
+  - Recordatorio 24h antes
+  - Cancelaciones bidireccionales
+  - Notificaciones de waitlist
 - ✅ **FAQs automáticas**: Respuestas a preguntas frecuentes del restaurante
 - ✅ **Redis cache**: Cache de Airtable para reducir latencia
 - ✅ **Logging estructurado**: Logs con timestamp, level, y función para debugging

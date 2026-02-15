@@ -1,13 +1,32 @@
 import { useState } from 'react';
-import { LayoutDashboard, Calendar, Table, Settings, Users } from 'lucide-react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { LayoutDashboard, Calendar, Table, Settings, Users, LogOut } from 'lucide-react';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
+import Login from './components/Login';
 import Dashboard from './components/Dashboard';
 import Reservas from './components/Reservas';
 import Mesas from './components/Mesas';
 
+// Create a client
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: false,
+      retry: 1,
+      staleTime: 30000, // 30 seconds
+    },
+  },
+});
+
 type Vista = 'dashboard' | 'reservas' | 'mesas' | 'clientes' | 'config';
 
-function App() {
+function AppContent() {
+  const { isAuthenticated, login, logout } = useAuth();
   const [vistaActual, setVistaActual] = useState<Vista>('dashboard');
+
+  if (!isAuthenticated) {
+    return <Login onLogin={login} />;
+  }
 
   const menuItems = [
     { id: 'dashboard' as Vista, label: 'Dashboard', icon: LayoutDashboard },
@@ -38,7 +57,7 @@ function App() {
           <h1 className="text-xl font-bold text-primary-600">En Las Nubes</h1>
           <p className="text-sm text-gray-500">Panel de Administración</p>
         </div>
-        <nav className="p-4">
+        <nav className="p-4 flex-1">
           <ul className="space-y-2">
             {menuItems.map((item) => {
               const Icon = item.icon;
@@ -60,6 +79,17 @@ function App() {
             })}
           </ul>
         </nav>
+        
+        {/* Logout Button */}
+        <div className="p-4 border-t">
+          <button
+            onClick={logout}
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-gray-600 hover:bg-red-50 hover:text-red-600 transition-colors"
+          >
+            <LogOut size={20} />
+            <span className="font-medium">Cerrar Sesión</span>
+          </button>
+        </div>
       </aside>
 
       {/* Main Content */}
@@ -88,6 +118,16 @@ function App() {
         </div>
       </main>
     </div>
+  );
+}
+
+function App() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <AppContent />
+      </AuthProvider>
+    </QueryClientProvider>
   );
 }
 
