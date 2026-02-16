@@ -20,6 +20,17 @@ const queryClient = new QueryClient({
   },
 });
 
+// Create a client
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: false,
+      retry: 1,
+      staleTime: 30000, // 30 seconds
+    },
+  },
+});
+
 type Vista = 'dashboard' | 'reservas' | 'mesas' | 'clientes' | 'config';
 
 function AppContent() {
