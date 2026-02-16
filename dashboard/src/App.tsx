@@ -6,6 +6,8 @@ import Login from './components/Login';
 import Dashboard from './components/Dashboard';
 import Reservas from './components/Reservas';
 import Mesas from './components/Mesas';
+import Clientes from './components/Clientes';
+import Configuracion from './components/Configuracion';
 
 // Create a client
 const queryClient = new QueryClient({
@@ -44,6 +46,10 @@ function AppContent() {
         return <Reservas />;
       case 'mesas':
         return <Mesas />;
+      case 'clientes':
+        return <Clientes />;
+      case 'config':
+        return <Configuracion />;
       default:
         return <Dashboard />;
     }
