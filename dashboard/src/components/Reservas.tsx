@@ -1,5 +1,5 @@
-import { Check, X, Edit3 } from 'lucide-react';
-import { useState } from 'react';
+import { Check, X, Edit3, Download, Filter, CalendarDays, AlertCircle } from 'lucide-react';
+import { useState, useMemo } from 'react';
 import { Search, Phone, Calendar, Users } from 'lucide-react';
 import {
   useReservations,
@@ -12,16 +12,22 @@ import {
 import { useAuth } from '../contexts/AuthContext';
 import ReservaDetalle from './ReservaDetalle';
 import ReservaForm from './ReservaForm';
+import { format, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-fns';
+import { es } from 'date-fns/locale';
+
+type DateFilter = 'todos' | 'hoy' | 'semana' | 'mes';
 
 export default function Reservas() {
   const { token } = useAuth();
   const [filtroEstado, setFiltroEstado] = useState<string>('todos');
+  const [filtroFecha, setFiltroFecha] = useState<DateFilter>('hoy');
   const [busqueda, setBusqueda] = useState('');
   const [selectedReserva, setSelectedReserva] = useState<Reservation | null>(null);
   const [isDetalleOpen, setIsDetalleOpen] = useState(false);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [formMode, setFormMode] = useState<'create' | 'edit'>('create');
   const [selectedReservaForEdit, setSelectedReservaForEdit] = useState<Reservation | null>(null);
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
   // Fetch reservations with filters
   const { data, isLoading, error } = useReservations(
@@ -34,12 +40,34 @@ export default function Reservas() {
   const createMutation = useCreateReservation();
   const updateMutation = useUpdateReservation();
 
-  // Filter by search term (client-side filtering for name/phone)
-  const reservasFiltradas = data?.reservations.filter(reserva => {
-    const matchBusqueda = reserva.nombre.toLowerCase().includes(busqueda.toLowerCase()) ||
-                         reserva.telefono.includes(busqueda);
-    return matchBusqueda;
-  }) || [];
+  // Filter by search term AND date (client-side filtering)
+  const reservasFiltradas = useMemo(() => {
+    if (!data?.reservations) return [];
+
+    return data.reservations.filter(reserva => {
+      // Search filter
+      const matchBusqueda = reserva.nombre.toLowerCase().includes(busqueda.toLowerCase()) ||
+                           reserva.telefono.includes(busqueda);
+      if (!matchBusqueda) return false;
+
+      // Date filter
+      if (filtroFecha === 'todos') return true;
+
+      const reservaDate = new Date(reserva.fecha);
+      const today = new Date();
+
+      if (filtroFecha === 'hoy') {
+        return reservaDate >= startOfDay(today) && reservaDate <= endOfDay(today);
+      } else if (filtroFecha === 'semana') {
+        return reservaDate >= startOfWeek(today, { locale: es }) && 
+               reservaDate <= endOfWeek(today, { locale: es });
+      } else if (filtroFecha === 'mes') {
+        return reservaDate >= startOfMonth(today) && reservaDate <= endOfMonth(today);
+      }
+
+      return true;
+    });
+  }, [data?.reservations, busqueda, filtroFecha]);
 
   // Handlers
   const handleRowClick = (reserva: Reservation) => {
@@ -103,14 +131,59 @@ export default function Reservas() {
     try {
       if (formMode === 'create') {
         await createMutation.mutateAsync(data);
+        setToast({ message: 'Reserva creada exitosamente', type: 'success' });
       } else if (selectedReservaForEdit) {
         await updateMutation.mutateAsync({ id: selectedReservaForEdit.id, data });
+        setToast({ message: 'Reserva actualizada exitosamente', type: 'success' });
       }
       setIsFormOpen(false);
+      setTimeout(() => setToast(null), 3000);
     } catch (error) {
       console.error('Form submission error:', error);
+      setToast({ message: 'Error al guardar la reserva', type: 'error' });
+      setTimeout(() => setToast(null), 3000);
       throw error; // Re-throw to keep form open on error
     }
+  };
+
+  const handleExportCSV = () => {
+    if (!reservasFiltradas.length) {
+      setToast({ message: 'No hay reservas para exportar', type: 'error' });
+      setTimeout(() => setToast(null), 3000);
+      return;
+    }
+
+    const headers = ['ID', 'Nombre', 'Teléfono', 'Fecha', 'Hora', 'Personas', 'Mesa', 'Estado', 'Canal', 'Notas'];
+    const rows = reservasFiltradas.map(r => [
+      r.id,
+      r.nombre,
+      r.telefono,
+      r.fecha,
+      r.hora,
+      r.pax.toString(),
+      r.mesa || 'Sin asignar',
+      r.estado,
+      r.canal,
+      r.notas || ''
+    ]);
+
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `reservas_${format(new Date(), 'yyyy-MM-dd_HH-mm', { locale: es })}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    setToast({ message: `${reservasFiltradas.length} reservas exportadas`, type: 'success' });
+    setTimeout(() => setToast(null), 3000);
   };
 
   return (
@@ -129,7 +202,52 @@ export default function Reservas() {
             />
           </div>
           
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
+            {/* Date Filter Buttons */}
+            <div className="flex gap-1 border rounded-lg p-1 bg-gray-50">
+              <button
+                onClick={() => setFiltroFecha('todos')}
+                className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
+                  filtroFecha === 'todos'
+                    ? 'bg-primary-600 text-white'
+                    : 'text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                Todos
+              </button>
+              <button
+                onClick={() => setFiltroFecha('hoy')}
+                className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
+                  filtroFecha === 'hoy'
+                    ? 'bg-primary-600 text-white'
+                    : 'text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                Hoy
+              </button>
+              <button
+                onClick={() => setFiltroFecha('semana')}
+                className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
+                  filtroFecha === 'semana'
+                    ? 'bg-primary-600 text-white'
+                    : 'text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                Semana
+              </button>
+              <button
+                onClick={() => setFiltroFecha('mes')}
+                className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
+                  filtroFecha === 'mes'
+                    ? 'bg-primary-600 text-white'
+                    : 'text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                Mes
+              </button>
+            </div>
+
+            {/* Status Filter */}
             <select
               value={filtroEstado}
               onChange={(e) => setFiltroEstado(e.target.value)}
@@ -141,7 +259,19 @@ export default function Reservas() {
               <option value="cancelada">Cancelada</option>
               <option value="completada">Completada</option>
             </select>
+
+            {/* Export CSV Button */}
+            <button
+              onClick={handleExportCSV}
+              disabled={!reservasFiltradas.length}
+              className="flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Exportar a CSV"
+            >
+              <Download size={18} />
+              Exportar
+            </button>
             
+            {/* Create Button */}
             <button 
               onClick={handleCreateClick}
               className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
@@ -307,6 +437,26 @@ export default function Reservas() {
         onCancel={handleCancel}
         isUpdating={updateStatusMutation.isPending}
       />
+
+      {/* Toast Notifications */}
+      {toast && (
+        <div className="fixed bottom-4 right-4 z-50 animate-slide-up">
+          <div
+            className={`flex items-center gap-3 px-6 py-4 rounded-lg shadow-lg ${
+              toast.type === 'success'
+                ? 'bg-green-600 text-white'
+                : 'bg-red-600 text-white'
+            }`}
+          >
+            {toast.type === 'success' ? (
+              <Check size={20} className="flex-shrink-0" />
+            ) : (
+              <AlertCircle size={20} className="flex-shrink-0" />
+            )}
+            <span className="font-medium">{toast.message}</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
