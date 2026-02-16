@@ -64,7 +64,10 @@
       "mcp__86d21f68-5430-493d-8ce9-6b891f1c4fe2__accounts_list",
       "mcp__plugin_github_github__search_code",
       "mcp__plugin_github_github__list_branches",
-      "mcp__plugin_serena_serena__read_file"
+      "mcp__plugin_serena_serena__read_file",
+      "mcp__plugin_github_github__pull_request_read",
+      "Bash(git fetch:*)",
+      "Bash(git merge:*)"
     ]
   }
 }
