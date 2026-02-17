@@ -2,6 +2,7 @@
 Airtable MCP Client - Wrapper para interactuar con Airtable via MCP.
 Proporciona una interfaz async para operaciones CRUD en Airtable.
 """
+
 from typing import Dict, Any, List, Optional
 import logging
 
@@ -23,7 +24,7 @@ class AirtableMCPClient:
         max_records: Optional[int] = None,
         filterByFormula: Optional[str] = None,
         sort: Optional[List[Dict[str, str]]] = None,
-        **kwargs
+        **kwargs,
     ) -> Dict[str, Any]:
         """
         Lista records de una tabla de Airtable.
@@ -42,10 +43,7 @@ class AirtableMCPClient:
             # Importar MCP tool dinámicamente para evitar errores si no está disponible
             from mcp__airtable__list_records import list_records as mcp_list_records
 
-            params = {
-                "base_id": base_id,
-                "table_name": table_name
-            }
+            params = {"base_id": base_id, "table_name": table_name}
 
             if max_records:
                 params["max_records"] = max_records
@@ -55,7 +53,9 @@ class AirtableMCPClient:
                 params["sort"] = sort
 
             result = await mcp_list_records(**params)
-            logger.debug(f"Listed {len(result.get('records', []))} records from {table_name}")
+            logger.debug(
+                f"Listed {len(result.get('records', []))} records from {table_name}"
+            )
             return result
 
         except ImportError:
@@ -66,10 +66,7 @@ class AirtableMCPClient:
             raise
 
     async def get_record(
-        self,
-        base_id: str,
-        table_name: str,
-        record_id: str
+        self, base_id: str, table_name: str, record_id: str
     ) -> Optional[Dict[str, Any]]:
         """
         Obtiene un record específico de Airtable.
@@ -87,9 +84,7 @@ class AirtableMCPClient:
             from mcp__airtable__get_record import get_record as mcp_get_record
 
             result = await mcp_get_record(
-                base_id=base_id,
-                table_name=table_name,
-                record_id=record_id
+                base_id=base_id, table_name=table_name, record_id=record_id
             )
 
             logger.debug(f"Retrieved record {record_id} from {table_name}")
@@ -99,17 +94,16 @@ class AirtableMCPClient:
             logger.error("Airtable MCP not available")
             raise RuntimeError("Airtable MCP server not configured")
         except Exception as e:
-            logger.error(f"Error getting Airtable record {record_id}: {e}", exc_info=True)
+            logger.error(
+                f"Error getting Airtable record {record_id}: {e}", exc_info=True
+            )
             # Si es 404, retornar None en vez de exception
             if "404" in str(e) or "not found" in str(e).lower():
                 return None
             raise
 
     async def create_record(
-        self,
-        base_id: str,
-        table_name: str,
-        fields: Dict[str, Any]
+        self, base_id: str, table_name: str, fields: Dict[str, Any]
     ) -> Dict[str, Any]:
         """
         Crea un nuevo record en Airtable.
@@ -126,9 +120,7 @@ class AirtableMCPClient:
             from mcp__airtable__create_record import create_record as mcp_create_record
 
             result = await mcp_create_record(
-                base_id=base_id,
-                table_name=table_name,
-                fields=fields
+                base_id=base_id, table_name=table_name, fields=fields
             )
 
             logger.info(f"Created record {result.get('id')} in {table_name}")
@@ -142,11 +134,7 @@ class AirtableMCPClient:
             raise
 
     async def update_record(
-        self,
-        base_id: str,
-        table_name: str,
-        record_id: str,
-        fields: Dict[str, Any]
+        self, base_id: str, table_name: str, record_id: str, fields: Dict[str, Any]
     ) -> Dict[str, Any]:
         """
         Actualiza un record existente en Airtable.
@@ -167,7 +155,7 @@ class AirtableMCPClient:
                 base_id=base_id,
                 table_name=table_name,
                 record_id=record_id,
-                fields=fields
+                fields=fields,
             )
 
             logger.info(f"Updated record {record_id} in {table_name}")
@@ -177,14 +165,13 @@ class AirtableMCPClient:
             logger.error("Airtable MCP not available")
             raise RuntimeError("Airtable MCP server not configured")
         except Exception as e:
-            logger.error(f"Error updating Airtable record {record_id}: {e}", exc_info=True)
+            logger.error(
+                f"Error updating Airtable record {record_id}: {e}", exc_info=True
+            )
             raise
 
     async def delete_record(
-        self,
-        base_id: str,
-        table_name: str,
-        record_id: str
+        self, base_id: str, table_name: str, record_id: str
     ) -> bool:
         """
         Elimina un record de Airtable.
@@ -201,9 +188,7 @@ class AirtableMCPClient:
             from mcp__airtable__delete_record import delete_record as mcp_delete_record
 
             await mcp_delete_record(
-                base_id=base_id,
-                table_name=table_name,
-                record_id=record_id
+                base_id=base_id, table_name=table_name, record_id=record_id
             )
 
             logger.info(f"Deleted record {record_id} from {table_name}")
@@ -213,9 +198,18 @@ class AirtableMCPClient:
             logger.error("Airtable MCP not available")
             raise RuntimeError("Airtable MCP server not configured")
         except Exception as e:
-            logger.error(f"Error deleting Airtable record {record_id}: {e}", exc_info=True)
+            logger.error(
+                f"Error deleting Airtable record {record_id}: {e}", exc_info=True
+            )
             raise
 
 
 # Singleton instance
 airtable_client = AirtableMCPClient()
+
+
+def get_airtable_client() -> AirtableMCPClient:
+    """
+    Retorna la instancia singleton del cliente Airtable.
+    """
+    return airtable_client

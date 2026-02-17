@@ -4,7 +4,7 @@ Analytics API Router - Reportes y métricas del sistema.
 
 from datetime import date, datetime, timedelta
 from typing import Optional, List, Dict, Any
-from fastapi import APIRouter, HTTPException, Depends, Query, Response
+from fastapi import APIRouter, HTTPException, Depends, Query, Response, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from loguru import logger
@@ -22,8 +22,10 @@ auth_service = AuthService()
 
 # ========== RESPONSE MODELS ==========
 
+
 class DailySummary(BaseModel):
     """Resumen de métricas diarias"""
+
     date: date
     total_reservations: int
     confirmed: int
@@ -37,6 +39,7 @@ class DailySummary(BaseModel):
 
 class OccupancyStats(BaseModel):
     """Estadísticas de ocupación"""
+
     period_start: date
     period_end: date
     avg_occupancy: float
@@ -50,6 +53,7 @@ class OccupancyStats(BaseModel):
 
 class RevenueMetrics(BaseModel):
     """Métricas de ingresos (placeholder para futura integración POS)"""
+
     period_start: date
     period_end: date
     total_revenue: float = 0.0  # Placeholder
@@ -59,6 +63,7 @@ class RevenueMetrics(BaseModel):
 
 class AnalyticsSummaryResponse(BaseModel):
     """Respuesta completa de analytics"""
+
     period: str  # "day", "week", "month"
     start_date: date
     end_date: date
@@ -73,10 +78,9 @@ class AnalyticsSummaryResponse(BaseModel):
 
 # ========== HELPER FUNCTIONS ==========
 
+
 async def get_reservations_in_period(
-    start_date: date,
-    end_date: date,
-    airtable: Any
+    start_date: date, end_date: date, airtable: Any
 ) -> List[Dict[str, Any]]:
     """Obtiene todas las reservas en un período"""
     try:
@@ -84,7 +88,7 @@ async def get_reservations_in_period(
         result = await airtable.query_data_source(
             data_source_id="appQ2ZXAR68cqDmJt",
             filter={"formula": formula},
-            page_size=1000
+            page_size=1000,
         )
         return result.get("records", [])
     except Exception as e:
@@ -92,14 +96,17 @@ async def get_reservations_in_period(
         return []
 
 
-def calculate_occupancy(reservations: List[Dict], total_tables: int, hours_open: int = 12) -> float:
+def calculate_occupancy(
+    reservations: List[Dict], total_tables: int, hours_open: int = 12
+) -> float:
     """Calcula tasa de ocupación basada en reservas"""
     if not reservations or total_tables == 0:
         return 0.0
 
     # Contar reservas confirmadas/completadas
     active_reservations = [
-        r for r in reservations
+        r
+        for r in reservations
         if r.get("fields", {}).get("estado") in ["confirmada", "sentada", "completada"]
     ]
 
@@ -114,11 +121,12 @@ def calculate_occupancy(reservations: List[Dict], total_tables: int, hours_open:
 
 # ========== ENDPOINTS ==========
 
+
 @router.get("/summary", response_model=AnalyticsSummaryResponse)
 async def get_analytics_summary(
     period: str = Query("day", regex="^(day|week|month)$"),
     target_date: Optional[date] = None,
-    user: TokenData = Depends(require_role(["manager", "admin"]))
+    user: TokenData = Depends(require_role(["manager", "admin"])),
 ):
     """
     Obtiene resumen de métricas para el día/semana/mes.
@@ -149,8 +157,12 @@ async def get_analytics_summary(
 
     # Calcular métricas
     total_reservations = len(reservations)
-    total_guests = sum(r.get("fields", {}).get("numero_personas", 0) for r in reservations)
-    avg_party_size = round(total_guests / total_reservations, 2) if total_reservations > 0 else 0.0
+    total_guests = sum(
+        r.get("fields", {}).get("numero_personas", 0) for r in reservations
+    )
+    avg_party_size = (
+        round(total_guests / total_reservations, 2) if total_reservations > 0 else 0.0
+    )
 
     # Status breakdown
     status_breakdown = {}
@@ -176,7 +188,9 @@ async def get_analytics_summary(
     total_tables = 20  # TODO: Obtener de tabla MESAS
     occupancy_rate = calculate_occupancy(reservations, total_tables)
 
-    logger.info(f"Analytics summary generated: {period} from {start_date} to {end_date}")
+    logger.info(
+        f"Analytics summary generated: {period} from {start_date} to {end_date}"
+    )
 
     return AnalyticsSummaryResponse(
         period=period,
@@ -188,7 +202,7 @@ async def get_analytics_summary(
         occupancy_rate=occupancy_rate,
         status_breakdown=status_breakdown,
         zone_breakdown=zone_breakdown,
-        hourly_distribution=hourly_distribution
+        hourly_distribution=hourly_distribution,
     )
 
 
@@ -196,7 +210,7 @@ async def get_analytics_summary(
 async def get_occupancy_stats(
     start_date: date = Query(..., description="Fecha inicio del período"),
     end_date: date = Query(..., description="Fecha fin del período"),
-    user: TokenData = Depends(require_role(["manager", "admin"]))
+    user: TokenData = Depends(require_role(["manager", "admin"])),
 ):
     """
     Obtiene estadísticas de ocupación histórica.
@@ -207,13 +221,15 @@ async def get_occupancy_stats(
 
     # Validar rango de fechas
     if end_date < start_date:
-        raise HTTPException(status_code=400, detail="end_date debe ser mayor que start_date")
+        raise HTTPException(
+            status_code=400, detail="end_date debe ser mayor que start_date"
+        )
 
     days_diff = (end_date - start_date).days
     if days_diff > 90:
         raise HTTPException(
             status_code=400,
-            detail="Rango máximo: 90 días. Para períodos más largos, use exportación."
+            detail="Rango máximo: 90 días. Para períodos más largos, use exportación.",
         )
 
     # Obtener reservas del período
@@ -258,17 +274,18 @@ async def get_occupancy_stats(
         lowest_day=lowest_day,
         lowest_occupancy=lowest_occupancy,
         total_tables=total_tables,
-        avg_reservations_per_day=avg_reservations
+        avg_reservations_per_day=avg_reservations,
     )
 
 
 @router.get("/export")
 @expensive_limit()
 async def export_analytics_csv(
+    request: Request,
     start_date: date = Query(..., description="Fecha inicio"),
     end_date: date = Query(..., description="Fecha fin"),
     format: str = Query("csv", regex="^(csv)$"),  # Futuro: excel, pdf
-    user: TokenData = Depends(require_role(["manager", "admin"]))
+    user: TokenData = Depends(require_role(["manager", "admin"])),
 ):
     """
     Exporta datos de reservas en formato CSV.
@@ -281,11 +298,15 @@ async def export_analytics_csv(
 
     # Validar rango
     if end_date < start_date:
-        raise HTTPException(status_code=400, detail="end_date debe ser mayor que start_date")
+        raise HTTPException(
+            status_code=400, detail="end_date debe ser mayor que start_date"
+        )
 
     days_diff = (end_date - start_date).days
     if days_diff > 365:
-        raise HTTPException(status_code=400, detail="Rango máximo para exportación: 365 días")
+        raise HTTPException(
+            status_code=400, detail="Rango máximo para exportación: 365 días"
+        )
 
     # Obtener reservas
     reservations = await get_reservations_in_period(start_date, end_date, airtable)
@@ -296,9 +317,19 @@ async def export_analytics_csv(
 
     # Headers
     headers = [
-        "ID", "Fecha", "Hora", "Nombre", "Teléfono", "Email",
-        "Num Personas", "Estado", "Zona", "Mesa Asignada",
-        "Solicitudes Especiales", "Creado en", "Actualizado en"
+        "ID",
+        "Fecha",
+        "Hora",
+        "Nombre",
+        "Teléfono",
+        "Email",
+        "Num Personas",
+        "Estado",
+        "Zona",
+        "Mesa Asignada",
+        "Solicitudes Especiales",
+        "Creado en",
+        "Actualizado en",
     ]
     writer.writerow(headers)
 
@@ -318,7 +349,7 @@ async def export_analytics_csv(
             fields.get("mesa_asignada", ""),
             fields.get("solicitudes_especiales", ""),
             fields.get("created_at", ""),
-            fields.get("updated_at", "")
+            fields.get("updated_at", ""),
         ]
         writer.writerow(row)
 
@@ -326,20 +357,20 @@ async def export_analytics_csv(
     output.seek(0)
     filename = f"reservas_{start_date}_{end_date}.csv"
 
-    logger.info(f"CSV export generated: {len(reservations)} reservations from {start_date} to {end_date}")
+    logger.info(
+        f"CSV export generated: {len(reservations)} reservations from {start_date} to {end_date}"
+    )
 
     return StreamingResponse(
         iter([output.getvalue()]),
         media_type="text/csv",
-        headers={
-            "Content-Disposition": f"attachment; filename={filename}"
-        }
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
     )
 
 
 @router.get("/dashboard-metrics")
 async def get_dashboard_metrics(
-    user: TokenData = Depends(require_role(["manager", "admin"]))
+    user: TokenData = Depends(require_role(["manager", "admin"])),
 ):
     """
     Métricas rápidas para el dashboard (hoy + esta semana).
@@ -350,25 +381,41 @@ async def get_dashboard_metrics(
     today = date.today()
 
     # Métricas de hoy
-    today_reservations = await get_reservations_in_period(today, today + timedelta(days=1), airtable)
+    today_reservations = await get_reservations_in_period(
+        today, today + timedelta(days=1), airtable
+    )
 
     # Métricas de la semana
     week_start = today - timedelta(days=today.weekday())
-    week_reservations = await get_reservations_in_period(week_start, week_start + timedelta(days=7), airtable)
+    week_reservations = await get_reservations_in_period(
+        week_start, week_start + timedelta(days=7), airtable
+    )
 
     total_tables = 20  # TODO: Obtener de DB
 
     return {
         "today": {
             "total": len(today_reservations),
-            "confirmed": len([r for r in today_reservations if r.get("fields", {}).get("estado") == "confirmada"]),
-            "pending": len([r for r in today_reservations if r.get("fields", {}).get("estado") == "pendiente"]),
-            "occupancy": calculate_occupancy(today_reservations, total_tables)
+            "confirmed": len(
+                [
+                    r
+                    for r in today_reservations
+                    if r.get("fields", {}).get("estado") == "confirmada"
+                ]
+            ),
+            "pending": len(
+                [
+                    r
+                    for r in today_reservations
+                    if r.get("fields", {}).get("estado") == "pendiente"
+                ]
+            ),
+            "occupancy": calculate_occupancy(today_reservations, total_tables),
         },
         "this_week": {
             "total": len(week_reservations),
             "avg_per_day": round(len(week_reservations) / 7, 2),
-            "occupancy": calculate_occupancy(week_reservations, total_tables)
+            "occupancy": calculate_occupancy(week_reservations, total_tables),
         },
-        "alerts": []  # Placeholder para alertas futuras
+        "alerts": [],  # Placeholder para alertas futuras
     }

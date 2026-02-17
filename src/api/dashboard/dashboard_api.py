@@ -3,35 +3,14 @@ Dashboard API Router - Endpoints específicos para el dashboard web.
 Este router maneja autenticación y operaciones del dashboard sin el prefijo 'mobile'.
 """
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, status, Request
 from pydantic import BaseModel, EmailStr
 from loguru import logger
 
-# TODO: Fix auth_service import when module is created
-# from src.application.services.auth_service import AuthService
-# from src.api.middleware.rate_limiting import auth_limit
+from src.application.services.auth_service import auth_service
 
 # Initialize router sin prefijo para el dashboard
 router = APIRouter(prefix="/api", tags=["dashboard"])
-
-
-# Mock auth service for now
-class MockAuthService:
-    async def authenticate_user(self, email: str, password: str):
-        # Demo users for development
-        demo_users = {
-            "admin@enlasnubes.com": {"id": "1", "name": "Admin", "role": "admin"},
-            "gerente@enlasnubes.com": {"id": "2", "name": "Gerente", "role": "manager"},
-        }
-        if email in demo_users and password == "demo123":
-            return demo_users[email]
-        return None
-
-    async def create_user(self, email: str, password: str, name: str):
-        return {"id": "3", "email": email, "name": name, "role": "staff"}
-
-
-auth_service = MockAuthService()
 
 
 # ========== REQUEST/RESPONSE MODELS ==========
@@ -54,12 +33,24 @@ class LoginResponse(BaseModel):
     user: dict
 
 
+class RefreshRequest(BaseModel):
+    """Request body para refresh token"""
+
+    refresh_token: str
+
+
+class TokenResponse(BaseModel):
+    """Response para refresh token"""
+
+    access_token: str
+    token_type: str
+
+
 # ========== ENDPOINTS ==========
 
 
 @router.post("/auth/login", response_model=LoginResponse)
-@auth_limit()
-async def dashboard_login(request: LoginRequest):
+async def dashboard_login(request: Request, login_data: LoginRequest):
     """
     Login para dashboard web. Retorna JWT tokens.
 
@@ -68,45 +59,10 @@ async def dashboard_login(request: LoginRequest):
     - manager@enlasnubes.com / manager123 (encargado)
     - waiter@enlasnubes.com / waiter123 (camarero)
     """
-    # TODO: Implementar autenticación real contra Supabase Auth
-    # Por ahora, usuarios hardcodeados para desarrollo
-
-    # Usuarios de prueba
-    DEMO_USERS = {
-        "admin@enlasnubes.com": {
-            "id": "user_admin_001",
-            "email": "admin@enlasnubes.com",
-            "password": "admin123",  # En producción: hash bcrypt
-            "name": "Administrador",
-            "role": "admin",
-        },
-        "manager@enlasnubes.com": {
-            "id": "user_manager_001",
-            "email": "manager@enlasnubes.com",
-            "password": "manager123",
-            "name": "Encargada",
-            "role": "manager",
-        },
-        "waiter@enlasnubes.com": {
-            "id": "user_waiter_001",
-            "email": "waiter@enlasnubes.com",
-            "password": "waiter123",
-            "name": "Camarero",
-            "role": "waiter",
-        },
-    }
-
-    # Buscar usuario
-    user = DEMO_USERS.get(request.email)
+    # Autenticar usuario
+    user = await auth_service.authenticate_user(login_data.email, login_data.password)
 
     if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Email o contraseña incorrectos",
-        )
-
-    # Verificar contraseña (en desarrollo, comparación simple; en producción: bcrypt)
-    if request.password != user["password"]:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Email o contraseña incorrectos",
@@ -134,3 +90,68 @@ async def dashboard_login(request: LoginRequest):
             "role": user["role"],
         },
     )
+
+
+@router.post("/auth/refresh", response_model=TokenResponse)
+async def refresh_token(request: Request, refresh_data: RefreshRequest):
+    """
+    Refresca el access token usando un refresh token válido.
+    """
+    payload = auth_service.verify_token(refresh_data.refresh_token)
+
+    if not payload or payload.get("type") != "refresh":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Refresh token inválido o expirado",
+        )
+
+    # Generar nuevo access token
+    new_access_token = auth_service.create_access_token(
+        user_id=payload["sub"],
+        email=payload["email"],
+        role=payload["role"],
+    )
+
+    return TokenResponse(
+        access_token=new_access_token,
+        token_type="bearer",
+    )
+
+
+@router.post("/auth/logout")
+async def logout(request: Request):
+    """
+    Logout del usuario. En una implementación completa,
+    esto invalidaría el token en una lista negra.
+    """
+    # TODO: Implementar blacklist de tokens si es necesario
+    return {"message": "Logout exitoso"}
+
+
+@router.get("/auth/me")
+async def get_current_user(request: Request):
+    """
+    Obtiene información del usuario actual basado en el token JWT.
+    """
+    auth_header = request.headers.get("Authorization")
+
+    if not auth_header or not auth_header.startswith("Bearer "):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token de autorización requerido",
+        )
+
+    token = auth_header.replace("Bearer ", "")
+    payload = auth_service.verify_token(token)
+
+    if not payload or payload.get("type") != "access":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token inválido o expirado",
+        )
+
+    return {
+        "id": payload["sub"],
+        "email": payload["email"],
+        "role": payload["role"],
+    }
