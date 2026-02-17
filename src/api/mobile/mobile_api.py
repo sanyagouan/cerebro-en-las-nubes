@@ -2,6 +2,7 @@
 API endpoints para app móvil.
 Autenticación, reservas, mesas y notificaciones.
 """
+
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
@@ -19,13 +20,13 @@ from src.api.mobile.models import (
     PaginatedReservationsResponse,
     CreateTableRequest,
     UpdateTableRequest,
-    TableResponse
+    TableResponse,
 )
 from src.api.mobile.airtable_helpers import (
     airtable_to_reservation_response,
     reservation_request_to_airtable_fields,
     build_airtable_filter,
-    AIRTABLE_FIELD_MAP
+    AIRTABLE_FIELD_MAP,
 )
 from src.application.services.waitlist_service import WaitlistService
 from src.core.entities.waitlist import WaitlistEntry, WaitlistStatus
@@ -40,6 +41,7 @@ RESERVATIONS_TABLE_NAME = "Reservas"
 
 
 # ============ MODELOS ============
+
 
 class LoginRequest(BaseModel):
     email: str
@@ -103,28 +105,29 @@ class DashboardStats(BaseModel):
 
 # ============ DEPENDENCIAS ============
 
-async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> TokenData:
+
+async def get_current_user(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+) -> TokenData:
     """Dependency para verificar JWT token."""
     token = credentials.credentials
     payload = auth_service.decode_token(token)
-    
+
     if not payload:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or expired token"
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token"
         )
-    
+
     if payload.get("type") != "access":
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token type"
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token type"
         )
-    
+
     return TokenData(
         user_id=payload["sub"],
         email=payload["email"],
         role=payload["role"],
-        permissions=payload.get("permissions", [])
+        permissions=payload.get("permissions", []),
     )
 
 
@@ -133,18 +136,19 @@ def check_permission(user: TokenData, permission: str):
     if not auth_service.verify_role_permission(user.role, permission):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail=f"Permission denied: {permission}"
+            detail=f"Permission denied: {permission}",
         )
 
 
 # ============ AUTH ENDPOINTS ============
+
 
 @router.post("/auth/login", response_model=LoginResponse)
 async def login(request: LoginRequest):
     """Login de usuario móvil. Retorna JWT tokens."""
     # TODO: Implementar autenticación real contra Supabase Auth
     # Por ahora, usuarios hardcodeados para desarrollo
-    
+
     # Usuarios de prueba
     DEMO_USERS = {
         "admin@enlasnubes.com": {
@@ -152,59 +156,55 @@ async def login(request: LoginRequest):
             "email": "admin@enlasnubes.com",
             "password": "admin123",  # En producción: hash bcrypt
             "name": "Administrador",
-            "role": "admin"
+            "role": "admin",
         },
         "manager@enlasnubes.com": {
             "id": "user_manager_001",
             "email": "manager@enlasnubes.com",
             "password": "manager123",
             "name": "Encargada",
-            "role": "manager"
+            "role": "manager",
         },
         "waiter@enlasnubes.com": {
             "id": "user_waiter_001",
             "email": "waiter@enlasnubes.com",
             "password": "waiter123",
             "name": "Camarero",
-            "role": "waiter"
-        }
+            "role": "waiter",
+        },
     }
-    
+
     # Buscar usuario
     user = DEMO_USERS.get(request.email)
-    
+
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Email o contraseña incorrectos"
+            detail="Email o contraseña incorrectos",
         )
-    
+
     # Verificar contraseña (en desarrollo, comparación simple; en producción: bcrypt)
     if request.password != user["password"]:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Email o contraseña incorrectos"
+            detail="Email o contraseña incorrectos",
         )
-    
+
     # Generar tokens JWT
     access_token = auth_service.create_access_token(
-        user_id=user["id"],
-        email=user["email"],
-        role=user["role"]
+        user_id=user["id"], email=user["email"], role=user["role"]
     )
-    
+
     refresh_token = auth_service.create_refresh_token(
-        user_id=user["id"],
-        email=user["email"],
-        role=user["role"]
+        user_id=user["id"], email=user["email"], role=user["role"]
     )
-    
+
     # Registrar device token si se proporciona (para push notifications)
     if request.device_token:
         await auth_service.register_device_token(user["id"], request.device_token)
-    
+
     logger.info(f"User logged in: {user['email']} (role: {user['role']})")
-    
+
     return LoginResponse(
         access_token=access_token,
         refresh_token=refresh_token,
@@ -213,8 +213,8 @@ async def login(request: LoginRequest):
             "id": user["id"],
             "email": user["email"],
             "name": user["name"],
-            "role": user["role"]
-        }
+            "role": user["role"],
+        },
     )
 
 
@@ -222,17 +222,16 @@ async def login(request: LoginRequest):
 async def refresh_token(request: RefreshRequest):
     """Refresca access token usando refresh token."""
     payload = auth_service.decode_token(request.refresh_token)
-    
+
     if not payload or payload.get("type") != "refresh":
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid refresh token"
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token"
         )
-    
+
     user_id = payload["sub"]
-    
+
     # TODO: Verificar que usuario existe y está activo
-    
+
     # TODO: Obtener usuario real desde base de datos
     # Por ahora, usar datos del token si existen
     email = payload.get("email", "")
@@ -240,26 +239,21 @@ async def refresh_token(request: RefreshRequest):
     if not email or not role:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Missing user data for token refresh"
+            detail="Missing user data for token refresh",
         )
 
     new_access_token = auth_service.create_access_token(
-        user_id=user_id,
-        email=email,
-        role=role
+        user_id=user_id, email=email, role=role
     )
-    
+
     return {"access_token": new_access_token, "token_type": "bearer"}
 
 
 @router.post("/auth/logout")
-async def logout(
-    request: Request,
-    user: TokenData = Depends(get_current_user)
-):
+async def logout(request: Request, user: TokenData = Depends(get_current_user)):
     """
     Logout de usuario (invalida tokens).
-    
+
     Agrega el token actual a la blacklist en Redis para invalidarlo
     antes de su expiración natural.
     """
@@ -269,11 +263,12 @@ async def logout(
         token = auth_header.split(" ")[1]
         # Invalidar el token en Redis
         await auth_service.invalidate_token(token)
-    
+
     return {"message": "Logged out successfully"}
 
 
 # ============ RESERVATIONS ENDPOINTS ============
+
 
 @router.get("/reservations", response_model=PaginatedReservationsResponse)
 async def get_reservations(
@@ -282,7 +277,7 @@ async def get_reservations(
     mesa: Optional[str] = None,
     offset: int = 0,
     limit: int = 100,
-    user: TokenData = Depends(get_current_user)
+    user: TokenData = Depends(get_current_user),
 ):
     """
     Obtiene lista de reservas con filtros y paginación.
@@ -309,14 +304,16 @@ async def get_reservations(
         list_params = {
             "base_id": AIRTABLE_BASE_ID,
             "table_name": RESERVATIONS_TABLE_NAME,
-            "max_records": limit
+            "max_records": limit,
         }
 
         if filter_formula:
             list_params["filterByFormula"] = filter_formula
 
         # Sort por fecha descendente (más recientes primero)
-        list_params["sort"] = [{"field": AIRTABLE_FIELD_MAP["fecha"], "direction": "desc"}]
+        list_params["sort"] = [
+            {"field": AIRTABLE_FIELD_MAP["fecha"], "direction": "desc"}
+        ]
 
         records_response = await airtable_client.list_records(**list_params)
 
@@ -325,12 +322,11 @@ async def get_reservations(
         total = len(all_records)
 
         # Aplicar paginación manual (Airtable MCP puede no soportar offset nativo)
-        paginated_records = all_records[offset:offset + limit]
+        paginated_records = all_records[offset : offset + limit]
 
         # Convertir a ReservationResponse
         reservations = [
-            airtable_to_reservation_response(record)
-            for record in paginated_records
+            airtable_to_reservation_response(record) for record in paginated_records
         ]
 
         return PaginatedReservationsResponse(
@@ -338,21 +334,20 @@ async def get_reservations(
             total=total,
             offset=offset,
             limit=limit,
-            has_more=(offset + limit) < total
+            has_more=(offset + limit) < total,
         )
 
     except Exception as e:
         logger.error(f"Error fetching reservations from Airtable: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error retrieving reservations: {str(e)}"
+            detail=f"Error retrieving reservations: {str(e)}",
         )
 
 
 @router.get("/reservations/{reservation_id}", response_model=ReservationResponse)
 async def get_reservation(
-    reservation_id: str,
-    user: TokenData = Depends(get_current_user)
+    reservation_id: str, user: TokenData = Depends(get_current_user)
 ):
     """
     Obtiene detalle completo de una reserva específica.
@@ -372,13 +367,13 @@ async def get_reservation(
         record = await airtable_client.get_record(
             base_id=AIRTABLE_BASE_ID,
             table_name=RESERVATIONS_TABLE_NAME,
-            record_id=reservation_id
+            record_id=reservation_id,
         )
 
         if not record:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Reservation {reservation_id} not found"
+                detail=f"Reservation {reservation_id} not found",
             )
 
         # Convertir a response model
@@ -391,7 +386,7 @@ async def get_reservation(
         logger.error(f"Error fetching reservation {reservation_id}: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error retrieving reservation: {str(e)}"
+            detail=f"Error retrieving reservation: {str(e)}",
         )
 
 
@@ -399,7 +394,7 @@ async def get_reservation(
 async def update_reservation(
     reservation_id: str,
     reservation: UpdateReservationRequest,
-    user: TokenData = Depends(get_current_user)
+    user: TokenData = Depends(get_current_user),
 ):
     """
     Actualiza una reserva existente (edición parcial).
@@ -420,13 +415,13 @@ async def update_reservation(
         existing_record = await airtable_client.get_record(
             base_id=AIRTABLE_BASE_ID,
             table_name=RESERVATIONS_TABLE_NAME,
-            record_id=reservation_id
+            record_id=reservation_id,
         )
 
         if not existing_record:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Reservation {reservation_id} not found"
+                detail=f"Reservation {reservation_id} not found",
             )
 
         # Convertir solo campos que no son None (partial update)
@@ -438,13 +433,13 @@ async def update_reservation(
             base_id=AIRTABLE_BASE_ID,
             table_name=RESERVATIONS_TABLE_NAME,
             record_id=reservation_id,
-            fields=airtable_fields
+            fields=airtable_fields,
         )
 
         if not updated_record:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to update reservation in Airtable"
+                detail="Failed to update reservation in Airtable",
             )
 
         # Convertir a response model
@@ -452,8 +447,7 @@ async def update_reservation(
 
         # Notificar a clientes WebSocket
         await manager.broadcast_reservation_update(
-            reservation_response.model_dump(),
-            event_type="updated"
+            reservation_response.model_dump(), event_type="updated"
         )
 
         logger.info(f"Reservation updated: {reservation_id} by user {user.user_id}")
@@ -465,7 +459,7 @@ async def update_reservation(
         logger.error(f"Error updating reservation {reservation_id}: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error updating reservation: {str(e)}"
+            detail=f"Error updating reservation: {str(e)}",
         )
 
 
@@ -473,7 +467,7 @@ async def update_reservation(
 async def update_reservation_status(
     reservation_id: str,
     request: UpdateStatusRequest,
-    user: TokenData = Depends(get_current_user)
+    user: TokenData = Depends(get_current_user),
 ):
     """
     Actualiza estado de reserva (Pendiente, Confirmada, Sentada, Completada, Cancelada, NoShow).
@@ -494,19 +488,17 @@ async def update_reservation_status(
         existing_record = await airtable_client.get_record(
             base_id=AIRTABLE_BASE_ID,
             table_name=RESERVATIONS_TABLE_NAME,
-            record_id=reservation_id
+            record_id=reservation_id,
         )
 
         if not existing_record:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Reservation {reservation_id} not found"
+                detail=f"Reservation {reservation_id} not found",
             )
 
         # Preparar campos para actualizar
-        update_fields = {
-            AIRTABLE_FIELD_MAP["estado"]: request.status
-        }
+        update_fields = {AIRTABLE_FIELD_MAP["estado"]: request.status}
 
         if request.notes:
             update_fields[AIRTABLE_FIELD_MAP["notas"]] = request.notes
@@ -516,13 +508,13 @@ async def update_reservation_status(
             base_id=AIRTABLE_BASE_ID,
             table_name=RESERVATIONS_TABLE_NAME,
             record_id=reservation_id,
-            fields=update_fields
+            fields=update_fields,
         )
 
         if not updated_record:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to update reservation status in Airtable"
+                detail="Failed to update reservation status in Airtable",
             )
 
         # Notificar a clientes vía WebSocket
@@ -531,32 +523,39 @@ async def update_reservation_status(
                 "id": reservation_id,
                 "status": request.status,
                 "updated_by": user.user_id,
-                "notes": request.notes
+                "notes": request.notes,
             },
-            event_type=request.status
+            event_type=request.status,
         )
 
-        logger.info(f"Reservation status updated: {reservation_id} -> {request.status} by user {user.user_id}")
+        logger.info(
+            f"Reservation status updated: {reservation_id} -> {request.status} by user {user.user_id}"
+        )
         return {
             "message": "Status updated successfully",
             "reservation_id": reservation_id,
-            "status": request.status
+            "status": request.status,
         }
 
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error updating reservation status {reservation_id}: {e}", exc_info=True)
+        logger.error(
+            f"Error updating reservation status {reservation_id}: {e}", exc_info=True
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error updating reservation status: {str(e)}"
+            detail=f"Error updating reservation status: {str(e)}",
         )
 
 
-@router.post("/reservations", response_model=ReservationResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/reservations",
+    response_model=ReservationResponse,
+    status_code=status.HTTP_201_CREATED,
+)
 async def create_reservation(
-    reservation: CreateReservationRequest,
-    user: TokenData = Depends(get_current_user)
+    reservation: CreateReservationRequest, user: TokenData = Depends(get_current_user)
 ):
     """
     Crea una nueva reserva manual (dashboard o app móvil).
@@ -573,19 +572,21 @@ async def create_reservation(
         from src.infrastructure.mcp.airtable_client import airtable_client
 
         # Convertir request a fields de Airtable
-        airtable_fields = reservation_request_to_airtable_fields(reservation.model_dump())
+        airtable_fields = reservation_request_to_airtable_fields(
+            reservation.model_dump()
+        )
 
         # Crear record en Airtable
         created_record = await airtable_client.create_record(
             base_id=AIRTABLE_BASE_ID,
             table_name=RESERVATIONS_TABLE_NAME,
-            fields=airtable_fields
+            fields=airtable_fields,
         )
 
         if not created_record:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to create reservation in Airtable"
+                detail="Failed to create reservation in Airtable",
             )
 
         # Convertir a response model
@@ -593,11 +594,12 @@ async def create_reservation(
 
         # Notificar a clientes WebSocket
         await manager.broadcast_reservation_update(
-            reservation_response.model_dump(),
-            event_type="created"
+            reservation_response.model_dump(), event_type="created"
         )
 
-        logger.info(f"Reservation created: {created_record['id']} by user {user.user_id}")
+        logger.info(
+            f"Reservation created: {created_record['id']} by user {user.user_id}"
+        )
         return reservation_response
 
     except HTTPException:
@@ -606,7 +608,7 @@ async def create_reservation(
         logger.error(f"Error creating reservation: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error creating reservation: {str(e)}"
+            detail=f"Error creating reservation: {str(e)}",
         )
 
 
@@ -614,7 +616,7 @@ async def create_reservation(
 async def cancel_reservation(
     reservation_id: str,
     request: CancelReservationRequest,
-    user: TokenData = Depends(get_current_user)
+    user: TokenData = Depends(get_current_user),
 ):
     """
     Cancela una reserva existente.
@@ -641,13 +643,13 @@ async def cancel_reservation(
         existing_record = await airtable_client.get_record(
             base_id=AIRTABLE_BASE_ID,
             table_name=RESERVATIONS_TABLE_NAME,
-            record_id=reservation_id
+            record_id=reservation_id,
         )
 
         if not existing_record:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Reservation {reservation_id} not found"
+                detail=f"Reservation {reservation_id} not found",
             )
 
         existing_fields = existing_record.get("fields", {})
@@ -657,13 +659,15 @@ async def cancel_reservation(
         if current_estado in ["Cancelada", "Completada"]:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Cannot cancel reservation with status '{current_estado}'"
+                detail=f"Cannot cancel reservation with status '{current_estado}'",
             )
 
         # 3. Preparar campos de actualización
         update_fields = {
             AIRTABLE_FIELD_MAP["estado"]: "Cancelada",
-            AIRTABLE_FIELD_MAP["mesa_asignada"]: []  # Liberar mesa (linked record vacío)
+            AIRTABLE_FIELD_MAP[
+                "mesa_asignada"
+            ]: [],  # Liberar mesa (linked record vacío)
         }
 
         # Agregar motivo de cancelación en notas
@@ -677,7 +681,7 @@ async def cancel_reservation(
             base_id=AIRTABLE_BASE_ID,
             table_name=RESERVATIONS_TABLE_NAME,
             record_id=reservation_id,
-            fields=update_fields
+            fields=update_fields,
         )
 
         # 5. Obtener datos del cliente para notificación
@@ -698,12 +702,11 @@ async def cancel_reservation(
                     f"Si tienes dudas, contáctanos. - En Las Nubes Resto Bar"
                 )
 
-                await twilio_service.send_whatsapp(
-                    to=cliente_telefono,
-                    message=mensaje
-                )
+                await twilio_service.send_whatsapp(to=cliente_telefono, message=mensaje)
                 sms_sent = True
-                logger.info(f"WhatsApp sent to {cliente_telefono} for cancellation {reservation_id}")
+                logger.info(
+                    f"WhatsApp sent to {cliente_telefono} for cancellation {reservation_id}"
+                )
             except Exception as e:
                 logger.error(f"Error sending WhatsApp notification: {e}", exc_info=True)
                 # No fallar todo el proceso si falla notificación
@@ -719,10 +722,12 @@ async def cancel_reservation(
                 data={
                     "type": "reservation_cancelled",
                     "reservation_id": reservation_id,
-                    "motivo": request.motivo or ""
-                }
+                    "motivo": request.motivo or "",
+                },
             )
-            logger.info(f"Push notification sent to staff for cancellation {reservation_id}")
+            logger.info(
+                f"Push notification sent to staff for cancellation {reservation_id}"
+            )
         except Exception as e:
             logger.error(f"Error sending push notification: {e}", exc_info=True)
 
@@ -735,9 +740,9 @@ async def cancel_reservation(
                 "cancelled_by": user.user_id,
                 "motivo": request.motivo,
                 "fecha": fecha_reserva,
-                "hora": hora_reserva
+                "hora": hora_reserva,
             },
-            event_type="cancelled"
+            event_type="cancelled",
         )
 
         logger.info(
@@ -748,18 +753,23 @@ async def cancel_reservation(
         return {
             "message": "Reservation cancelled successfully",
             "reservation_id": reservation_id,
-            "mesa_liberada": len(existing_fields.get(AIRTABLE_FIELD_MAP["mesa_asignada"], [])) > 0,
+            "mesa_liberada": len(
+                existing_fields.get(AIRTABLE_FIELD_MAP["mesa_asignada"], [])
+            )
+            > 0,
             "notificacion_enviada": sms_sent,
-            "motivo": request.motivo
+            "motivo": request.motivo,
         }
 
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error cancelling reservation {reservation_id}: {e}", exc_info=True)
+        logger.error(
+            f"Error cancelling reservation {reservation_id}: {e}", exc_info=True
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error cancelling reservation: {str(e)}"
+            detail=f"Error cancelling reservation: {str(e)}",
         )
 
 
@@ -767,10 +777,10 @@ async def cancel_reservation(
 # MIGRADO A AIRTABLE: Todos los endpoints ahora usan TableRepository
 # Tabla MESAS en Airtable (Base ID: appQ2ZXAR68cqDmJt)
 
+
 @router.get("/tables", response_model=List[TableResponse])
 async def get_tables(
-    zona: Optional[str] = None,
-    user: TokenData = Depends(get_current_user)
+    zona: Optional[str] = None, user: TokenData = Depends(get_current_user)
 ):
     """
     Lista todas las mesas del restaurante con su estado actual.
@@ -793,7 +803,7 @@ async def get_tables(
             if zona not in ["Terraza", "Interior"]:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Invalid zona. Must be 'Terraza' or 'Interior'"
+                    detail="Invalid zona. Must be 'Terraza' or 'Interior'",
                 )
             zona_enum = TableZone(zona)
 
@@ -816,11 +826,13 @@ async def get_tables(
                     notas=table.notas,
                     requiere_aviso=table.requiere_aviso,
                     prioridad=table.prioridad,
-                    status=table.status.value
+                    status=table.status.value,
                 )
             )
 
-        logger.info(f"Listed {len(tables_response)} tables from Airtable (zona filter: {zona or 'all'})")
+        logger.info(
+            f"Listed {len(tables_response)} tables from Airtable (zona filter: {zona or 'all'})"
+        )
         return tables_response
 
     except HTTPException:
@@ -829,15 +841,12 @@ async def get_tables(
         logger.error(f"Error listing tables: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error retrieving tables: {str(e)}"
+            detail=f"Error retrieving tables: {str(e)}",
         )
 
 
 @router.get("/tables/{table_id}", response_model=TableResponse)
-async def get_table(
-    table_id: str,
-    user: TokenData = Depends(get_current_user)
-):
+async def get_table(table_id: str, user: TokenData = Depends(get_current_user)):
     """
     Obtiene detalle de una mesa específica por su ID.
 
@@ -858,7 +867,7 @@ async def get_table(
         if not table:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Table {table_id} not found"
+                detail=f"Table {table_id} not found",
             )
 
         return TableResponse(
@@ -873,7 +882,7 @@ async def get_table(
             notas=table.notas,
             requiere_aviso=table.requiere_aviso,
             prioridad=table.prioridad,
-            status=table.status.value
+            status=table.status.value,
         )
 
     except HTTPException:
@@ -882,14 +891,15 @@ async def get_table(
         logger.error(f"Error getting table {table_id}: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error retrieving table: {str(e)}"
+            detail=f"Error retrieving table: {str(e)}",
         )
 
 
-@router.post("/tables", response_model=TableResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/tables", response_model=TableResponse, status_code=status.HTTP_201_CREATED
+)
 async def create_table(
-    request: CreateTableRequest,
-    user: TokenData = Depends(get_current_user)
+    request: CreateTableRequest, user: TokenData = Depends(get_current_user)
 ):
     """
     Crea una nueva mesa en el sistema.
@@ -919,7 +929,7 @@ async def create_table(
             notas=request.notas,
             requiere_aviso=request.requiere_aviso,
             prioridad=request.prioridad,
-            status=TableStatus.AVAILABLE  # Nuevas mesas siempre empiezan disponibles
+            status=TableStatus.AVAILABLE,  # Nuevas mesas siempre empiezan disponibles
         )
 
         # Crear en Airtable
@@ -937,19 +947,16 @@ async def create_table(
             notas=created_table.notas,
             requiere_aviso=created_table.requiere_aviso,
             prioridad=created_table.prioridad,
-            status=created_table.status.value
+            status=created_table.status.value,
         )
 
     except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except Exception as e:
         logger.error(f"Error creating table: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error creating table: {str(e)}"
+            detail=f"Error creating table: {str(e)}",
         )
 
 
@@ -957,7 +964,7 @@ async def create_table(
 async def update_table(
     table_id: str,
     request: UpdateTableRequest,
-    user: TokenData = Depends(get_current_user)
+    user: TokenData = Depends(get_current_user),
 ):
     """
     Actualiza configuración de una mesa existente.
@@ -1002,7 +1009,7 @@ async def update_table(
         if not updates:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="No fields to update provided"
+                detail="No fields to update provided",
             )
 
         # Actualizar en Airtable
@@ -1020,29 +1027,23 @@ async def update_table(
             notas=updated_table.notas,
             requiere_aviso=updated_table.requiere_aviso,
             prioridad=updated_table.prioridad,
-            status=updated_table.status.value
+            status=updated_table.status.value,
         )
 
     except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error updating table {table_id}: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error updating table: {str(e)}"
+            detail=f"Error updating table: {str(e)}",
         )
 
 
 @router.delete("/tables/{table_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_table(
-    table_id: str,
-    user: TokenData = Depends(get_current_user)
-):
+async def delete_table(table_id: str, user: TokenData = Depends(get_current_user)):
     """
     Elimina una mesa del sistema.
 
@@ -1059,7 +1060,7 @@ async def delete_table(
         if not success:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Table {table_id} not found"
+                detail=f"Table {table_id} not found",
             )
 
         return None  # 204 No Content
@@ -1070,15 +1071,13 @@ async def delete_table(
         logger.error(f"Error deleting table {table_id}: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error deleting table: {str(e)}"
+            detail=f"Error deleting table: {str(e)}",
         )
 
 
 @router.put("/tables/{table_id}/status", response_model=TableResponse)
 async def update_table_status(
-    table_id: str,
-    status_update: str,
-    user: TokenData = Depends(get_current_user)
+    table_id: str, status_update: str, user: TokenData = Depends(get_current_user)
 ):
     """
     Actualiza el estado de una mesa (Libre, Ocupada, Reservada, Bloqueada).
@@ -1099,7 +1098,7 @@ async def update_table_status(
     if status_update not in valid_statuses:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid status. Must be one of: {', '.join(valid_statuses)}"
+            detail=f"Invalid status. Must be one of: {', '.join(valid_statuses)}",
         )
 
     try:
@@ -1127,47 +1126,139 @@ async def update_table_status(
             notas=updated_table.notas,
             requiere_aviso=updated_table.requiere_aviso,
             prioridad=updated_table.prioridad,
-            status=updated_table.status.value
+            status=updated_table.status.value,
         )
 
     except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error updating table status {table_id}: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error updating table status: {str(e)}"
+            detail=f"Error updating table status: {str(e)}",
         )
 
 
 # ============ DASHBOARD ENDPOINTS ============
 
-@router.get("/dashboard/stats")
+
+@router.get("/dashboard/stats", response_model=DashboardStats)
 async def get_dashboard_stats(
-    date: Optional[date] = None,
-    user: TokenData = Depends(get_current_user)
+    target_date: Optional[date] = None, user: TokenData = Depends(get_current_user)
 ):
-    """Estadísticas del día para dashboard."""
+    """
+    Estadísticas del día para dashboard con cálculos reales desde Airtable.
+
+    Args:
+        target_date: Fecha para calcular stats (default: hoy)
+
+    Returns:
+        DashboardStats con estadísticas calculadas en tiempo real
+    """
     check_permission(user, "reports.view")
-    
-    # TODO: Calcular estadísticas reales
-    return DashboardStats(
-        total_reservations=0,
-        confirmed=0,
-        pending=0,
-        seated=0,
-        cancelled=0,
-        occupancy_rate=0.0,
-        pax_total=0
-    )
+
+    from datetime import date as today_date
+    from src.infrastructure.mcp.airtable_client import airtable_client
+
+    # Usar hoy si no se especifica fecha
+    if target_date is None:
+        target_date = today_date.today()
+
+    try:
+        # 1. Obtener reservas del día
+        filter_formula = (
+            f"{{{AIRTABLE_FIELD_MAP['fecha']}}} = '{target_date.isoformat()}'"
+        )
+
+        reservations_response = await airtable_client.list_records(
+            base_id=AIRTABLE_BASE_ID,
+            table_name=RESERVATIONS_TABLE_NAME,
+            filterByFormula=filter_formula,
+            max_records=500,
+        )
+
+        reservations = reservations_response.get("records", [])
+
+        # 2. Calcular estadísticas
+        total_reservations = len(reservations)
+
+        # Contadores por estado
+        confirmed = 0
+        pending = 0
+        seated = 0
+        cancelled = 0
+        pax_total = 0
+
+        for record in reservations:
+            fields = record.get("fields", {})
+            estado = fields.get(AIRTABLE_FIELD_MAP["estado"], "")
+            pax = fields.get(AIRTABLE_FIELD_MAP["pax"], 0) or 0
+
+            pax_total += pax
+
+            if estado == "Confirmada":
+                confirmed += 1
+            elif estado == "Pendiente":
+                pending += 1
+            elif estado in ["Sentada", "Completada"]:
+                seated += 1
+            elif estado == "Cancelada":
+                cancelled += 1
+
+        # 3. Calcular tasa de ocupación
+        # Capacidad total del restaurante: 123 pax (55 Interior + 68 Terraza)
+        # Considerando 2 turnos por servicio: ~246 pax/día máximo
+        CAPACIDAD_TOTAL_DIA = 246
+
+        # Ocupación basada en pax confirmados + sentados
+        pax_activos = 0
+        for record in reservations:
+            fields = record.get("fields", {})
+            estado = fields.get(AIRTABLE_FIELD_MAP["estado"], "")
+            pax = fields.get(AIRTABLE_FIELD_MAP["pax"], 0) or 0
+            if estado in ["Confirmada", "Sentada"]:
+                pax_activos += pax
+
+        occupancy_rate = (
+            round((pax_activos / CAPACIDAD_TOTAL_DIA) * 100, 1)
+            if CAPACIDAD_TOTAL_DIA > 0
+            else 0.0
+        )
+
+        logger.info(
+            f"Dashboard stats calculated for {target_date}: "
+            f"total={total_reservations}, confirmed={confirmed}, pending={pending}, "
+            f"occupancy={occupancy_rate}%"
+        )
+
+        return DashboardStats(
+            total_reservations=total_reservations,
+            confirmed=confirmed,
+            pending=pending,
+            seated=seated,
+            cancelled=cancelled,
+            occupancy_rate=occupancy_rate,
+            pax_total=pax_total,
+        )
+
+    except Exception as e:
+        logger.error(f"Error calculating dashboard stats: {e}", exc_info=True)
+        # En caso de error, devolver valores vacíos pero no fallar
+        return DashboardStats(
+            total_reservations=0,
+            confirmed=0,
+            pending=0,
+            seated=0,
+            cancelled=0,
+            occupancy_rate=0.0,
+            pax_total=0,
+        )
 
 
 # ============ NOTIFICATIONS ENDPOINTS ============
+
 
 class DeviceTokenRequest(BaseModel):
     device_token: str
@@ -1175,8 +1266,7 @@ class DeviceTokenRequest(BaseModel):
 
 @router.post("/notifications/register")
 async def register_device_token(
-    request: DeviceTokenRequest,
-    user: TokenData = Depends(get_current_user)
+    request: DeviceTokenRequest, user: TokenData = Depends(get_current_user)
 ):
     """Registra token FCM para push notifications."""
     await auth_service.register_device_token(user.user_id, request.device_token)
@@ -1184,9 +1274,7 @@ async def register_device_token(
 
 
 @router.post("/notifications/test")
-async def test_push_notification(
-    user: TokenData = Depends(get_current_user)
-):
+async def test_push_notification(user: TokenData = Depends(get_current_user)):
     """Envía notificación de prueba al usuario actual."""
     # TODO: Implementar envío FCM
     return {"message": "Test notification sent"}
@@ -1200,6 +1288,7 @@ waitlist_service = WaitlistService()
 
 class WaitlistCreateRequest(BaseModel):
     """Request para añadir cliente a lista de espera."""
+
     nombre_cliente: str
     telefono_cliente: str
     fecha: date
@@ -1211,6 +1300,7 @@ class WaitlistCreateRequest(BaseModel):
 
 class WaitlistResponse(BaseModel):
     """Response de entrada en waitlist."""
+
     id: str
     nombre_cliente: str
     telefono_cliente: str
@@ -1239,7 +1329,7 @@ def waitlist_entry_to_response(entry: WaitlistEntry) -> WaitlistResponse:
         posicion=entry.posicion,
         created_at=entry.created_at.isoformat(),
         notified_at=entry.notified_at.isoformat() if entry.notified_at else None,
-        notas=entry.notas
+        notas=entry.notas,
     )
 
 
@@ -1247,7 +1337,7 @@ def waitlist_entry_to_response(entry: WaitlistEntry) -> WaitlistResponse:
 async def list_waitlist(
     fecha: Optional[date] = None,
     estado: Optional[str] = None,
-    user: TokenData = Depends(get_current_user)
+    user: TokenData = Depends(get_current_user),
 ):
     """
     Lista entradas en la lista de espera.
@@ -1265,19 +1355,17 @@ async def list_waitlist(
             try:
                 status_filter = WaitlistStatus(estado)
                 entries = await waitlist_service.waitlist_repository.list_by_status(
-                    status=status_filter,
-                    fecha=fecha
+                    status=status_filter, fecha=fecha
                 )
             except ValueError:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Estado inválido: {estado}. Valores válidos: waiting, notified, confirmed, expired, cancelled"
+                    detail=f"Estado inválido: {estado}. Valores válidos: waiting, notified, confirmed, expired, cancelled",
                 )
         else:
             # Sin filtro específico, traer todas las WAITING del día (o fecha especificada)
             entries = await waitlist_service.waitlist_repository.list_by_status(
-                status=WaitlistStatus.WAITING,
-                fecha=fecha or date.today()
+                status=WaitlistStatus.WAITING, fecha=fecha or date.today()
             )
 
         return [waitlist_entry_to_response(entry) for entry in entries]
@@ -1288,14 +1376,15 @@ async def list_waitlist(
         logger.error(f"Error listing waitlist: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error listing waitlist: {str(e)}"
+            detail=f"Error listing waitlist: {str(e)}",
         )
 
 
-@router.post("/waitlist", response_model=WaitlistResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/waitlist", response_model=WaitlistResponse, status_code=status.HTTP_201_CREATED
+)
 async def create_waitlist_entry(
-    request: WaitlistCreateRequest,
-    user: TokenData = Depends(get_current_user)
+    request: WaitlistCreateRequest, user: TokenData = Depends(get_current_user)
 ):
     """
     Añade un cliente a la lista de espera.
@@ -1306,6 +1395,7 @@ async def create_waitlist_entry(
 
     try:
         from datetime import datetime as dt
+
         hora_time = dt.strptime(request.hora, "%H:%M").time()
 
         entry = await waitlist_service.add_to_waitlist(
@@ -1315,30 +1405,28 @@ async def create_waitlist_entry(
             hora=hora_time,
             pax=request.num_personas,
             zona_preferida=request.zona_preferida,
-            notas=request.notas
+            notas=request.notas,
         )
 
-        logger.info(f"Cliente {request.nombre_cliente} añadido a waitlist por {user.username}")
+        logger.info(
+            f"Cliente {request.nombre_cliente} añadido a waitlist por {user.username}"
+        )
 
         return waitlist_entry_to_response(entry)
 
     except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except Exception as e:
         logger.error(f"Error creating waitlist entry: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error creating waitlist entry: {str(e)}"
+            detail=f"Error creating waitlist entry: {str(e)}",
         )
 
 
 @router.post("/waitlist/{entry_id}/notify", response_model=WaitlistResponse)
 async def notify_waitlist_entry(
-    entry_id: str,
-    user: TokenData = Depends(get_current_user)
+    entry_id: str, user: TokenData = Depends(get_current_user)
 ):
     """
     Notifica manualmente al próximo cliente en waitlist.
@@ -1356,27 +1444,25 @@ async def notify_waitlist_entry(
         if not entry:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Waitlist entry {entry_id} not found"
+                detail=f"Waitlist entry {entry_id} not found",
             )
 
         # Verificar estado
         if entry.estado != WaitlistStatus.WAITING:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Entry is not in WAITING state (current: {entry.estado.value})"
+                detail=f"Entry is not in WAITING state (current: {entry.estado.value})",
             )
 
         # Notificar
         notified_entry = await waitlist_service.notify_availability(
-            fecha=entry.fecha,
-            hora=entry.hora,
-            pax=entry.num_personas
+            fecha=entry.fecha, hora=entry.hora, pax=entry.num_personas
         )
 
         if not notified_entry:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="No matching waitlist entry found to notify"
+                detail="No matching waitlist entry found to notify",
             )
 
         logger.info(f"Waitlist entry {entry_id} notified manually by {user.username}")
@@ -1389,14 +1475,13 @@ async def notify_waitlist_entry(
         logger.error(f"Error notifying waitlist entry {entry_id}: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error notifying waitlist entry: {str(e)}"
+            detail=f"Error notifying waitlist entry: {str(e)}",
         )
 
 
 @router.delete("/waitlist/{entry_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_waitlist_entry(
-    entry_id: str,
-    user: TokenData = Depends(get_current_user)
+    entry_id: str, user: TokenData = Depends(get_current_user)
 ):
     """
     Elimina una entrada de la waitlist.
@@ -1411,7 +1496,7 @@ async def delete_waitlist_entry(
         if not entry:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Waitlist entry {entry_id} not found"
+                detail=f"Waitlist entry {entry_id} not found",
             )
 
         # Cancelar
@@ -1427,5 +1512,5 @@ async def delete_waitlist_entry(
         logger.error(f"Error deleting waitlist entry {entry_id}: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error deleting waitlist entry: {str(e)}"
+            detail=f"Error deleting waitlist entry: {str(e)}",
         )
