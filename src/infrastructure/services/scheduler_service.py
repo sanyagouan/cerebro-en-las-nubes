@@ -5,6 +5,7 @@ Ejecuta tareas periódicas en background:
 - Recordatorios de reserva 24h antes (WhatsApp)
 - Futuro: Limpieza de caché Redis
 """
+
 import asyncio
 import logging
 from datetime import datetime, timedelta, date
@@ -90,9 +91,9 @@ class SchedulerService:
         """
         try:
             # Obtener todas las entradas notificadas
-            notified_entries = await self.waitlist_service.waitlist_repository.list_by_status(
+            notified_entries = await self.waitlist_service.waitlist_repo.list_by_status(
                 status=WaitlistStatus.NOTIFIED,
-                fecha=None  # Buscar en todas las fechas
+                fecha=None,  # Buscar en todas las fechas
             )
 
             if not notified_entries:
@@ -113,8 +114,7 @@ class SchedulerService:
                     # EXPIRAR: cambiar estado a EXPIRED
                     try:
                         await self.waitlist_service.waitlist_repository.update(
-                            entry_id=entry.airtable_id,
-                            estado=WaitlistStatus.EXPIRED
+                            entry_id=entry.airtable_id, estado=WaitlistStatus.EXPIRED
                         )
                         expired_count += 1
                         logger.info(
@@ -132,7 +132,7 @@ class SchedulerService:
                     except Exception as e:
                         logger.error(
                             f"Error expiring waitlist entry {entry.airtable_id}: {e}",
-                            exc_info=True
+                            exc_info=True,
                         )
 
             if expired_count > 0:
@@ -164,12 +164,13 @@ class SchedulerService:
 
             # Filtrar solo las que NO han recibido recordatorio
             pending_reminders = [
-                booking for booking in bookings
-                if not booking.recordatorio_enviado
+                booking for booking in bookings if not booking.recordatorio_enviado
             ]
 
             if not pending_reminders:
-                logger.debug(f"Todas las reservas de {tomorrow} ya tienen recordatorio enviado")
+                logger.debug(
+                    f"Todas las reservas de {tomorrow} ya tienen recordatorio enviado"
+                )
                 return
 
             sent_count = 0
@@ -183,19 +184,20 @@ class SchedulerService:
                         fecha=booking.fecha,
                         hora=booking.hora,
                         num_personas=booking.pax,
-                        mesa_asignada=booking.mesa_asignada  # Puede ser None
+                        mesa_asignada=booking.mesa_asignada,  # Puede ser None
                     )
 
                     # Enviar WhatsApp via Twilio
                     success = self.twilio_service.send_whatsapp(
-                        to=booking.telefono,
-                        message=mensaje
+                        to=booking.telefono, message=mensaje
                     )
 
                     if success:
                         # Marcar como enviado en Airtable
-                        update_success = self.booking_repository.update_booking_reminder_sent(
-                            booking_id=booking.id
+                        update_success = (
+                            self.booking_repository.update_booking_reminder_sent(
+                                booking_id=booking.id
+                            )
                         )
 
                         if update_success:
@@ -220,7 +222,7 @@ class SchedulerService:
                     failed_count += 1
                     logger.error(
                         f"❌ Error enviando recordatorio para booking {booking.id}: {e}",
-                        exc_info=True
+                        exc_info=True,
                     )
 
             # Resumen final

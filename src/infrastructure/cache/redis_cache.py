@@ -523,20 +523,10 @@ class RedisCache:
             self.redis_client.ping()
             latency_ms = (time.time() - start_time) * 1000
 
-            # Get connection pool stats
-            pool_stats = (
-                self.connection_pool.get_connection_kwargs()
-                if self.connection_pool
-                else {}
-            )
-
             return {
                 "status": "healthy",
                 "latency_ms": round(latency_ms, 2),
                 "circuit_breaker_state": self.circuit_breaker.state,
-                "connection_pool": {
-                    "max_connections": pool_stats.get("max_connections"),
-                },
             }
         except Exception as e:
             return {"status": "unhealthy", "error": str(e)}
