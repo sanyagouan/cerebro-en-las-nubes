@@ -1,6 +1,7 @@
 """
 WhatsApp Router: Handles incoming messages from Twilio WhatsApp.
 """
+
 from fastapi import APIRouter, Request, Form
 from fastapi.responses import Response
 import logging
@@ -14,6 +15,7 @@ logger = logging.getLogger(__name__)
 # Lazy-loaded orchestrator
 _orchestrator = None
 
+
 def get_orchestrator():
     global _orchestrator
     if _orchestrator is None:
@@ -24,9 +26,10 @@ def get_orchestrator():
 @router.post("/webhook")
 @webhook_limit()
 async def whatsapp_webhook(
+    request: Request,
     From: str = Form(...),
     Body: str = Form(...),
-    ProfileName: str = Form(None)
+    ProfileName: str = Form(None),
 ):
     """
     Twilio WhatsApp webhook endpoint.
@@ -37,9 +40,9 @@ async def whatsapp_webhook(
         phone = From.replace("whatsapp:", "")
         message = Body.strip()
         name = ProfileName or "Cliente"
-        
+
         logger.info(f"💬 WhatsApp from {name} ({phone}): {message}")
-        
+
         # Process through orchestrator
         orchestrator = get_orchestrator()
         result = await orchestrator.process_message(
@@ -47,20 +50,22 @@ async def whatsapp_webhook(
             metadata={
                 "client_phone": phone,
                 "client_name": name,
-                "channel": "WhatsApp"
-            }
+                "channel": "WhatsApp",
+            },
         )
-        
-        response_text = result.get("response", "Lo siento, no he podido procesar tu mensaje.")
-        
+
+        response_text = result.get(
+            "response", "Lo siento, no he podido procesar tu mensaje."
+        )
+
         # Return TwiML response
         twiml = f"""<?xml version="1.0" encoding="UTF-8"?>
 <Response>
     <Message>{response_text}</Message>
 </Response>"""
-        
+
         return Response(content=twiml, media_type="application/xml")
-        
+
     except Exception as e:
         logger.error(f"❌ WhatsApp Webhook Error: {e}")
         twiml = """<?xml version="1.0" encoding="UTF-8"?>
