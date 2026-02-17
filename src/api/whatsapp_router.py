@@ -7,7 +7,7 @@ from fastapi.responses import Response
 import logging
 
 from src.application.orchestrator import Orchestrator
-from src.api.middleware.rate_limiting import webhook_limit
+# from src.api.middleware.rate_limiting import webhook_limit  # TODO: Re-enable after fixing slowapi
 
 router = APIRouter(prefix="/whatsapp", tags=["WhatsApp"])
 logger = logging.getLogger(__name__)
@@ -24,7 +24,7 @@ def get_orchestrator():
 
 
 @router.post("/webhook")
-@webhook_limit()
+# @webhook_limit()  # TODO: Re-enable after fixing slowapi integration
 async def whatsapp_webhook(
     request: Request,
     From: str = Form(...),
