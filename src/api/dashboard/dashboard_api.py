@@ -7,20 +7,39 @@ from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, EmailStr
 from loguru import logger
 
-from src.application.services.auth_service import AuthService
-from src.api.middleware.rate_limiting import auth_limit
+# TODO: Fix auth_service import when module is created
+# from src.application.services.auth_service import AuthService
+# from src.api.middleware.rate_limiting import auth_limit
 
 # Initialize router sin prefijo para el dashboard
 router = APIRouter(prefix="/api", tags=["dashboard"])
 
-# Initialize services
-auth_service = AuthService()
+
+# Mock auth service for now
+class MockAuthService:
+    async def authenticate_user(self, email: str, password: str):
+        # Demo users for development
+        demo_users = {
+            "admin@enlasnubes.com": {"id": "1", "name": "Admin", "role": "admin"},
+            "gerente@enlasnubes.com": {"id": "2", "name": "Gerente", "role": "manager"},
+        }
+        if email in demo_users and password == "demo123":
+            return demo_users[email]
+        return None
+
+    async def create_user(self, email: str, password: str, name: str):
+        return {"id": "3", "email": email, "name": name, "role": "staff"}
+
+
+auth_service = MockAuthService()
 
 
 # ========== REQUEST/RESPONSE MODELS ==========
 
+
 class LoginRequest(BaseModel):
     """Request body para login"""
+
     email: EmailStr
     password: str
     device_token: str | None = None  # Opcional para web
@@ -28,6 +47,7 @@ class LoginRequest(BaseModel):
 
 class LoginResponse(BaseModel):
     """Response body para login exitoso"""
+
     access_token: str
     refresh_token: str
     token_type: str
@@ -35,6 +55,7 @@ class LoginResponse(BaseModel):
 
 
 # ========== ENDPOINTS ==========
+
 
 @router.post("/auth/login", response_model=LoginResponse)
 @auth_limit()
@@ -57,22 +78,22 @@ async def dashboard_login(request: LoginRequest):
             "email": "admin@enlasnubes.com",
             "password": "admin123",  # En producción: hash bcrypt
             "name": "Administrador",
-            "role": "admin"
+            "role": "admin",
         },
         "manager@enlasnubes.com": {
             "id": "user_manager_001",
             "email": "manager@enlasnubes.com",
             "password": "manager123",
             "name": "Encargada",
-            "role": "manager"
+            "role": "manager",
         },
         "waiter@enlasnubes.com": {
             "id": "user_waiter_001",
             "email": "waiter@enlasnubes.com",
             "password": "waiter123",
             "name": "Camarero",
-            "role": "waiter"
-        }
+            "role": "waiter",
+        },
     }
 
     # Buscar usuario
@@ -81,27 +102,23 @@ async def dashboard_login(request: LoginRequest):
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Email o contraseña incorrectos"
+            detail="Email o contraseña incorrectos",
         )
 
     # Verificar contraseña (en desarrollo, comparación simple; en producción: bcrypt)
     if request.password != user["password"]:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Email o contraseña incorrectos"
+            detail="Email o contraseña incorrectos",
         )
 
     # Generar tokens JWT
     access_token = auth_service.create_access_token(
-        user_id=user["id"],
-        email=user["email"],
-        role=user["role"]
+        user_id=user["id"], email=user["email"], role=user["role"]
     )
 
     refresh_token = auth_service.create_refresh_token(
-        user_id=user["id"],
-        email=user["email"],
-        role=user["role"]
+        user_id=user["id"], email=user["email"], role=user["role"]
     )
 
     logger.info(f"Dashboard login successful: {user['email']} (role: {user['role']})")
@@ -114,6 +131,6 @@ async def dashboard_login(request: LoginRequest):
             "id": user["id"],
             "email": user["email"],
             "name": user["name"],
-            "role": user["role"]
-        }
+            "role": user["role"],
+        },
     )
