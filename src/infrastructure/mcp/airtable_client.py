@@ -57,7 +57,16 @@ class AirtableMCPClient:
             if filterByFormula:
                 kwargs_list["formula"] = filterByFormula
             if sort:
-                kwargs_list["sort"] = sort
+                # Convertir formato [{field, direction}] a ["field"] o ["-field"]
+                sort_fields = []
+                for s in sort:
+                    field = s.get("field", "")
+                    direction = s.get("direction", "asc")
+                    if direction.lower() == "desc":
+                        sort_fields.append(f"-{field}")
+                    else:
+                        sort_fields.append(field)
+                kwargs_list["sort"] = sort_fields
 
             records = table.all(**kwargs_list)
             result = {"records": records}
