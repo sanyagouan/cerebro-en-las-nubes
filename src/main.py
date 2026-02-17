@@ -19,6 +19,7 @@ from src.api.dashboard.dashboard_api import router as dashboard_router
 from src.api.websocket.reservations_ws import router as websocket_router
 from src.api.sync.sync_api import router as sync_router
 from src.api.analytics_router import router as analytics_router
+from src.api.mesas_router import router as mesas_router
 
 # Import Middleware
 from src.api.middleware.twilio_validation import TwilioValidationMiddleware
@@ -73,6 +74,7 @@ app.include_router(dashboard_router)  # Dashboard web API
 app.include_router(websocket_router)
 app.include_router(sync_router)
 app.include_router(analytics_router)  # Analytics and reporting
+app.include_router(mesas_router)  # Table assignment (Tetris)
 
 logger.info(
     f"Cerebro starting - Environment: {os.getenv('ENVIRONMENT', 'development')}"
