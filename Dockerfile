@@ -1,8 +1,12 @@
 # Dockerfile optimizado para Coolify Deployment
 # Multi-stage build para "En Las Nubes" Backend
+# v2.0 - Forzar rebuild por cache invalidation
 
 # Stage 1: Builder
 FROM python:3.11-slim AS builder
+
+# ARG para invalidar cache cuando cambie requirements
+ARG CACHEBUST=1
 
 WORKDIR /app
 
