@@ -1,7 +1,7 @@
 """
 VAPI Tools Router - Endpoints para tools de VAPI.
 Apunta a /vapi/tools/* (no /vapi/webhook que es solo para Twilio)
-v1.1 - Forzando rebuild
+v2.0 - Versión limpia y corregida
 """
 
 from fastapi import APIRouter, Request, HTTPException
@@ -223,6 +223,8 @@ async def tool_check_availability(request: Request):
     Tool: Verificar disponibilidad de mesas.
     Versión simplificada sin dependencias complejas.
     """
+    tool_call_id = "unknown"
+
     try:
         data = await request.json()
         tool_call = data.get("message", {}).get("toolCalls", [{}])[0]
@@ -233,7 +235,9 @@ async def tool_check_availability(request: Request):
         hora_str = args.get("time") or args.get("hora")
         personas = args.get("pax") or args.get("personas")
 
-        logger.info(f"check_availability: fecha={fecha_str}, hora={hora_str}, personas={personas}")
+        logger.info(
+            f"check_availability: fecha={fecha_str}, hora={hora_str}, personas={personas}"
+        )
 
         if not fecha_str or not hora_str:
             return {
@@ -261,19 +265,29 @@ async def tool_check_availability(request: Request):
 
         # Día de la semana (0=Lunes, 6=Domingo)
         weekday = fecha.weekday()
-        dias = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
+        dias = [
+            "Lunes",
+            "Martes",
+            "Miércoles",
+            "Jueves",
+            "Viernes",
+            "Sábado",
+            "Domingo",
+        ]
         dia_nombre = dias[weekday]
-        
+
         # Reglas simples hardcodeadas (evita dependencias complejas)
         # Lunes = cerrado
         if weekday == 0:
             return {
-                "results": [{
-                    "toolCallId": tool_call_id,
-                    "result": f"❌ Los lunes estamos cerrados. ¿Te viene bien otro día?"
-                }]
+                "results": [
+                    {
+                        "toolCallId": tool_call_id,
+                        "result": f"❌ Los lunes estamos cerrados. ¿Te viene bien otro día?",
+                    }
+                ]
             }
-        
+
         # Determinar servicio por hora
         hora_int = hora.hour
         if 13 <= hora_int < 17:
@@ -284,127 +298,53 @@ async def tool_check_availability(request: Request):
             turno = "T1" if hora_int < 22 else "T2"
         else:
             return {
-                "results": [{
-                    "toolCallId": tool_call_id,
-                    "result": f"❌ A las {hora.strftime('%H:%M')} no servimos. Comida: 13:00-17:00, Cena: 20:00-23:30"
-                }]
+                "results": [
+                    {
+                        "toolCallId": tool_call_id,
+                        "result": f"❌ A las {hora.strftime('%H:%M')} no servimos. Comida: 13:00-17:00, Cena: 20:00-23:30",
+                    }
+                ]
             }
-        
+
         # Martes y Miércoles noche = cerrado
         if weekday in [1, 2] and servicio == "Cena":
             return {
-                "results": [{
-                    "toolCallId": tool_call_id,
-                    "result": f"❌ Los {dia_nombre}s no abrimos para cenar. ¿Te viene bien la comida?"
-                }]
+                "results": [
+                    {
+                        "toolCallId": tool_call_id,
+                        "result": f"❌ Los {dia_nombre}s no abrimos para cenar. ¿Te viene bien la comida?",
+                    }
+                ]
             }
-        
+
         # Domingo noche = cerrado
         if weekday == 6 and servicio == "Cena":
             return {
-                "results": [{
-                    "toolCallId": tool_call_id,
-                    "result": f"❌ Los domingos no abrimos para cenar. ¿Te viene bien la comida o prefieres otro día?"
-                }]
+                "results": [
+                    {
+                        "toolCallId": tool_call_id,
+                        "result": f"❌ Los domingos no abrimos para cenar. ¿Te viene bien la comida o prefieres otro día?",
+                    }
+                ]
             }
-        
+
         # Si llegamos aquí, está disponible
-        return {
-            "results": [{
-                "toolCallId": tool_call_id,
-                "result": f"✅ Tenemos disponibilidad para {personas or 'X'} personas el {dia_nombre} {fecha.strftime('%d/%m')} a las {hora.strftime('%H:%M')} ({servicio}, {turno}). ¿Confirmamos la reserva? Necesito nombre y teléfono."
-            }]
-        }
-
-    except Exception as e:
-        logger.error(f"Error in check_availability: {e}", exc_info=True)
-        return {
-            "results": [{
-                "toolCallId": tool_call_id,
-                "result": f"Tuve un problema técnico. ¿Puedes repetir fecha y hora?"
-            }]
-        }
-                ]
-            }
-
-        # Parsear
-        try:
-            fecha = datetime.strptime(fecha_str, "%Y-%m-%d").date()
-            hora = datetime.strptime(hora_str, "%H:%M").time()
-        except ValueError:
-            return {
-                "results": [
-                    {
-                        "toolCallId": tool_call_id,
-                        "result": "Formato incorrecto. Fecha: YYYY-MM-DD, Hora: HH:MM",
-                    }
-                ]
-            }
-
-        # Validar horario con ScheduleService
-        schedule_service = get_schedule_service_lazy()
-        valido, mensaje = schedule_service.validar_hora_reserva(fecha, hora)
-
-        if not valido:
-            # Devolver horarios alternativos
-            dias = [
-                "Lunes",
-                "Martes",
-                "Miércoles",
-                "Jueves",
-                "Viernes",
-                "Sábado",
-                "Domingo",
-            ]
-            dia_nombre = dias[fecha.weekday()]
-
-            return {
-                "results": [
-                    {
-                        "toolCallId": tool_call_id,
-                        "result": f"❌ {dia_nombre} {mensaje}. ¿Te viene bien otro día u hora?",
-                    }
-                ]
-            }
-
-        # Determinar servicio y turno
-        servicio = schedule_service.determinar_servicio(hora)
-        doble = schedule_service.hay_doble_turno(fecha, servicio)
-        turno = schedule_service.determinar_turno(hora, servicio, doble)
-
-        # TODO: Integrar con TableTetrisService para disponibilidad real
-        # Por ahora, simulamos disponibilidad
-        disponible = True  # Placeholder
-
-        if disponible:
-            return {
-                "results": [
-                    {
-                        "toolCallId": tool_call_id,
-                        "result": f"✅ Tenemos disponibilidad para {personas or 'X'} personas el {fecha.strftime('%d/%m')} a las {hora.strftime('%H:%M')} (Turno {turno.value}). ¿Confirmamos la reserva? Necesito nombre y teléfono.",
-                    }
-                ]
-            }
-        else:
-            return {
-                "results": [
-                    {
-                        "toolCallId": tool_call_id,
-                        "result": f"⚠️ No hay mesas disponibles para esa hora. ¿Te viene bien 1 hora antes o después? También puedo apuntarte en lista de espera.",
-                    }
-                ]
-            }
-
-    except Exception as e:
-        logger.error(f"Error in check_availability: {e}", exc_info=True)
-        import traceback
-
-        traceback.print_exc()
         return {
             "results": [
                 {
                     "toolCallId": tool_call_id,
-                    "result": f"Tuve un problema técnico ({str(e)}). ¿Puedes repetir fecha y hora?",
+                    "result": f"✅ Tenemos disponibilidad para {personas or 'X'} personas el {dia_nombre} {fecha.strftime('%d/%m')} a las {hora.strftime('%H:%M')} ({servicio}, {turno}). ¿Confirmamos la reserva? Necesito nombre y teléfono.",
+                }
+            ]
+        }
+
+    except Exception as e:
+        logger.error(f"Error in check_availability: {e}", exc_info=True)
+        return {
+            "results": [
+                {
+                    "toolCallId": tool_call_id,
+                    "result": "Tuve un problema técnico. ¿Puedes repetir fecha y hora?",
                 }
             ]
         }
