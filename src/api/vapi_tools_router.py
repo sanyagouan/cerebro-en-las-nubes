@@ -1,6 +1,7 @@
 """
 VAPI Tools Router - Endpoints para tools de VAPI.
 Apunta a /vapi/tools/* (no /vapi/webhook que es solo para Twilio)
+v1.1 - Forzando rebuild
 """
 
 from fastapi import APIRouter, Request, HTTPException
