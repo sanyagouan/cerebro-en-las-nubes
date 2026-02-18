@@ -312,12 +312,15 @@ async def tool_check_availability(request: Request):
             }
 
     except Exception as e:
-        logger.error(f"Error in check_availability: {e}")
+        logger.error(f"Error in check_availability: {e}", exc_info=True)
+        import traceback
+
+        traceback.print_exc()
         return {
             "results": [
                 {
-                    "toolCallId": "error",
-                    "result": "Tuve un problema técnico. ¿Puedes repetir fecha y hora?",
+                    "toolCallId": tool_call_id,
+                    "result": f"Tuve un problema técnico ({str(e)}). ¿Puedes repetir fecha y hora?",
                 }
             ]
         }
