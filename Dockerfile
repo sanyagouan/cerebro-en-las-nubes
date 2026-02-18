@@ -1,12 +1,12 @@
 # Dockerfile optimizado para Coolify - Cerebro En Las Nubes
-# v3.1 - Force rebuild for VAPI tools fix
+# v3.2 - Force rebuild for check_availability fix
 
 # ==================== Stage 1: Builder ====================
 FROM python:3.11-slim AS builder
 
 # Labels para metadata
 LABEL maintainer="En Las Nubes Team"
-LABEL version="3.1"
+LABEL version="3.2"
 LABEL description="Backend API para sistema de reservas"
 
 # ARG para invalidar cache
