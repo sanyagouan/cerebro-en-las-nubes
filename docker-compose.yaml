@@ -1,0 +1,47 @@
+# Docker Compose para Coolify
+# Evita orphan containers y define configuración completa
+
+services:
+  cerebro-backend:
+    image: ${IMAGE_NAME:-go84sgscs4ckcs08wog84o0o}
+    container_name: ${CONTAINER_NAME:-cerebro-backend}
+    restart: unless-stopped
+    
+    # Network
+    networks:
+      - n8n-stack-net
+    
+    # Environment - Secrets via runtime env (NO en Dockerfile)
+    environment:
+      - PYTHONUNBUFFERED=1
+      - PYTHONDONTWRITEBYTECODE=1
+      - ENVIRONMENT=${ENVIRONMENT:-production}
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    
+    # Resource limits (opcional)
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+    
+    # Logging
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  n8n-stack-net:
+    external: true
