@@ -26,10 +26,40 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/vapi/tools", tags=["VAPI Tools"])
 
-# Servicios
-schedule_service = get_schedule_service()
-airtable_service = AirtableService()
-cache = get_cache()
+# Lazy-loaded services
+_schedule_service = None
+_airtable_service = None
+_cache = None
+
+
+def get_schedule_service_lazy():
+    """Lazy load schedule service."""
+    global _schedule_service
+    if _schedule_service is None:
+        from src.application.services.schedule_service import get_schedule_service
+
+        _schedule_service = get_schedule_service()
+    return _schedule_service
+
+
+def get_airtable_service_lazy():
+    """Lazy load airtable service."""
+    global _airtable_service
+    if _airtable_service is None:
+        from src.infrastructure.external.airtable_service import AirtableService
+
+        _airtable_service = AirtableService()
+    return _airtable_service
+
+
+def get_cache_lazy():
+    """Lazy load cache."""
+    global _cache
+    if _cache is None:
+        from src.infrastructure.cache.redis_cache import get_cache
+
+        _cache = get_cache()
+    return _cache
 
 
 def parse_vapi_args(tool_call: dict) -> dict:
@@ -137,6 +167,7 @@ async def tool_get_horarios(request: Request):
         dia_nombre = dias[fecha.weekday()]
 
         # Verificar apertura
+        schedule_service = get_schedule_service_lazy()
         abierto_comida, msg_comida = schedule_service.esta_abierto(
             fecha, Servicio.COMIDA
         )
@@ -227,6 +258,7 @@ async def tool_check_availability(request: Request):
             }
 
         # Validar horario con ScheduleService
+        schedule_service = get_schedule_service_lazy()
         valido, mensaje = schedule_service.validar_hora_reserva(fecha, hora)
 
         if not valido:
@@ -321,6 +353,7 @@ async def tool_create_reservation(request: Request):
 
         # Crear en Airtable
         try:
+            airtable_service = get_airtable_service_lazy()
             record = await airtable_service.create_record(
                 {
                     "Nombre del Cliente": nombre,
