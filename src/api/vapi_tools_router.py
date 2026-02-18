@@ -8,6 +8,7 @@ from fastapi import APIRouter, Request, HTTPException
 from typing import Dict, Any, Optional, List
 from datetime import datetime, date, timedelta
 import logging
+import json
 
 from src.application.services.schedule_service import (
     ScheduleService,
@@ -31,6 +32,23 @@ airtable_service = AirtableService()
 cache = get_cache()
 
 
+def parse_vapi_args(tool_call: dict) -> dict:
+    """
+    Parsea los arguments de una VAPI tool call.
+    VAPI puede enviar arguments como string JSON o como dict.
+    """
+    args = tool_call.get("function", {}).get("arguments", {})
+
+    # Si es string, parsear como JSON
+    if isinstance(args, str):
+        try:
+            args = json.loads(args)
+        except json.JSONDecodeError:
+            args = {}
+
+    return args if isinstance(args, dict) else {}
+
+
 @router.post("/get_info")
 async def tool_get_info(request: Request):
     """
@@ -39,9 +57,8 @@ async def tool_get_info(request: Request):
     """
     try:
         data = await request.json()
-        tool_call_id = (
-            data.get("message", {}).get("toolCalls", [{}])[0].get("id", "unknown")
-        )
+        tool_call = data.get("message", {}).get("toolCalls", [{}])[0]
+        tool_call_id = tool_call.get("id", "unknown")
 
         info = {
             "nombre": "En Las Nubes Restobar",
@@ -88,7 +105,7 @@ async def tool_get_horarios(request: Request):
         data = await request.json()
         tool_call = data.get("message", {}).get("toolCalls", [{}])[0]
         tool_call_id = tool_call.get("id", "unknown")
-        args = tool_call.get("function", {}).get("arguments", {})
+        args = parse_vapi_args(tool_call)
 
         fecha_str = args.get("fecha")  # YYYY-MM-DD o null para hoy
 
@@ -179,7 +196,7 @@ async def tool_check_availability(request: Request):
         data = await request.json()
         tool_call = data.get("message", {}).get("toolCalls", [{}])[0]
         tool_call_id = tool_call.get("id", "unknown")
-        args = tool_call.get("function", {}).get("arguments", {})
+        args = parse_vapi_args(tool_call)
 
         fecha_str = args.get("date") or args.get("fecha")
         hora_str = args.get("time") or args.get("hora")
@@ -283,7 +300,7 @@ async def tool_create_reservation(request: Request):
         data = await request.json()
         tool_call = data.get("message", {}).get("toolCalls", [{}])[0]
         tool_call_id = tool_call.get("id", "unknown")
-        args = tool_call.get("function", {}).get("arguments", {})
+        args = parse_vapi_args(tool_call)
 
         nombre = args.get("customer_name") or args.get("nombre")
         telefono = args.get("phone") or args.get("telefono")
