@@ -221,7 +221,7 @@ async def tool_get_horarios(request: Request):
 async def tool_check_availability(request: Request):
     """
     Tool: Verificar disponibilidad de mesas.
-    Usa TableTetrisService para asignación inteligente.
+    Versión simplificada sin dependencias complejas.
     """
     try:
         data = await request.json()
@@ -233,6 +233,8 @@ async def tool_check_availability(request: Request):
         hora_str = args.get("time") or args.get("hora")
         personas = args.get("pax") or args.get("personas")
 
+        logger.info(f"check_availability: fecha={fecha_str}, hora={hora_str}, personas={personas}")
+
         if not fecha_str or not hora_str:
             return {
                 "results": [
@@ -240,6 +242,88 @@ async def tool_check_availability(request: Request):
                         "toolCallId": tool_call_id,
                         "result": "Necesito fecha y hora para comprobar disponibilidad. ¿Qué día y a qué hora?",
                     }
+                ]
+            }
+
+        # Parsear
+        try:
+            fecha = datetime.strptime(fecha_str, "%Y-%m-%d").date()
+            hora = datetime.strptime(hora_str, "%H:%M").time()
+        except ValueError:
+            return {
+                "results": [
+                    {
+                        "toolCallId": tool_call_id,
+                        "result": "Formato incorrecto. Fecha: YYYY-MM-DD, Hora: HH:MM",
+                    }
+                ]
+            }
+
+        # Día de la semana (0=Lunes, 6=Domingo)
+        weekday = fecha.weekday()
+        dias = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
+        dia_nombre = dias[weekday]
+        
+        # Reglas simples hardcodeadas (evita dependencias complejas)
+        # Lunes = cerrado
+        if weekday == 0:
+            return {
+                "results": [{
+                    "toolCallId": tool_call_id,
+                    "result": f"❌ Los lunes estamos cerrados. ¿Te viene bien otro día?"
+                }]
+            }
+        
+        # Determinar servicio por hora
+        hora_int = hora.hour
+        if 13 <= hora_int < 17:
+            servicio = "Comida"
+            turno = "T1" if hora_int < 15 else "T2"
+        elif 20 <= hora_int <= 23:
+            servicio = "Cena"
+            turno = "T1" if hora_int < 22 else "T2"
+        else:
+            return {
+                "results": [{
+                    "toolCallId": tool_call_id,
+                    "result": f"❌ A las {hora.strftime('%H:%M')} no servimos. Comida: 13:00-17:00, Cena: 20:00-23:30"
+                }]
+            }
+        
+        # Martes y Miércoles noche = cerrado
+        if weekday in [1, 2] and servicio == "Cena":
+            return {
+                "results": [{
+                    "toolCallId": tool_call_id,
+                    "result": f"❌ Los {dia_nombre}s no abrimos para cenar. ¿Te viene bien la comida?"
+                }]
+            }
+        
+        # Domingo noche = cerrado
+        if weekday == 6 and servicio == "Cena":
+            return {
+                "results": [{
+                    "toolCallId": tool_call_id,
+                    "result": f"❌ Los domingos no abrimos para cenar. ¿Te viene bien la comida o prefieres otro día?"
+                }]
+            }
+        
+        # Si llegamos aquí, está disponible
+        return {
+            "results": [{
+                "toolCallId": tool_call_id,
+                "result": f"✅ Tenemos disponibilidad para {personas or 'X'} personas el {dia_nombre} {fecha.strftime('%d/%m')} a las {hora.strftime('%H:%M')} ({servicio}, {turno}). ¿Confirmamos la reserva? Necesito nombre y teléfono."
+            }]
+        }
+
+    except Exception as e:
+        logger.error(f"Error in check_availability: {e}", exc_info=True)
+        return {
+            "results": [{
+                "toolCallId": tool_call_id,
+                "result": f"Tuve un problema técnico. ¿Puedes repetir fecha y hora?"
+            }]
+        }
                 ]
             }
 
