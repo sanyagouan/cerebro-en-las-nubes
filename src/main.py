@@ -20,6 +20,7 @@ from src.api.websocket.reservations_ws import router as websocket_router
 from src.api.sync.sync_api import router as sync_router
 from src.api.analytics_router import router as analytics_router
 from src.api.mesas_router import router as mesas_router
+from src.api.vapi_tools_router import router as vapi_tools_router
 
 # Import Middleware
 from src.api.middleware.twilio_validation import TwilioValidationMiddleware
@@ -75,6 +76,7 @@ app.include_router(websocket_router)
 app.include_router(sync_router)
 app.include_router(analytics_router)  # Analytics and reporting
 app.include_router(mesas_router)  # Table assignment (Tetris)
+app.include_router(vapi_tools_router)  # VAPI dynamic tools (horarios, info, etc.)
 
 logger.info(
     f"Cerebro starting - Environment: {os.getenv('ENVIRONMENT', 'development')}"
