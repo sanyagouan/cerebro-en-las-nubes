@@ -162,178 +162,21 @@ async def get_assistant_config(request: Request):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/tools/check_availability")
-async def tool_check_availability(request: Request):
-    """
-    Herramienta para verificar disponibilidad.
-    """
-    try:
-        data = await request.json()
-        message = data.get("message", {})
-        tool_call = message.get("toolCalls", [])[0]
-        args = tool_call.get("function", {}).get("arguments", {})
+# ============================================================================
+# DISABLED: Duplicate tools - Better implementations in vapi_tools_router.py
+# These routes are handled by vapi_tools_router with proper JSON string parsing.
+# See: src/api/vapi_tools_router.py for check_availability and create_reservation
+# ============================================================================
 
-        logger.info(f"Checking availability with args: {args}")
+# @router.post("/tools/check_availability")
+# async def tool_check_availability(request: Request):
+#     """DISABLED - Use vapi_tools_router.py version instead"""
+#     pass
 
-        fecha_str = args.get("fecha")  # YYYY-MM-DD
-        hora_str = args.get("hora")  # HH:MM
-        personas = args.get("personas")
-
-        if not fecha_str or not hora_str or not personas:
-            return {
-                "results": [
-                    {
-                        "toolCallId": tool_call["id"],
-                        "result": "Faltan datos para comprobar la disponibilidad. Por favor, pide fecha, hora y número de personas.",
-                    }
-                ]
-            }
-
-        # Parsear fecha y hora
-        try:
-            fecha = datetime.strptime(fecha_str, "%Y-%m-%d").date()
-            hora = datetime.strptime(hora_str, "%H:%M").time()
-        except ValueError:
-            return {
-                "results": [
-                    {
-                        "toolCallId": tool_call["id"],
-                        "result": "Formato de fecha u hora inválido. Usa YYYY-MM-DD y HH:MM.",
-                    }
-                ]
-            }
-
-        is_open, msg_open = schedule_service.es_horario_apertura(fecha, hora)
-        if not is_open:
-            return {
-                "results": [
-                    {
-                        "toolCallId": tool_call["id"],
-                        "result": f"El restaurante está cerrado en ese horario. {msg_open}",
-                    }
-                ]
-            }
-
-        disponible = reservation_repository.check_availability(
-            fecha, hora, int(personas)
-        )
-
-        if disponible:
-            resultado = "¡Sí! Tenemos mesa disponible para esa hora. ¿Quieres que te la reserve?"
-        else:
-            # Sugerir waitlist si no hay disponibilidad
-            resultado = (
-                "Vaya, lo siento mucho, pero para esa hora exacta no me queda mesa disponible. "
-                "¿Te vendría bien un poco antes o después? También puedo apuntarte en nuestra lista de espera "
-                "y te aviso por WhatsApp si se libera algo. ¿Qué prefieres?"
-            )
-
-        return {"results": [{"toolCallId": tool_call["id"], "result": resultado}]}
-
-    except Exception as e:
-        logger.error(f"Error checking availability: {str(e)}")
-        return {
-            "results": [
-                {
-                    "toolCallId": tool_call.get("id"),
-                    "result": "Tuve un pequeño problema técnico comprobando la agenda. ¿Te importa repetirme la fecha y hora?",
-                }
-            ]
-        }
-
-
-@router.post("/tools/create_reservation")
-async def tool_create_reservation(request: Request):
-    """
-    Herramienta para crear la reserva FINAL.
-    """
-    try:
-        data = await request.json()
-        message = data.get("message", {})
-        tool_call = message.get("toolCalls", [])[0]
-        args = tool_call.get("function", {}).get("arguments", {})
-
-        logger.info(f"Creating reservation with args: {args}")
-
-        nombre = args.get("nombre")
-        telefono = args.get("telefono")
-        fecha_str = args.get("fecha")
-        hora_str = args.get("hora")
-        personas = args.get("personas")
-        notas = args.get("notas", "")
-
-        if not all([nombre, telefono, fecha_str, hora_str, personas]):
-            return {
-                "results": [
-                    {
-                        "toolCallId": tool_call["id"],
-                        "result": "Me faltan algunos datos para confirmar. Necesito nombre, teléfono, fecha, hora y personas.",
-                    }
-                ]
-            }
-
-        # Crear objeto Reserva
-        reserva = Booking(  # FIXED: era Reservation
-            nombre_cliente=nombre,
-            telefono_cliente=telefono,
-            fecha=fecha_str,
-            hora=hora_str,
-            num_personas=int(personas),
-            notas=notas,
-            origen="VAPI_VOICE",
-        )
-
-        # 1. Guardar en BD (Mock)
-        res_id = reservation_repository.create_reservation(reserva)
-
-        # 2. Guardar en Airtable
-        try:
-            airtable_record = await airtable_service.create_record(
-                {
-                    "Nombre": nombre,
-                    "Teléfono": telefono,
-                    "Fecha": fecha_str,
-                    "Hora": hora_str,
-                    "Personas": int(personas),
-                    "Notas": notas,
-                    "Estado": "Confirmada",
-                    "Origen": "VAPI",
-                }
-            )
-            logger.info(f"Reserva guardada en Airtable: {airtable_record}")
-        except Exception as e:
-            logger.error(f"Error guardando en Airtable: {e}")
-            # No fallamos la reserva si falla Airtable, pero logueamos
-
-        # 3. Enviar WhatsApp Confirmación (Twilio)
-        whatsapp_enviado = False
-        try:
-            msg = f"¡Reserva Confirmada en En Las Nubes! ☁️\n\nHola {nombre}, te esperamos el {fecha_str} a las {hora_str} para {personas} personas.\n\n📍 C/ Mª Teresa Gil de Gárate 16, Logroño\n🅿️ Aparcamiento en C/ Pérez Galdós o Gran Vía\n\n⏰ Te enviaremos un recordatorio 24h antes.\n\nSi necesitas cancelar, responde a este mensaje o llama al 941 57 84 51.\n\n¡Gracias!"
-            sid = twilio_service.send_whatsapp(telefono, msg)
-            if sid:
-                whatsapp_enviado = True
-                logger.info(f"WhatsApp confirmación enviado: {sid}")
-        except Exception as e:
-            logger.error(f"Error enviando WhatsApp: {e}")
-
-        respuesta_cliente = f"¡Perfecto, {nombre}! Ya está hecha la reserva. Te he enviado un WhatsApp con la confirmación y todos los detalles. ¡Nos vemos en Las Nubes!"
-        if not whatsapp_enviado:
-            respuesta_cliente = f"¡Perfecto, {nombre}! Reserva confirmada. No he podido enviarte el WhatsApp de confirmación por un error técnico, pero tu mesa está guardada. Te llamaremos para confirmar. ¡Nos vemos!"
-
-        return {
-            "results": [{"toolCallId": tool_call["id"], "result": respuesta_cliente}]
-        }
-
-    except Exception as e:
-        logger.error(f"Error creating reservation: {str(e)}")
-        return {
-            "results": [
-                {
-                    "toolCallId": tool_call.get("id"),  # Safe get
-                    "result": "Lo siento, tuve un error al guardar la reserva. ¿Podrías intentar llamar al restaurante directamente? 941 57 84 51.",
-                }
-            ]
-        }
+# @router.post("/tools/create_reservation")
+# async def tool_create_reservation(request: Request):
+#     """DISABLED - Use vapi_tools_router.py version instead"""
+#     pass
 
 
 @router.post("/tools/cancel_reservation")
