@@ -135,18 +135,112 @@ async def get_assistant_config(request: Request):
 
         # Aquí podrías personalizar la respuesta según el caller_id, etc.
 
+        # Base URL for tools
+        base_url = "https://go84sgscs4ckcs08wog84o0o.app.generaia.site"
+
         return {
             "model": {
                 "provider": "openai",
                 "model": "gpt-4o",
                 "systemPrompt": SYSTEM_PROMPT_V2,
                 "temperature": 0.7,
-                # Force Spanish
                 "language": "es",
+                # Habilitar function calling
+                "functions": [
+                    {
+                        "name": "get_info",
+                        "description": "Obtener información general del restaurante (dirección, teléfono, parking, especialidades, carta sin gluten, política de mascotas). Úsala cuando el cliente pregunte por información básica del restobar.",
+                        "parameters": {
+                            "type": "object",
+                            "properties": {},
+                            "required": [],
+                        },
+                        "server": {"url": f"{base_url}/vapi/tools/get_info"},
+                    },
+                    {
+                        "name": "get_horarios",
+                        "description": "Consultar horarios de apertura y turnos disponibles para una fecha específica. Úsala cuando el cliente pregunte qué días o horas abren, o quiera saber disponibilidad general.",
+                        "parameters": {
+                            "type": "object",
+                            "properties": {
+                                "fecha": {
+                                    "type": "string",
+                                    "description": "Fecha en formato YYYY-MM-DD (opcional, si no se proporciona se asume hoy)",
+                                }
+                            },
+                            "required": [],
+                        },
+                        "server": {"url": f"{base_url}/vapi/tools/get_horarios"},
+                    },
+                    {
+                        "name": "check_availability",
+                        "description": "Verificar si hay mesa disponible para una fecha, hora y número de personas específicos. SIEMPRE usa esta función antes de confirmar una reserva. Si no hay disponibilidad, ofrece alternativas.",
+                        "parameters": {
+                            "type": "object",
+                            "properties": {
+                                "date": {
+                                    "type": "string",
+                                    "description": "Fecha de la reserva en formato YYYY-MM-DD (ej: 2026-02-20)",
+                                },
+                                "time": {
+                                    "type": "string",
+                                    "description": "Hora de la reserva en formato HH:MM (ej: 21:00)",
+                                },
+                                "pax": {
+                                    "type": "integer",
+                                    "description": "Número de personas/comensales",
+                                },
+                            },
+                            "required": ["date", "time", "pax"],
+                        },
+                        "server": {"url": f"{base_url}/vapi/tools/check_availability"},
+                    },
+                    {
+                        "name": "create_reservation",
+                        "description": "Crear una nueva reserva en el sistema. SOLO usar después de verificar disponibilidad con check_availability. Necesita: nombre completo, teléfono, fecha (YYYY-MM-DD), hora (HH:MM), número de personas, y notas opcionales.",
+                        "parameters": {
+                            "type": "object",
+                            "properties": {
+                                "nombre": {
+                                    "type": "string",
+                                    "description": "Nombre completo del cliente",
+                                },
+                                "telefono": {
+                                    "type": "string",
+                                    "description": "Número de teléfono del cliente (para WhatsApp de confirmación)",
+                                },
+                                "fecha": {
+                                    "type": "string",
+                                    "description": "Fecha de la reserva en formato YYYY-MM-DD",
+                                },
+                                "hora": {
+                                    "type": "string",
+                                    "description": "Hora de la reserva en formato HH:MM",
+                                },
+                                "personas": {
+                                    "type": "integer",
+                                    "description": "Número de comensales",
+                                },
+                                "notas": {
+                                    "type": "string",
+                                    "description": "Notas o peticiones especiales (alergias, tronas, celebraciones, etc.)",
+                                },
+                            },
+                            "required": [
+                                "nombre",
+                                "telefono",
+                                "fecha",
+                                "hora",
+                                "personas",
+                            ],
+                        },
+                        "server": {"url": f"{base_url}/vapi/tools/create_reservation"},
+                    },
+                ],
             },
             "voice": {
                 "provider": "11labs",
-                "voiceId": "sarah",  # ID generico, validar
+                "voiceId": "sarah",
                 "stability": 0.5,
                 "similarityBoost": 0.75,
             },
