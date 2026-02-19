@@ -268,7 +268,7 @@ private fun TablesStatsRow(tables: List<Table>) {
 }
 
 @Composable
-private fun StatBox(label: String, value: Int, color: Color) {
+private fun RowScope.StatBox(label: String, value: Int, color: Color) {
     Card(
         modifier = Modifier.weight(1f),
         colors = CardDefaults.cardColors(
