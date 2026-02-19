@@ -62,6 +62,72 @@ def get_cache_lazy():
     return _cache
 
 
+def parse_vapi_request(data: dict) -> tuple:
+    """
+    Parsea el request completo de VAPI y extrae tool_call_id y argumentos.
+
+    VAPI puede enviar en diferentes formatos:
+    1. message.toolCalls[0].function.arguments (string JSON o dict)
+    2. message.toolCallList[0].arguments (dict directo)
+    3. message.toolWithToolCallList[0].toolCall.function.arguments
+
+    Returns:
+        tuple: (tool_call_id, args_dict)
+    """
+    message = data.get("message", {})
+    tool_call_id = "unknown"
+    args = {}
+
+    # Formato 1: toolCalls con function.arguments
+    tool_calls = message.get("toolCalls", [])
+    if tool_calls:
+        tc = tool_calls[0]
+        tool_call_id = tc.get("id", "unknown")
+        func = tc.get("function", {})
+        args_raw = func.get("arguments", {})
+
+        if isinstance(args_raw, str):
+            try:
+                args = json.loads(args_raw)
+            except json.JSONDecodeError:
+                args = {}
+        elif isinstance(args_raw, dict):
+            args = args_raw
+
+    # Formato 2: toolCallList con arguments directo
+    elif message.get("toolCallList"):
+        tc = message["toolCallList"][0]
+        tool_call_id = tc.get("id", "unknown")
+        args_raw = tc.get("arguments", {})
+
+        if isinstance(args_raw, str):
+            try:
+                args = json.loads(args_raw)
+            except json.JSONDecodeError:
+                args = {}
+        elif isinstance(args_raw, dict):
+            args = args_raw
+
+    # Formato 3: toolWithToolCallList
+    elif message.get("toolWithToolCallList"):
+        twtc = message["toolWithToolCallList"][0]
+        tc = twtc.get("toolCall", {})
+        tool_call_id = tc.get("id", "unknown")
+        func = tc.get("function", {})
+        args_raw = func.get("arguments", {})
+
+        if isinstance(args_raw, str):
+            try:
+                args = json.loads(args_raw)
+            except json.JSONDecodeError:
+                args = {}
+        elif isinstance(args_raw, dict):
+            args = args_raw
+
+    logger.info(f"parse_vapi_request: tool_call_id={tool_call_id}, args={args}")
+    return tool_call_id, args
+
+
 def parse_vapi_args(tool_call: dict) -> dict:
     """
     Parsea los arguments de una VAPI tool call.
@@ -87,8 +153,7 @@ async def tool_get_info(request: Request):
     """
     try:
         data = await request.json()
-        tool_call = data.get("message", {}).get("toolCalls", [{}])[0]
-        tool_call_id = tool_call.get("id", "unknown")
+        tool_call_id, args = parse_vapi_request(data)
 
         info = {
             "nombre": "En Las Nubes Restobar",
@@ -133,10 +198,9 @@ async def tool_get_horarios(request: Request):
     """
     try:
         data = await request.json()
-        tool_call = data.get("message", {}).get("toolCalls", [{}])[0]
-        tool_call_id = tool_call.get("id", "unknown")
-        args = parse_vapi_args(tool_call)
+        tool_call_id, args = parse_vapi_request(data)
 
+        # Aceptar ambos formatos de parámetro
         fecha_str = args.get("fecha")  # YYYY-MM-DD o null para hoy
 
         if fecha_str:
@@ -223,14 +287,11 @@ async def tool_check_availability(request: Request):
     Tool: Verificar disponibilidad de mesas.
     Versión simplificada sin dependencias complejas.
     """
-    tool_call_id = "unknown"
-
     try:
         data = await request.json()
-        tool_call = data.get("message", {}).get("toolCalls", [{}])[0]
-        tool_call_id = tool_call.get("id", "unknown")
-        args = parse_vapi_args(tool_call)
+        tool_call_id, args = parse_vapi_request(data)
 
+        # Aceptar ambos formatos de parámetros (español e inglés)
         fecha_str = args.get("date") or args.get("fecha")
         hora_str = args.get("time") or args.get("hora")
         personas = args.get("pax") or args.get("personas")
@@ -343,7 +404,7 @@ async def tool_check_availability(request: Request):
         return {
             "results": [
                 {
-                    "toolCallId": tool_call_id,
+                    "toolCallId": tool_call_id if "tool_call_id" in dir() else "error",
                     "result": "Tuve un problema técnico. ¿Puedes repetir fecha y hora?",
                 }
             ]
@@ -357,10 +418,9 @@ async def tool_create_reservation(request: Request):
     """
     try:
         data = await request.json()
-        tool_call = data.get("message", {}).get("toolCalls", [{}])[0]
-        tool_call_id = tool_call.get("id", "unknown")
-        args = parse_vapi_args(tool_call)
+        tool_call_id, args = parse_vapi_request(data)
 
+        # Aceptar ambos formatos de parámetros (español e inglés)
         nombre = args.get("customer_name") or args.get("nombre")
         telefono = args.get("phone") or args.get("telefono")
         fecha_str = args.get("date") or args.get("fecha")
