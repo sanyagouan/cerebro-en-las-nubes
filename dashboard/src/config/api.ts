@@ -3,7 +3,7 @@
 // In development, use empty string to trigger Vite proxy (configured to forward /api to localhost:8000)
 // In production, use the full production URL
 const isDevelopment = (import.meta as any).env?.MODE === 'development';
-const API_BASE_URL = isDevelopment ? '' : ((import.meta as any).env?.VITE_API_URL || 'https://go84sgscs4ckcs08wog84o0o.app.generaia.site');
+export const API_BASE_URL = isDevelopment ? '' : ((import.meta as any).env?.VITE_API_URL || 'https://go84sgscs4ckcs08wog84o0o.app.generaia.site');
 
 export const config = {
   API_BASE_URL,
@@ -15,5 +15,8 @@ export const config = {
     STATS: `${API_BASE_URL}/api/stats`,
   }
 };
+
+// Export api as alias to config for backwards compatibility
+export const api = config;
 
 export default config;

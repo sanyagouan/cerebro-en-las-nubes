@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1091707499332",
+    "project_id": "enlasnubes-restobar-apk",
+    "storage_bucket": "enlasnubes-restobar-apk.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1091707499332:android:2da707d6ea09e63e62dd11",
+        "android_client_info": {
+          "package_name": "com.enlasnubes.restobar"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDm9pSZpKoW5xoYhXt3sMksTtbquoYD9fo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

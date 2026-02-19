@@ -1,4 +1,4 @@
-import { Check, X, Edit3, Download, Filter, CalendarDays, AlertCircle } from 'lucide-react';
+import { Check, X, Edit3, Download, Filter, CalendarDays, AlertCircle, Plus, ArrowUpRight } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { Search, Phone, Calendar, Users } from 'lucide-react';
 import {
@@ -16,6 +16,36 @@ import { format, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, end
 import { es } from 'date-fns/locale';
 
 type DateFilter = 'todos' | 'hoy' | 'semana' | 'mes';
+
+// Status badge styles using the new design system
+function getStatusBadge(estado: Reservation['estado']): string {
+  switch (estado) {
+    case 'Confirmada':
+      return 'badge-success';
+    case 'Pendiente':
+      return 'badge-warning';
+    case 'Cancelada':
+      return 'badge-error';
+    case 'Completada':
+      return 'badge-info';
+    case 'Sentada':
+      return 'bg-purple-50 text-purple-700 border-purple-200';
+    default:
+      return 'bg-secondary-100 text-secondary-700 border-secondary-200';
+  }
+}
+
+// Channel badge styles
+function getChannelBadge(canal: string): string {
+  switch (canal) {
+    case 'VAPI':
+      return 'bg-violet-50 text-violet-700 border-violet-200';
+    case 'WhatsApp':
+      return 'bg-emerald-50 text-emerald-700 border-emerald-200';
+    default:
+      return 'bg-blue-50 text-blue-700 border-blue-200';
+  }
+}
 
 export default function Reservas() {
   const { token } = useAuth();
@@ -153,7 +183,7 @@ export default function Reservas() {
       return;
     }
 
-    const headers = ['ID', 'Nombre', 'Teléfono', 'Fecha', 'Hora', 'Personas', 'Mesa', 'Estado', 'Canal', 'Notas'];
+    const headers = ['ID', 'Nombre', 'Telefono', 'Fecha', 'Hora', 'Personas', 'Mesa', 'Estado', 'Canal', 'Notas'];
     const rows = reservasFiltradas.map(r => [
       r.id,
       r.nombre,
@@ -187,71 +217,50 @@ export default function Reservas() {
   };
 
   return (
-    <div className="space-y-6">
-      {/* Filtros y Búsqueda */}
-      <div className="bg-white rounded-xl shadow-sm p-4">
-        <div className="flex flex-col md:flex-row gap-4 justify-between">
+    <div className="space-y-6 animate-fade-in">
+      {/* Filters Bar */}
+      <div className="premium-card p-4">
+        <div className="flex flex-col lg:flex-row gap-4 justify-between">
+          {/* Search */}
           <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+            <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-secondary-400" size={18} />
             <input
               type="text"
-              placeholder="Buscar por nombre o teléfono..."
+              placeholder="Buscar por nombre o telefono..."
               value={busqueda}
               onChange={(e) => setBusqueda(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+              className="input-search"
             />
           </div>
           
-          <div className="flex flex-wrap gap-2">
-            {/* Date Filter Buttons */}
-            <div className="flex gap-1 border rounded-lg p-1 bg-gray-50">
-              <button
-                onClick={() => setFiltroFecha('todos')}
-                className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
-                  filtroFecha === 'todos'
-                    ? 'bg-primary-600 text-white'
-                    : 'text-gray-600 hover:bg-gray-200'
-                }`}
-              >
-                Todos
-              </button>
-              <button
-                onClick={() => setFiltroFecha('hoy')}
-                className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
-                  filtroFecha === 'hoy'
-                    ? 'bg-primary-600 text-white'
-                    : 'text-gray-600 hover:bg-gray-200'
-                }`}
-              >
-                Hoy
-              </button>
-              <button
-                onClick={() => setFiltroFecha('semana')}
-                className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
-                  filtroFecha === 'semana'
-                    ? 'bg-primary-600 text-white'
-                    : 'text-gray-600 hover:bg-gray-200'
-                }`}
-              >
-                Semana
-              </button>
-              <button
-                onClick={() => setFiltroFecha('mes')}
-                className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
-                  filtroFecha === 'mes'
-                    ? 'bg-primary-600 text-white'
-                    : 'text-gray-600 hover:bg-gray-200'
-                }`}
-              >
-                Mes
-              </button>
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Date Filter */}
+            <div className="flex bg-secondary-100 rounded-xl p-1">
+              {[
+                { key: 'todos', label: 'Todos' },
+                { key: 'hoy', label: 'Hoy' },
+                { key: 'semana', label: 'Semana' },
+                { key: 'mes', label: 'Mes' },
+              ].map(({ key, label }) => (
+                <button
+                  key={key}
+                  onClick={() => setFiltroFecha(key as DateFilter)}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                    filtroFecha === key
+                      ? 'bg-white text-primary-600 shadow-sm'
+                      : 'text-secondary-600 hover:text-secondary-800'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
             </div>
 
             {/* Status Filter */}
             <select
               value={filtroEstado}
               onChange={(e) => setFiltroEstado(e.target.value)}
-              className="px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+              className="input-field w-auto min-w-[160px]"
             >
               <option value="todos">Todos los estados</option>
               <option value="pendiente">Pendiente</option>
@@ -260,164 +269,192 @@ export default function Reservas() {
               <option value="completada">Completada</option>
             </select>
 
-            {/* Export CSV Button */}
+            {/* Export Button */}
             <button
               onClick={handleExportCSV}
               disabled={!reservasFiltradas.length}
-              className="flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-              title="Exportar a CSV"
+              className="btn-secondary disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Download size={18} />
-              Exportar
+              <span className="hidden sm:inline">Exportar</span>
             </button>
             
             {/* Create Button */}
             <button 
               onClick={handleCreateClick}
-              className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
+              className="btn-primary"
             >
-              <Calendar size={18} />
-              Nueva Reserva
+              <Plus size={18} />
+              <span>Nueva Reserva</span>
             </button>
           </div>
         </div>
       </div>
 
+      {/* Results Summary */}
+      {!isLoading && !error && (
+        <div className="flex items-center justify-between text-sm">
+          <p className="text-secondary-500">
+            <span className="font-semibold text-secondary-900">{reservasFiltradas.length}</span> reservas encontradas
+          </p>
+        </div>
+      )}
+
       {/* Loading State */}
       {isLoading && (
-        <div className="flex items-center justify-center py-12">
-          <div className="w-8 h-8 border-4 border-primary-600 border-t-transparent rounded-full animate-spin" />
+        <div className="premium-card p-12">
+          <div className="flex flex-col items-center justify-center">
+            <div className="w-12 h-12 border-4 border-primary-200 border-t-primary-600 rounded-full animate-spin mb-4" />
+            <p className="text-secondary-500 font-medium">Cargando reservas...</p>
+          </div>
         </div>
       )}
 
       {/* Error State */}
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-800">
-          Error al cargar reservas: {error.message}
+        <div className="premium-card p-8">
+          <div className="flex flex-col items-center text-center">
+            <div className="w-16 h-16 rounded-2xl bg-error-50 flex items-center justify-center mb-4">
+              <AlertCircle className="text-error-500" size={28} />
+            </div>
+            <h3 className="text-lg font-bold text-secondary-900 mb-2">Error al cargar</h3>
+            <p className="text-secondary-500">{error.message}</p>
+          </div>
         </div>
       )}
 
-      {/* Tabla de Reservas */}
+      {/* Table */}
       {!isLoading && !error && (
-        <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-        <table className="w-full">
-          <thead className="bg-gray-50 border-b">
-            <tr>
-              <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600">Cliente</th>
-              <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600">Fecha y Hora</th>
-              <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600">Personas</th>
-              <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600">Mesa</th>
-              <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600">Estado</th>
-              <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600">Origen</th>
-              <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600">Acciones</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y">
-            {reservasFiltradas.map((reserva) => (
-              <tr 
-                key={reserva.id} 
-                className="hover:bg-gray-50 cursor-pointer"
-                onClick={() => handleRowClick(reserva)}
-              >
-                <td className="px-6 py-4">
-                  <div>
-                    <p className="font-medium text-gray-900">{reserva.nombre}</p>
-                    <div className="flex items-center gap-1 text-sm text-gray-500">
-                      <Phone size={14} />
-                      {reserva.telefono}
-                    </div>
-                  </div>
-                </td>
-                <td className="px-6 py-4">
-                  <div className="flex items-center gap-2">
-                    <Calendar size={16} className="text-gray-400" />
-                    <span>{reserva.fecha} • {reserva.hora}</span>
-                  </div>
-                </td>
-                <td className="px-6 py-4">
-                  <div className="flex items-center gap-2">
-                    <Users size={16} className="text-gray-400" />
-                    {reserva.pax}
-                  </div>
-                </td>
-                <td className="px-6 py-4">
-                  {reserva.mesa ? (
-                    <span className="px-3 py-1 bg-gray-100 rounded-full text-sm">{reserva.mesa}</span>
-                  ) : (
-                    <span className="text-gray-400">Sin asignar</span>
-                  )}
-                </td>
-                <td className="px-6 py-4">
-                  <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                    reserva.estado === 'Confirmada' ? 'bg-green-100 text-green-700' :
-                    reserva.estado === 'Pendiente' ? 'bg-yellow-100 text-yellow-700' :
-                    reserva.estado === 'Cancelada' ? 'bg-red-100 text-red-700' :
-                    'bg-gray-100 text-gray-700'
-                  }`}>
-                    {reserva.estado}
-                  </span>
-                </td>
-                <td className="px-6 py-4">
-                  <span className={`px-3 py-1 rounded-full text-sm ${
-                    reserva.canal === 'VAPI' ? 'bg-purple-100 text-purple-700' :
-                    reserva.canal === 'WhatsApp' ? 'bg-green-100 text-green-700' :
-                    'bg-blue-100 text-blue-700'
-                  }`}>
-                    {reserva.canal}
-                  </span>
-                </td>
-                <td className="px-6 py-4">
-                  <div className="flex gap-2">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleEditClick(reserva);
-                      }}
-                      className="p-2 text-primary-600 hover:bg-primary-50 rounded-lg"
-                      title="Editar"
-                      disabled={updateStatusMutation.isPending || createMutation.isPending || updateMutation.isPending}
-                    >
-                      <Edit3 size={18} />
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleConfirm(reserva);
-                      }}
-                      className="p-2 text-green-600 hover:bg-green-50 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
-                      title="Confirmar"
-                      disabled={reserva.estado === 'Confirmada' || updateStatusMutation.isPending}
-                    >
-                      <Check size={18} />
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleCancel(reserva);
-                      }}
-                      className="p-2 text-red-600 hover:bg-red-50 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
-                      title="Cancelar"
-                      disabled={reserva.estado === 'Cancelada' || updateStatusMutation.isPending}
-                    >
-                      <X size={18} />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-            {reservasFiltradas.length === 0 && (
-              <tr>
-                <td colSpan={7} className="px-6 py-12 text-center text-gray-500">
-                  No se encontraron reservas con los filtros actuales
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+        <div className="premium-card overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Cliente</th>
+                  <th>Fecha y Hora</th>
+                  <th>Personas</th>
+                  <th>Mesa</th>
+                  <th>Estado</th>
+                  <th>Origen</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                {reservasFiltradas.map((reserva) => (
+                  <tr 
+                    key={reserva.id} 
+                    className="cursor-pointer group"
+                    onClick={() => handleRowClick(reserva)}
+                  >
+                    <td>
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary-100 to-primary-50 flex items-center justify-center flex-shrink-0">
+                          <span className="text-primary-600 font-bold text-sm">
+                            {reserva.nombre.charAt(0).toUpperCase()}
+                          </span>
+                        </div>
+                        <div>
+                          <p className="font-semibold text-secondary-900">{reserva.nombre}</p>
+                          <div className="flex items-center gap-1.5 text-sm text-secondary-500">
+                            <Phone size={12} />
+                            {reserva.telefono}
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                    <td>
+                      <div className="flex items-center gap-2">
+                        <Calendar size={16} className="text-secondary-400" />
+                        <div>
+                          <p className="font-medium text-secondary-900">{reserva.fecha}</p>
+                          <p className="text-sm text-secondary-500">{reserva.hora}</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td>
+                      <div className="flex items-center gap-2">
+                        <Users size={16} className="text-secondary-400" />
+                        <span className="font-medium text-secondary-900">{reserva.pax}</span>
+                      </div>
+                    </td>
+                    <td>
+                      {reserva.mesa ? (
+                        <span className="px-3 py-1.5 bg-secondary-100 rounded-lg text-sm font-medium text-secondary-700">
+                          {reserva.mesa}
+                        </span>
+                      ) : (
+                        <span className="text-secondary-400 text-sm">Sin asignar</span>
+                      )}
+                    </td>
+                    <td>
+                      <span className={`badge ${getStatusBadge(reserva.estado)}`}>
+                        {reserva.estado}
+                      </span>
+                    </td>
+                    <td>
+                      <span className={`badge ${getChannelBadge(reserva.canal)}`}>
+                        {reserva.canal}
+                      </span>
+                    </td>
+                    <td>
+                      <div className="flex gap-1">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleEditClick(reserva);
+                          }}
+                          className="p-2 text-secondary-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
+                          title="Editar"
+                          disabled={updateStatusMutation.isPending || createMutation.isPending || updateMutation.isPending}
+                        >
+                          <Edit3 size={16} />
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleConfirm(reserva);
+                          }}
+                          className="p-2 text-secondary-400 hover:text-success-600 hover:bg-success-50 rounded-lg transition-colors disabled:opacity-50"
+                          title="Confirmar"
+                          disabled={reserva.estado === 'Confirmada' || updateStatusMutation.isPending}
+                        >
+                          <Check size={16} />
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleCancel(reserva);
+                          }}
+                          className="p-2 text-secondary-400 hover:text-error-600 hover:bg-error-50 rounded-lg transition-colors disabled:opacity-50"
+                          title="Cancelar"
+                          disabled={reserva.estado === 'Cancelada' || updateStatusMutation.isPending}
+                        >
+                          <X size={16} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+                {reservasFiltradas.length === 0 && (
+                  <tr>
+                    <td colSpan={7} className="py-12">
+                      <div className="text-center">
+                        <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-secondary-50 flex items-center justify-center">
+                          <CalendarDays className="text-secondary-400" size={28} />
+                        </div>
+                        <p className="text-secondary-500 font-medium">No se encontraron reservas</p>
+                        <p className="text-sm text-secondary-400 mt-1">Prueba con otros filtros</p>
+                      </div>
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
       )}
 
-      {/* Reservation Form Modal */}
+      {/* Modals */}
       <ReservaForm
         isOpen={isFormOpen}
         onClose={() => setIsFormOpen(false)}
@@ -426,7 +463,6 @@ export default function Reservas() {
         mode={formMode}
       />
 
-      {/* Reservation Detail Modal */}
       <ReservaDetalle
         isOpen={isDetalleOpen}
         onClose={() => setIsDetalleOpen(false)}
@@ -438,20 +474,14 @@ export default function Reservas() {
         isUpdating={updateStatusMutation.isPending}
       />
 
-      {/* Toast Notifications */}
+      {/* Toast */}
       {toast && (
-        <div className="fixed bottom-4 right-4 z-50 animate-slide-up">
-          <div
-            className={`flex items-center gap-3 px-6 py-4 rounded-lg shadow-lg ${
-              toast.type === 'success'
-                ? 'bg-green-600 text-white'
-                : 'bg-red-600 text-white'
-            }`}
-          >
+        <div className="fixed bottom-6 right-6 z-50 animate-fade-in-up">
+          <div className={`toast ${toast.type === 'success' ? 'toast-success' : 'toast-error'}`}>
             {toast.type === 'success' ? (
-              <Check size={20} className="flex-shrink-0" />
+              <Check size={18} className="flex-shrink-0" />
             ) : (
-              <AlertCircle size={20} className="flex-shrink-0" />
+              <AlertCircle size={18} className="flex-shrink-0" />
             )}
             <span className="font-medium">{toast.message}</span>
           </div>

@@ -19,12 +19,15 @@ coroutines = "1.7.3"
 coil = "2.5.0"
 datastore = "1.0.0"
 fcm = "23.4.0"
+googleServices = "4.4.2"
+firebaseBom = "33.7.0"
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlin-kapt = { id = "org.jetbrains.kotlin.kapt", version.ref = "kotlin" }
 hilt-android = { id = "com.google.dagger.hilt.android", version.ref = "hilt" }
+google-services = { id = "com.google.gms.google-services", version.ref = "googleServices" }
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -72,8 +75,10 @@ coil = { group = "io.coil-kt", name = "coil-compose", version.ref = "coil" }
 # DataStore
 androidx-datastore = { group = "androidx.datastore", name = "datastore-preferences", version.ref = "datastore" }
 
-# Firebase
-firebase-messaging = { group = "com.google.firebase", name = "firebase-messaging-ktx", version.ref = "fcm" }
+# Firebase - Using BOM for version management
+firebase-bom = { group = "com.google.firebase", name = "firebase-bom", version.ref = "firebaseBom" }
+firebase-messaging = { group = "com.google.firebase", name = "firebase-messaging-ktx" }
+firebase-analytics = { group = "com.google.firebase", name = "firebase-analytics-ktx" }
 
 [bundles]
 compose = ["androidx-ui", "androidx-ui-graphics", "androidx-ui-tooling-preview", "androidx-material3", "androidx-material-icons"]

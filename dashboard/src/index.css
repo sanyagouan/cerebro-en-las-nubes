@@ -1,8 +1,263 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/* Base styles */
+:root {
+  --primary: #d94d29;
+  --primary-light: #e86236;
+  --primary-dark: #b73d20;
+}
+
+* {
+  @apply antialiased;
+}
+
 body {
-  @apply bg-gray-50 text-gray-900;
+  @apply bg-secondary-50 text-secondary-900;
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-secondary-100 rounded-full;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-secondary-300 rounded-full hover:bg-secondary-400 transition-colors;
+}
+
+/* Glass Card Effect */
+@layer components {
+  .glass-card {
+    @apply bg-white/80 backdrop-blur-xl border border-white/20 shadow-card;
+  }
+
+  .glass-card-dark {
+    @apply bg-secondary-900/80 backdrop-blur-xl border border-white/10 shadow-card;
+  }
+
+  /* Premium Card */
+  .premium-card {
+    @apply relative overflow-hidden bg-white rounded-2xl border border-secondary-100 shadow-card transition-all duration-300;
+  }
+
+  .premium-card:hover {
+    @apply shadow-card-hover border-secondary-200 -translate-y-0.5;
+  }
+
+  /* Stat Card */
+  .stat-card {
+    @apply relative overflow-hidden bg-white rounded-2xl p-6 border border-secondary-100 shadow-card;
+  }
+
+  .stat-card::before {
+    content: '';
+    @apply absolute inset-0 bg-gradient-to-br from-primary-500/5 to-transparent pointer-events-none;
+  }
+
+  /* Gradient text */
+  .gradient-text {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-primary-600 to-primary-500;
+  }
+
+  /* Modern button */
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-gradient-to-r from-primary-600 to-primary-500 text-white font-semibold rounded-xl shadow-soft hover:shadow-card-hover hover:from-primary-700 hover:to-primary-600 transition-all duration-200 active:scale-[0.98];
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-white text-secondary-700 font-medium rounded-xl border border-secondary-200 shadow-soft hover:bg-secondary-50 hover:border-secondary-300 transition-all duration-200 active:scale-[0.98];
+  }
+
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2 text-secondary-600 font-medium rounded-xl hover:bg-secondary-100 transition-all duration-200;
+  }
+
+  /* Status badges */
+  .badge {
+    @apply inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium;
+  }
+
+  .badge-success {
+    @apply bg-success-50 text-success-700 border border-success-200;
+  }
+
+  .badge-warning {
+    @apply bg-warning-50 text-warning-700 border border-warning-200;
+  }
+
+  .badge-error {
+    @apply bg-error-50 text-error-700 border border-error-200;
+  }
+
+  .badge-info {
+    @apply bg-primary-50 text-primary-700 border border-primary-200;
+  }
+
+  /* Sidebar styles */
+  .sidebar {
+    @apply flex flex-col h-screen bg-secondary-900 text-white;
+  }
+
+  .sidebar-item {
+    @apply flex items-center gap-3 px-4 py-3 text-secondary-300 font-medium rounded-xl transition-all duration-200;
+  }
+
+  .sidebar-item:hover {
+    @apply bg-secondary-800 text-white;
+  }
+
+  .sidebar-item.active {
+    @apply bg-primary-600 text-white shadow-glow;
+  }
+
+  /* Data table */
+  .data-table {
+    @apply w-full text-sm;
+  }
+
+  .data-table thead {
+    @apply bg-secondary-50 border-b border-secondary-200;
+  }
+
+  .data-table th {
+    @apply px-6 py-4 text-left font-semibold text-secondary-600 uppercase tracking-wide text-xs;
+  }
+
+  .data-table tbody tr {
+    @apply border-b border-secondary-100 transition-colors;
+  }
+
+  .data-table tbody tr:hover {
+    @apply bg-secondary-50;
+  }
+
+  .data-table td {
+    @apply px-6 py-4;
+  }
+
+  /* Input styles */
+  .input-field {
+    @apply w-full px-4 py-2.5 bg-white border border-secondary-200 rounded-xl text-secondary-900 placeholder-secondary-400 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all duration-200;
+  }
+
+  .input-search {
+    @apply pl-11 pr-4 py-2.5 bg-secondary-50 border border-transparent rounded-xl text-secondary-900 placeholder-secondary-400 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:bg-white focus:border-primary-300 transition-all duration-200;
+  }
+
+  /* Skeleton loader */
+  .skeleton {
+    @apply relative overflow-hidden bg-secondary-200 rounded;
+  }
+
+  .skeleton::after {
+    content: '';
+    @apply absolute inset-0 bg-shimmer-gradient animate-shimmer;
+    background-size: 200% 100%;
+  }
+
+  /* Pulse dot for real-time indicators */
+  .pulse-dot {
+    @apply relative flex h-3 w-3;
+  }
+
+  .pulse-dot::before {
+    content: '';
+    @apply absolute inline-flex h-full w-full rounded-full bg-success-400 opacity-75 animate-ping;
+  }
+
+  .pulse-dot::after {
+    content: '';
+    @apply relative inline-flex rounded-full h-3 w-3 bg-success-500;
+  }
+
+  /* Metric sparkline placeholder */
+  .sparkline-up {
+    @apply text-success-500;
+  }
+
+  .sparkline-down {
+    @apply text-error-500;
+  }
+
+  /* Toast notification */
+  .toast {
+    @apply flex items-center gap-3 px-5 py-4 rounded-2xl shadow-card animate-fade-in-up;
+  }
+
+  .toast-success {
+    @apply bg-success-600 text-white;
+  }
+
+  .toast-error {
+    @apply bg-error-600 text-white;
+  }
+
+  .toast-info {
+    @apply bg-secondary-800 text-white;
+  }
+}
+
+/* Animation classes */
+@layer utilities {
+  .animate-in {
+    animation: fadeInUp 0.4s ease-out forwards;
+  }
+
+  .animate-delay-100 {
+    animation-delay: 100ms;
+  }
+
+  .animate-delay-200 {
+    animation-delay: 200ms;
+  }
+
+  .animate-delay-300 {
+    animation-delay: 300ms;
+  }
+
+  .animate-delay-400 {
+    animation-delay: 400ms;
+  }
+}
+
+/* Dark mode support */
+.dark body {
+  @apply bg-secondary-950 text-secondary-100;
+}
+
+.dark .premium-card {
+  @apply bg-secondary-900 border-secondary-800;
+}
+
+.dark .stat-card {
+  @apply bg-secondary-900 border-secondary-800;
+}
+
+.dark .input-field {
+  @apply bg-secondary-800 border-secondary-700 text-secondary-100;
+}
+
+.dark .input-search {
+  @apply bg-secondary-800 text-secondary-100;
+}
+
+.dark .data-table thead {
+  @apply bg-secondary-800 border-secondary-700;
+}
+
+.dark .data-table th {
+  @apply text-secondary-400;
+}
+
+.dark .data-table tbody tr:hover {
+  @apply bg-secondary-800;
 }

@@ -3,6 +3,7 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.kapt)
     alias(libs.plugins.hilt.android)
+    alias(libs.plugins.google.services)
 }
 
 android {
@@ -21,10 +22,9 @@ android {
             useSupportLibrary = true
         }
 
-        // API Base URL - ACTUALIZAR con URL real del servidor Coolify
-        // Ejemplo: "https://api.enlasnubes.com"
-        buildConfigField("String", "API_BASE_URL", "\"https://UPDATE_WITH_YOUR_COOLIFY_DOMAIN.com\"")
-        buildConfigField("String", "WS_BASE_URL", "\"wss://UPDATE_WITH_YOUR_COOLIFY_DOMAIN.com\"")
+        // API Base URL - Servidor Coolify producción
+        buildConfigField("String", "API_BASE_URL", "\"https://go84sgscs4ckcs08wog84o0o.app.generaia.site\"")
+        buildConfigField("String", "WS_BASE_URL", "\"wss://go84sgscs4ckcs08wog84o0o.app.generaia.site\"")
     }
 
     buildTypes {
@@ -93,8 +93,10 @@ dependencies {
     // DataStore
     implementation(libs.androidx.datastore)
     
-    // Firebase
+    // Firebase - Using BOM for version management
+    implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.messaging)
+    implementation(libs.firebase.analytics)
     
     // Testing
     testImplementation(libs.junit)
