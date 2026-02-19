@@ -29,8 +29,41 @@ jobs:
       with:
         gradle-version: '8.2'
 
+    - name: Generate launcher icons
+      run: |
+        # Create icon directories
+        mkdir -p android-app/app/src/main/res/mipmap-hdpi
+        mkdir -p android-app/app/src/main/res/mipmap-mdpi
+        mkdir -p android-app/app/src/main/res/mipmap-xhdpi
+        mkdir -p android-app/app/src/main/res/mipmap-xxhdpi
+        mkdir -p android-app/app/src/main/res/mipmap-xxxhdpi
+        
+        # Generate simple colored PNG icons using ImageMagick
+        # HDPI (72x72)
+        convert -size 72x72 xc:'#d94d29' -gravity center -fill white -font DejaVu-Sans-Bold -pointsize 36 -annotate 0 'ELN' android-app/app/src/main/res/mipmap-hdpi/ic_launcher.png
+        convert -size 72x72 xc:'#d94d29' -gravity center -fill white -font DejaVu-Sans-Bold -pointsize 36 -annotate 0 'ELN' android-app/app/src/main/res/mipmap-hdpi/ic_launcher_round.png
+        
+        # MDPI (48x48)
+        convert -size 48x48 xc:'#d94d29' -gravity center -fill white -font DejaVu-Sans-Bold -pointsize 24 -annotate 0 'ELN' android-app/app/src/main/res/mipmap-mdpi/ic_launcher.png
+        convert -size 48x48 xc:'#d94d29' -gravity center -fill white -font DejaVu-Sans-Bold -pointsize 24 -annotate 0 'ELN' android-app/app/src/main/res/mipmap-mdpi/ic_launcher_round.png
+        
+        # XHDPI (96x96)
+        convert -size 96x96 xc:'#d94d29' -gravity center -fill white -font DejaVu-Sans-Bold -pointsize 48 -annotate 0 'ELN' android-app/app/src/main/res/mipmap-xhdpi/ic_launcher.png
+        convert -size 96x96 xc:'#d94d29' -gravity center -fill white -font DejaVu-Sans-Bold -pointsize 48 -annotate 0 'ELN' android-app/app/src/main/res/mipmap-xhdpi/ic_launcher_round.png
+        
+        # XXHDPI (144x144)
+        convert -size 144x144 xc:'#d94d29' -gravity center -fill white -font DejaVu-Sans-Bold -pointsize 72 -annotate 0 'ELN' android-app/app/src/main/res/mipmap-xxhdpi/ic_launcher.png
+        convert -size 144x144 xc:'#d94d29' -gravity center -fill white -font DejaVu-Sans-Bold -pointsize 72 -annotate 0 'ELN' android-app/app/src/main/res/mipmap-xxhdpi/ic_launcher_round.png
+        
+        # XXXHDPI (192x192)
+        convert -size 192x192 xc:'#d94d29' -gravity center -fill white -font DejaVu-Sans-Bold -pointsize 96 -annotate 0 'ELN' android-app/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png
+        convert -size 192x192 xc:'#d94d29' -gravity center -fill white -font DejaVu-Sans-Bold -pointsize 96 -annotate 0 'ELN' android-app/app/src/main/res/mipmap-xxxhdpi/ic_launcher_round.png
+        
+        echo "Icons generated successfully"
+      working-directory: ${{ github.workspace }}
+
     - name: Build Release APK
-      run: gradle assembleRelease --no-daemon --info
+      run: gradle assembleRelease --no-daemon
       working-directory: android-app
 
     - name: Upload APK artifact
