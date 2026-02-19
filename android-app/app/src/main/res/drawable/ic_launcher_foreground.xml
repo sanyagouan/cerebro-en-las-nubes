@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    
+    <!-- Cloud shape -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,30c-8.3,0 -15.4,5.4 -17.9,12.9C28.4,44.5 24,50.2 24,57c0,8.8 7.2,16 16,16h28c8.8,0 16,-7.2 16,-16c0,-6.8 -4.2,-12.6 -10.2,-14.9C71.4,35.4 63.3,30 54,30z" />
+    
+    <!-- Sun rays -->
+    <path
+        android:fillColor="#FFD700"
+        android:pathData="M75,25m-6,0a6,6 0,1 1,12 0a6,6 0,1 1,-12 0" />
+    
+    <!-- Letters "N" in center -->
+    <path
+        android:fillColor="#1e293b"
+        android:pathData="M48,52h4v12h-0.1l-6,-8v8h-4v-12h4l6,8v-8z" />
+</vector>
