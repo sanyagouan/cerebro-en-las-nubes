@@ -138,118 +138,122 @@ async def get_assistant_config(request: Request):
         # Base URL for tools
         base_url = "https://go84sgscs4ckcs08wog84o0o.app.generaia.site"
 
+        # VAPI espera la configuración DENTRO de la clave "assistant"
         return {
-            "model": {
-                "provider": "openai",
-                "model": "gpt-4o",
-                "systemPrompt": SYSTEM_PROMPT_V2,
-                "temperature": 0.7,
-                "language": "es",
-                # Habilitar function calling
-                "functions": [
-                    {
-                        "name": "get_info",
-                        "description": "Obtener información general del restaurante (dirección, teléfono, parking, especialidades, carta sin gluten, política de mascotas). Úsala cuando el cliente pregunte por información básica del restobar.",
-                        "parameters": {
-                            "type": "object",
-                            "properties": {},
-                            "required": [],
-                        },
-                        "server": {"url": f"{base_url}/vapi/tools/get_info"},
-                    },
-                    {
-                        "name": "get_horarios",
-                        "description": "Consultar horarios de apertura y turnos disponibles para una fecha específica. Úsala cuando el cliente pregunte qué días o horas abren, o quiera saber disponibilidad general.",
-                        "parameters": {
-                            "type": "object",
-                            "properties": {
-                                "fecha": {
-                                    "type": "string",
-                                    "description": "Fecha en formato YYYY-MM-DD (opcional, si no se proporciona se asume hoy)",
-                                }
+            "assistant": {
+                "model": {
+                    "provider": "openai",
+                    "model": "gpt-4o",
+                    "messages": [{"role": "system", "content": SYSTEM_PROMPT_V2}],
+                    "temperature": 0.7,
+                    "functions": [
+                        {
+                            "name": "get_info",
+                            "description": "Obtener información general del restaurante (dirección, teléfono, parking, especialidades, carta sin gluten, política de mascotas). Úsala cuando el cliente pregunte por información básica del restobar.",
+                            "parameters": {
+                                "type": "object",
+                                "properties": {},
+                                "required": [],
                             },
-                            "required": [],
+                            "server": {"url": f"{base_url}/vapi/tools/get_info"},
                         },
-                        "server": {"url": f"{base_url}/vapi/tools/get_horarios"},
-                    },
-                    {
-                        "name": "check_availability",
-                        "description": "Verificar si hay mesa disponible para una fecha, hora y número de personas específicos. SIEMPRE usa esta función antes de confirmar una reserva. Si no hay disponibilidad, ofrece alternativas.",
-                        "parameters": {
-                            "type": "object",
-                            "properties": {
-                                "date": {
-                                    "type": "string",
-                                    "description": "Fecha de la reserva en formato YYYY-MM-DD (ej: 2026-02-20)",
+                        {
+                            "name": "get_horarios",
+                            "description": "Consultar horarios de apertura y turnos disponibles para una fecha específica. Úsala cuando el cliente pregunte qué días o horas abren, o quiera saber disponibilidad general.",
+                            "parameters": {
+                                "type": "object",
+                                "properties": {
+                                    "fecha": {
+                                        "type": "string",
+                                        "description": "Fecha en formato YYYY-MM-DD (opcional, si no se proporciona se asume hoy)",
+                                    }
                                 },
-                                "time": {
-                                    "type": "string",
-                                    "description": "Hora de la reserva en formato HH:MM (ej: 21:00)",
-                                },
-                                "pax": {
-                                    "type": "integer",
-                                    "description": "Número de personas/comensales",
-                                },
+                                "required": [],
                             },
-                            "required": ["date", "time", "pax"],
+                            "server": {"url": f"{base_url}/vapi/tools/get_horarios"},
                         },
-                        "server": {"url": f"{base_url}/vapi/tools/check_availability"},
-                    },
-                    {
-                        "name": "create_reservation",
-                        "description": "Crear una nueva reserva en el sistema. SOLO usar después de verificar disponibilidad con check_availability. Necesita: nombre completo, teléfono, fecha (YYYY-MM-DD), hora (HH:MM), número de personas, y notas opcionales.",
-                        "parameters": {
-                            "type": "object",
-                            "properties": {
-                                "nombre": {
-                                    "type": "string",
-                                    "description": "Nombre completo del cliente",
+                        {
+                            "name": "check_availability",
+                            "description": "Verificar si hay mesa disponible para una fecha, hora y número de personas específicos. SIEMPRE usa esta función antes de confirmar una reserva. Si no hay disponibilidad, ofrece alternativas.",
+                            "parameters": {
+                                "type": "object",
+                                "properties": {
+                                    "date": {
+                                        "type": "string",
+                                        "description": "Fecha de la reserva en formato YYYY-MM-DD (ej: 2026-02-20)",
+                                    },
+                                    "time": {
+                                        "type": "string",
+                                        "description": "Hora de la reserva en formato HH:MM (ej: 21:00)",
+                                    },
+                                    "pax": {
+                                        "type": "integer",
+                                        "description": "Número de personas/comensales",
+                                    },
                                 },
-                                "telefono": {
-                                    "type": "string",
-                                    "description": "Número de teléfono del cliente (para WhatsApp de confirmación)",
-                                },
-                                "fecha": {
-                                    "type": "string",
-                                    "description": "Fecha de la reserva en formato YYYY-MM-DD",
-                                },
-                                "hora": {
-                                    "type": "string",
-                                    "description": "Hora de la reserva en formato HH:MM",
-                                },
-                                "personas": {
-                                    "type": "integer",
-                                    "description": "Número de comensales",
-                                },
-                                "notas": {
-                                    "type": "string",
-                                    "description": "Notas o peticiones especiales (alergias, tronas, celebraciones, etc.)",
-                                },
+                                "required": ["date", "time", "pax"],
                             },
-                            "required": [
-                                "nombre",
-                                "telefono",
-                                "fecha",
-                                "hora",
-                                "personas",
-                            ],
+                            "server": {
+                                "url": f"{base_url}/vapi/tools/check_availability"
+                            },
                         },
-                        "server": {"url": f"{base_url}/vapi/tools/create_reservation"},
-                    },
-                ],
-            },
-            "voice": {
-                "provider": "11labs",
-                "voiceId": "sarah",
-                "stability": 0.5,
-                "similarityBoost": 0.75,
-            },
-            "firstMessage": "¡Hola! Bienvenido a En Las Nubes Restobar. Soy Nube. ¿En qué puedo ayudarte hoy?",
-            "transcriber": {
-                "provider": "deepgram",
-                "model": "nova-2",
-                "language": "es-ES",
-            },
+                        {
+                            "name": "create_reservation",
+                            "description": "Crear una nueva reserva en el sistema. SOLO usar después de verificar disponibilidad con check_availability. Necesita: nombre completo, teléfono, fecha, hora y número de personas.",
+                            "parameters": {
+                                "type": "object",
+                                "properties": {
+                                    "customer_name": {
+                                        "type": "string",
+                                        "description": "Nombre completo del cliente",
+                                    },
+                                    "phone": {
+                                        "type": "string",
+                                        "description": "Número de teléfono del cliente (para WhatsApp de confirmación)",
+                                    },
+                                    "date": {
+                                        "type": "string",
+                                        "description": "Fecha de la reserva en formato YYYY-MM-DD",
+                                    },
+                                    "time": {
+                                        "type": "string",
+                                        "description": "Hora de la reserva en formato HH:MM",
+                                    },
+                                    "pax": {
+                                        "type": "integer",
+                                        "description": "Número de comensales",
+                                    },
+                                    "notes": {
+                                        "type": "string",
+                                        "description": "Notas o peticiones especiales (alergias, tronas, celebraciones, etc.)",
+                                    },
+                                },
+                                "required": [
+                                    "customer_name",
+                                    "phone",
+                                    "date",
+                                    "time",
+                                    "pax",
+                                ],
+                            },
+                            "server": {
+                                "url": f"{base_url}/vapi/tools/create_reservation"
+                            },
+                        },
+                    ],
+                },
+                "voice": {
+                    "provider": "11labs",
+                    "voiceId": "UOIqAnmS11Reiei1Ytkc",
+                    "model": "eleven_multilingual_v2",
+                },
+                "firstMessage": "¡Hola! Soy Nube, de En Las Nubes Restobar en Logroño. ¿Quieres hacer una reserva o tienes alguna pregunta?",
+                "transcriber": {
+                    "provider": "deepgram",
+                    "model": "nova-2",
+                    "language": "es-ES",
+                },
+            }
         }
     except Exception as e:
         logger.error(f"Error generando configuración del asistente: {str(e)}")
