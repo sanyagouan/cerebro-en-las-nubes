@@ -1,0 +1,50 @@
+name: Build Dashboard
+
+on:
+  push:
+    branches: [ dashboard-production ]
+    paths:
+      - 'dashboard/**'
+  pull_request:
+    branches: [ dashboard-production ]
+    paths:
+      - 'dashboard/**'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+        cache-dependency-path: dashboard/package-lock.json
+
+    - name: Install dependencies
+      run: npm ci
+      working-directory: dashboard
+
+    - name: Build production
+      run: npm run build
+      working-directory: dashboard
+
+    - name: Upload build artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: dashboard-dist
+        path: dashboard/dist/
+        retention-days: 30
+
+    - name: Upload to GitHub Pages
+      if: github.event_name == 'push' && github.ref == 'refs/heads/dashboard-production'
+      uses: peaceiris/actions-gh-pages@v3
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        publish_dir: ./dashboard/dist
+        publish_branch: gh-pages
