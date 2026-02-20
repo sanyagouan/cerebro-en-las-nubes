@@ -5,10 +5,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.enlasnubes.restobar.data.model.Reservation
 import com.enlasnubes.restobar.data.model.ReservationStatus
-import com.enlasnubes.restobar.data.model.UserRole
 import com.enlasnubes.restobar.data.repository.AuthRepository
 import com.enlasnubes.restobar.data.repository.RestobarRepository
 import com.enlasnubes.restobar.data.websocket.ReservationUpdateEvent
+import com.enlasnubes.restobar.data.websocket.StatusUpdateMessage
 import com.enlasnubes.restobar.data.websocket.WebSocketService
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -28,13 +28,8 @@ data class ReservationsUiState(
     val connectionStatus: ConnectionStatus = ConnectionStatus.DISCONNECTED
 )
 
-enum class ReservationFilter {
-    ALL, PENDING, CONFIRMED, SEATED, COMPLETED, CANCELLED
-}
-
-enum class ConnectionStatus {
-    CONNECTED, DISCONNECTED, CONNECTING, ERROR
-}
+enum class ReservationFilter { ALL, PENDING, CONFIRMED, SEATED, COMPLETED, CANCELLED }
+enum class ConnectionStatus { CONNECTED, DISCONNECTED, CONNECTING, ERROR }
 
 @HiltViewModel
 class ReservationsViewModel @Inject constructor(
@@ -47,27 +42,24 @@ class ReservationsViewModel @Inject constructor(
     val uiState: StateFlow<ReservationsUiState> = _uiState.asStateFlow()
 
     init {
-        // Escuchar eventos de conexión WebSocket
         viewModelScope.launch {
             webSocketService.connectionState.collect { state ->
-                val connectionStatus = when (state) {
+                val status = when (state) {
                     WebSocketService.ConnectionState.CONNECTED -> ConnectionStatus.CONNECTED
                     WebSocketService.ConnectionState.CONNECTING -> ConnectionStatus.CONNECTING
                     WebSocketService.ConnectionState.DISCONNECTED -> ConnectionStatus.DISCONNECTED
                     WebSocketService.ConnectionState.ERROR -> ConnectionStatus.ERROR
                 }
-                _uiState.update { it.copy(connectionStatus = connectionStatus) }
+                _uiState.update { it.copy(connectionStatus = status) }
             }
         }
 
-        // Escuchar actualizaciones de reservas vía WebSocket
         viewModelScope.launch {
             webSocketService.reservationUpdates.collect { event ->
                 handleReservationUpdate(event)
             }
         }
 
-        // Conectar WebSocket
         viewModelScope.launch {
             authRepository.authToken.collect { token ->
                 if (!token.isNullOrBlank()) {
@@ -80,23 +72,12 @@ class ReservationsViewModel @Inject constructor(
     fun loadReservations(date: LocalDate = LocalDate.now()) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
-
             repository.getReservations(date = date)
                 .onSuccess { reservations ->
-                    _uiState.update {
-                        it.copy(
-                            reservations = reservations.sortedBy { r -> r.time },
-                            isLoading = false
-                        )
-                    }
+                    _uiState.update { it.copy(reservations = reservations.sortedBy { r -> r.time }, isLoading = false) }
                 }
                 .onFailure { error ->
-                    _uiState.update {
-                        it.copy(
-                            isLoading = false,
-                            error = error.message
-                        )
-                    }
+                    _uiState.update { it.copy(isLoading = false, error = error.message) }
                 }
         }
     }
@@ -118,58 +99,35 @@ class ReservationsViewModel @Inject constructor(
         return if (filter == ReservationFilter.ALL) {
             _uiState.value.reservations
         } else {
-            _uiState.value.reservations.filter { 
-                it.status.name == filter.name 
-            }
+            _uiState.value.reservations.filter { it.status.name == filter.name }
         }
     }
 
     fun updateStatus(reservationId: String, newStatus: ReservationStatus, notes: String? = null) {
         viewModelScope.launch {
-            // Optimistic update
             updateLocalReservation(reservationId, newStatus)
-
-            // Enviar vía WebSocket para tiempo real
             when (newStatus) {
                 ReservationStatus.SEATED -> webSocketService.markReservationSeated(reservationId, notes)
                 ReservationStatus.CANCELLED -> webSocketService.markReservationCancelled(reservationId, notes)
                 ReservationStatus.COMPLETED -> webSocketService.sendMessage(
-                    com.enlasnubes.restobar.data.websocket.StatusUpdateMessage(
-                        entityType = "reservation",
-                        entityId = reservationId,
-                        status = "completed",
-                        notes = notes
-                    )
+                    StatusUpdateMessage("reservation", reservationId, "completed", notes)
                 )
                 else -> {}
             }
-
-            // También enviar vía HTTP como backup
             repository.updateReservationStatus(reservationId, newStatus.name.lowercase())
-                .onFailure { error ->
-                    Log.e("ReservationsViewModel", "Error updating status", error)
-                    // Revert optimistic update on failure
-                    loadReservations()
-                }
+                .onFailure { loadReservations() }
         }
     }
 
     private fun handleReservationUpdate(event: ReservationUpdateEvent) {
         when (event.event) {
-            "created" -> {
-                // Agregar nueva reserva
-                loadReservations() // Recargar para obtener datos completos
-            }
+            "created" -> loadReservations()
             "updated", "seated", "cancelled", "completed" -> {
-                // Actualizar reserva existente
-                event.data.id.let { id ->
-                    val status = try {
-                        ReservationStatus.valueOf(event.data.status.uppercase())
-                    } catch (e: IllegalArgumentException) {
-                        // Estado desconocido, mantener el actual
-                        return@let
-                    }
-                    updateLocalReservation(id, status)
+                event.data.id?.let { id ->
+                    try {
+                        val status = ReservationStatus.valueOf(event.data.status.uppercase())
+                        updateLocalReservation(id, status)
+                    } catch (e: Exception) {}
                 }
             }
         }
@@ -177,19 +135,11 @@ class ReservationsViewModel @Inject constructor(
 
     private fun updateLocalReservation(id: String, newStatus: ReservationStatus) {
         _uiState.update { state ->
-            state.copy(
-                reservations = state.reservations.map { reservation ->
-                    if (reservation.id == id) {
-                        reservation.copy(status = newStatus)
-                    } else {
-                        reservation
-                    }
-                }
-            )
+            state.copy(reservations = state.reservations.map { 
+                if (it.id == id) it.copy(status = newStatus) else it 
+            })
         }
     }
 
-    fun dismissError() {
-        _uiState.update { it.copy(error = null) }
-    }
+    fun dismissError() { _uiState.update { it.copy(error = null) } }
 }

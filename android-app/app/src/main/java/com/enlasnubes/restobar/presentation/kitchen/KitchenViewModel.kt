@@ -3,7 +3,6 @@ package com.enlasnubes.restobar.presentation.kitchen
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.enlasnubes.restobar.data.repository.RestobarRepository
-import com.enlasnubes.restobar.data.websocket.ReservationUpdateEvent
 import com.enlasnubes.restobar.data.websocket.WebSocketService
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -33,21 +32,19 @@ class KitchenViewModel @Inject constructor(
     val uiState: StateFlow<KitchenUiState> = _uiState.asStateFlow()
 
     init {
-        // Escuchar actualizaciones de reservas
         viewModelScope.launch {
             webSocketService.reservationUpdates.collect { event ->
-                handleReservationUpdate(event)
+                if (event.event == "created" || event.event == "updated") {
+                    loadOrders()
+                }
             }
         }
-
         loadOrders()
     }
 
-    private fun loadOrders() {
+    fun loadOrders() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
-
-            // Obtener reservas del día y convertir a órdenes de cocina
             repository.getReservations(date = LocalDate.now())
                 .onSuccess { reservations ->
                     val orders = reservations
@@ -59,11 +56,8 @@ class KitchenViewModel @Inject constructor(
                                 customerName = reservation.customerName,
                                 pax = reservation.pax,
                                 time = reservation.time,
-                                status = when (reservation.status.name) {
-                                    "SEATED" -> KitchenOrderStatus.PREPARING
-                                    else -> KitchenOrderStatus.PENDING
-                                },
-                                items = emptyList(), // TODO: Obtener de API
+                                status = if (reservation.status.name == "SEATED") KitchenOrderStatus.PREPARING else KitchenOrderStatus.PENDING,
+                                items = emptyList(),
                                 specialRequests = reservation.specialRequests,
                                 estimatedReadyTime = null,
                                 actualReadyTime = null,
@@ -71,68 +65,29 @@ class KitchenViewModel @Inject constructor(
                             )
                         }
                         .sortedBy { it.time }
-
-                    _uiState.update {
-                        it.copy(
-                            orders = orders,
-                            isLoading = false,
-                            alerts = orders.flatMap { it.alerts }
-                        )
-                    }
+                    _uiState.update { it.copy(orders = orders, isLoading = false, alerts = orders.flatMap { it.alerts }) }
                 }
                 .onFailure { error ->
-                    _uiState.update {
-                        it.copy(
-                            isLoading = false,
-                            error = error.message
-                        )
-                    }
+                    _uiState.update { it.copy(isLoading = false, error = error.message) }
                 }
         }
     }
 
     private fun generateAlerts(pax: Int, specialRequests: List<String>): List<KitchenAlert> {
         val alerts = mutableListOf<KitchenAlert>()
-
         if (pax >= 10) {
-            alerts.add(
-                KitchenAlert(
-                    AlertType.LARGE_GROUP,
-                    "Grupo grande: $pax pax"
-                )
-            )
+            alerts.add(KitchenAlert(AlertType.LARGE_GROUP, "Grupo grande: $pax pax"))
         }
-
         specialRequests.forEach { request ->
             when {
-                request.contains("gluten", ignoreCase = true) -> {
-                    alerts.add(
-                        KitchenAlert(
-                            AlertType.ALLERGY,
-                            "Sin gluten: $request"
-                        )
-                    )
-                }
-                request.contains("alergia", ignoreCase = true) || 
-                request.contains("alérgico", ignoreCase = true) -> {
-                    alerts.add(
-                        KitchenAlert(
-                            AlertType.ALLERGY,
-                            "⚠️ Alergia: $request"
-                        )
-                    )
-                }
-                request.contains("trona", ignoreCase = true) -> {
-                    alerts.add(
-                        KitchenAlert(
-                            AlertType.INFO,
-                            "Niño con trona"
-                        )
-                    )
-                }
+                request.contains("gluten", ignoreCase = true) -> 
+                    alerts.add(KitchenAlert(AlertType.ALLERGY, "Sin gluten: $request"))
+                request.contains("alergia", ignoreCase = true) || request.contains("alergico", ignoreCase = true) -> 
+                    alerts.add(KitchenAlert(AlertType.ALLERGY, "Alergia: $request"))
+                request.contains("trona", ignoreCase = true) -> 
+                    alerts.add(KitchenAlert(AlertType.INFO, "Nino con trona"))
             }
         }
-
         return alerts
     }
 
@@ -140,82 +95,32 @@ class KitchenViewModel @Inject constructor(
         val now = LocalTime.now()
         return when (filter) {
             KitchenTimeFilter.ALL -> _uiState.value.orders
-            KitchenTimeFilter.NEXT_HOUR -> {
-                _uiState.value.orders.filter {
-                    val diff = java.time.Duration.between(now, it.time).toMinutes()
-                    diff in -30..60
-                }
+            KitchenTimeFilter.NEXT_HOUR -> _uiState.value.orders.filter {
+                val diff = java.time.Duration.between(now, it.time).toMinutes()
+                diff in -30..60
             }
-            KitchenTimeFilter.NEXT_2_HOURS -> {
-                _uiState.value.orders.filter {
-                    val diff = java.time.Duration.between(now, it.time).toMinutes()
-                    diff in -30..120
-                }
+            KitchenTimeFilter.NEXT_2_HOURS -> _uiState.value.orders.filter {
+                val diff = java.time.Duration.between(now, it.time).toMinutes()
+                diff in -30..120
             }
-            KitchenTimeFilter.OVERDUE -> {
-                _uiState.value.orders.filter {
-                    it.time.isBefore(now) && it.status != KitchenOrderStatus.SERVED
-                }
+            KitchenTimeFilter.OVERDUE -> _uiState.value.orders.filter {
+                it.time.isBefore(now) && it.status != KitchenOrderStatus.SERVED
             }
         }
     }
 
     fun updateOrderStatus(orderId: String, newStatus: KitchenOrderStatus) {
-        viewModelScope.launch {
-            _uiState.update { state ->
-                state.copy(
-                    orders = state.orders.map { order ->
-                        if (order.reservationId == orderId) {
-                            order.copy(status = newStatus)
-                        } else {
-                            order
-                        }
-                    }
-                )
-            }
-
-            // Notificar vía WebSocket
-            when (newStatus) {
-                KitchenOrderStatus.PREPARING -> {
-                    // Notificar que cocina inició preparación
-                }
-                KitchenOrderStatus.READY -> {
-                    // Notificar a camareros que orden está lista
-                }
-                else -> {}
-            }
+        _uiState.update { state ->
+            state.copy(orders = state.orders.map { 
+                if (it.reservationId == orderId) it.copy(status = newStatus) else it 
+            })
         }
     }
 
     fun markOrderReady(orderId: String) {
         updateOrderStatus(orderId, KitchenOrderStatus.READY)
-
-        // Enviar notificación push a camareros
-        viewModelScope.launch {
-            // TODO: Implementar notificación push
-        }
     }
 
-    fun showAlerts() {
-        _uiState.update { it.copy(showAlertsDialog = true) }
-    }
-
-    fun dismissAlerts() {
-        _uiState.update { it.copy(showAlertsDialog = false) }
-    }
-
-    private fun handleReservationUpdate(event: ReservationUpdateEvent) {
-        when (event.event) {
-            "created", "updated" -> {
-                // Recargar órdenes
-                loadOrders()
-            }
-            "seated" -> {
-                // Marcar orden como en preparación
-                event.data.id?.let { id ->
-                    updateOrderStatus(id, KitchenOrderStatus.PREPARING)
-                }
-            }
-        }
-    }
+    fun showAlerts() { _uiState.update { it.copy(showAlertsDialog = true) } }
+    fun dismissAlerts() { _uiState.update { it.copy(showAlertsDialog = false) } }
 }

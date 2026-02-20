@@ -1,36 +1,37 @@
 package com.enlasnubes.restobar.data.model
 
+import com.google.gson.annotations.SerializedName
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.Instant
 
 enum class UserRole {
-    WAITER,      // Camarero
-    COOK,        // Cocinero
-    MANAGER,     // Encargada
-    ADMIN        // Administrador
+    @SerializedName("waiter") WAITER,
+    @SerializedName("cook") COOK,
+    @SerializedName("manager") MANAGER,
+    @SerializedName("admin") ADMIN
 }
 
 enum class ReservationStatus {
-    PENDING,     // Pendiente
-    CONFIRMED,   // Confirmada
-    SEATED,      // Sentado
-    PAYING,      // Pagando
-    COMPLETED,   // Completada
-    CANCELLED,   // Cancelada
-    NO_SHOW      // No apareció
+    @SerializedName("pending") PENDING,
+    @SerializedName("confirmed") CONFIRMED,
+    @SerializedName("seated") SEATED,
+    @SerializedName("paying") PAYING,
+    @SerializedName("completed") COMPLETED,
+    @SerializedName("cancelled") CANCELLED,
+    @SerializedName("no_show") NO_SHOW
 }
 
 enum class TableLocation {
-    INTERIOR,    // Interior
-    TERRACE      // Terraza
+    @SerializedName("interior") INTERIOR,
+    @SerializedName("terrace") TERRACE
 }
 
 enum class TableStatus {
-    FREE,        // Libre
-    OCCUPIED,    // Ocupada
-    RESERVED,    // Reservada
-    MAINTENANCE  // Mantenimiento
+    @SerializedName("free") FREE,
+    @SerializedName("occupied") OCCUPIED,
+    @SerializedName("reserved") RESERVED,
+    @SerializedName("maintenance") MAINTENANCE
 }
 
 data class User(
@@ -43,44 +44,44 @@ data class User(
 
 data class Reservation(
     val id: String,
-    val customerName: String,
-    val phone: String,
+    @SerializedName("customer_name") val customerName: String,
+    @SerializedName("customer_phone") val phone: String,
     val date: LocalDate,
     val time: LocalTime,
     val pax: Int,
     val status: ReservationStatus,
-    val tableId: String? = null,
-    val tableName: String? = null,
+    @SerializedName("table_id") val tableId: String? = null,
+    @SerializedName("table_name") val tableName: String? = null,
     val location: TableLocation? = null,
     val notes: String? = null,
-    val specialRequests: List<String> = emptyList(),
-    val createdAt: Instant,
-    val updatedAt: Instant? = null
+    @SerializedName("special_requests") val specialRequests: List<String> = emptyList(),
+    @SerializedName("created_at") val createdAt: Instant,
+    @SerializedName("updated_at") val updatedAt: Instant? = null
 )
 
 data class Table(
     val id: String,
-    val name: String,
+    val number: String,
     val capacity: Int,
-    val maxCapacity: Int,
+    @SerializedName("max_capacity") val maxCapacity: Int,
     val location: TableLocation,
     val status: TableStatus,
-    val isActive: Boolean = true,
-    val currentReservation: Reservation? = null
+    @SerializedName("is_active") val isActive: Boolean = true,
+    @SerializedName("current_reservation") val currentReservation: Reservation? = null
 )
 
 data class DashboardStats(
-    val totalReservations: Int,
+    @SerializedName("total_reservations") val totalReservations: Int,
     val confirmed: Int,
     val pending: Int,
     val seated: Int,
     val cancelled: Int,
-    val occupancyRate: Float,
-    val paxTotal: Int
+    @SerializedName("occupancy_rate") val occupancyRate: Float,
+    @SerializedName("pax_total") val paxTotal: Int
 )
 
 data class LoginResponse(
-    val accessToken: String,
-    val refreshToken: String,
+    @SerializedName("access_token") val accessToken: String,
+    @SerializedName("refresh_token") val refreshToken: String,
     val user: User
 )

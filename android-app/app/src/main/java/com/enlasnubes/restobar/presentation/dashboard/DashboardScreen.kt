@@ -1,5 +1,7 @@
 package com.enlasnubes.restobar.presentation.dashboard
 
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
@@ -27,6 +29,16 @@ import com.enlasnubes.restobar.presentation.kitchen.KitchenScreen
 import com.enlasnubes.restobar.presentation.reservations.ReservationsScreen
 import com.enlasnubes.restobar.presentation.tables.TablesScreen
 
+sealed class TabItem(
+    val title: String,
+    val icon: ImageVector
+) {
+    data object Reservations : TabItem("Reservas", Icons.Default.Event)
+    data object Tables : TabItem("Mesas", Icons.Default.TableBar)
+    data object Kitchen : TabItem("Cocina", Icons.Default.Restaurant)
+    data object Admin : TabItem("Admin", Icons.Default.AdminPanelSettings)
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DashboardScreen(
@@ -36,40 +48,20 @@ fun DashboardScreen(
 ) {
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
 
-    // Define tabs based on role
     val tabs = when (userRole) {
-        UserRole.WAITER -> listOf(
-            TabItem.Reservations,
-            TabItem.Tables
-        )
-        UserRole.COOK -> listOf(
-            TabItem.Kitchen
-        )
-        UserRole.MANAGER -> listOf(
-            TabItem.Reservations,
-            TabItem.Tables,
-            TabItem.Kitchen
-        )
-        UserRole.ADMIN -> listOf(
-            TabItem.Reservations,
-            TabItem.Tables,
-            TabItem.Kitchen,
-            TabItem.Admin
-        )
+        UserRole.WAITER -> listOf(TabItem.Reservations, TabItem.Tables)
+        UserRole.COOK -> listOf(TabItem.Kitchen)
+        UserRole.MANAGER -> listOf(TabItem.Reservations, TabItem.Tables, TabItem.Kitchen)
+        UserRole.ADMIN -> listOf(TabItem.Reservations, TabItem.Tables, TabItem.Kitchen, TabItem.Admin)
     }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = {
-                    Text("En Las Nubes - ${getRoleName(userRole)}")
-                },
+                title = { Text("En Las Nubes - ${getRoleName(userRole)}") },
                 actions = {
                     IconButton(onClick = onLogout) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ExitToApp,
-                            contentDescription = "Cerrar sesión"
-                        )
+                        Icon(Icons.AutoMirrored.Filled.ExitToApp, contentDescription = "Cerrar sesion")
                     }
                 }
             )
@@ -89,24 +81,18 @@ fun DashboardScreen(
             }
         }
     ) { padding ->
-        // Content based on selected tab
-        when (tabs.getOrNull(selectedTab)) {
-            TabItem.Reservations -> ReservationsScreen(
-                modifier = Modifier.padding(padding),
-                userRole = userRole
-            )
-            TabItem.Tables -> TablesScreen(
-                modifier = Modifier.padding(padding),
-                userRole = userRole
-            )
-            TabItem.Kitchen -> KitchenScreen(
-                userRole = userRole
-            )
-            TabItem.Admin -> Text(
-                text = "Panel Admin (Próximamente)",
-                modifier = Modifier.padding(padding)
-            )
-            else -> {}
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+        ) {
+            when (tabs.getOrNull(selectedTab)) {
+                TabItem.Reservations -> ReservationsScreen(userRole = userRole)
+                TabItem.Tables -> TablesScreen(userRole = userRole)
+                TabItem.Kitchen -> KitchenScreen(userRole = userRole)
+                TabItem.Admin -> Text("Panel Admin (Proximamente)")
+                else -> {}
+            }
         }
     }
 }
@@ -118,14 +104,4 @@ private fun getRoleName(role: UserRole): String {
         UserRole.MANAGER -> "Encargada"
         UserRole.ADMIN -> "Admin"
     }
-}
-
-sealed class TabItem(
-    val title: String,
-    val icon: ImageVector
-) {
-    data object Reservations : TabItem("Reservas", Icons.Default.Event)
-    data object Tables : TabItem("Mesas", Icons.Default.TableBar)
-    data object Kitchen : TabItem("Cocina", Icons.Default.Restaurant)
-    data object Admin : TabItem("Admin", Icons.Default.AdminPanelSettings)
 }

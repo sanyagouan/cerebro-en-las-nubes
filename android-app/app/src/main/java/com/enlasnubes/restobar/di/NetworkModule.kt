@@ -2,6 +2,8 @@ package com.enlasnubes.restobar.di
 
 import com.enlasnubes.restobar.BuildConfig
 import com.enlasnubes.restobar.data.remote.RestobarApi
+import com.enlasnubes.restobar.data.websocket.WebSocketService
+import com.enlasnubes.restobar.data.websocket.WebSocketManager
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -52,5 +54,11 @@ object NetworkModule {
     @Singleton
     fun provideRestobarApi(retrofit: Retrofit): RestobarApi {
         return retrofit.create(RestobarApi::class.java)
+    }
+
+    @Provides
+    @Singleton
+    fun provideWebSocketService(manager: WebSocketManager): WebSocketService {
+        return manager
     }
 }

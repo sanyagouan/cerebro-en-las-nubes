@@ -1,235 +1,192 @@
 package com.enlasnubes.restobar.presentation.reservations
 
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.ExperimentalMaterialApi
-import androidx.compose.material.pullrefresh.PullRefreshIndicator
-import androidx.compose.material.pullrefresh.pullRefresh
-import androidx.compose.material.pullrefresh.rememberPullRefreshState
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.enlasnubes.restobar.data.model.ReservationStatus
 import com.enlasnubes.restobar.data.model.UserRole
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Row
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CloudOff
-import androidx.compose.material.icons.filled.CloudQueue
-import androidx.compose.material3.IconButton
+import java.time.format.DateTimeFormatter
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterialApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ReservationsScreen(
     userRole: UserRole,
     viewModel: ReservationsViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val snackbarHostState = remember { SnackbarHostState() }
-
-    val pullRefreshState = rememberPullRefreshState(
-        refreshing = uiState.isRefreshing,
-        onRefresh = { viewModel.refreshReservations() }
-    )
-
-    LaunchedEffect(Unit) {
-        viewModel.loadReservations()
-    }
-
-    LaunchedEffect(uiState.error) {
-        uiState.error?.let {
-            snackbarHostState.showSnackbar(it)
-            viewModel.dismissError()
-        }
-    }
+    var selectedFilter by remember { mutableStateOf(ReservationFilter.ALL) }
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = {
-                    Column {
-                        Text("Reservas del Día")
-                        Text(
-                            text = when (uiState.connectionStatus) {
-                                ConnectionStatus.CONNECTED -> "En tiempo real"
-                                ConnectionStatus.CONNECTING -> "Conectando..."
-                                ConnectionStatus.ERROR -> "Error de conexión"
-                                ConnectionStatus.DISCONNECTED -> "Sin conexión"
-                            },
-                            style = MaterialTheme.typography.labelSmall,
-                            color = when (uiState.connectionStatus) {
-                                ConnectionStatus.CONNECTED -> Color(0xFF27AE60)
-                                else -> MaterialTheme.colorScheme.error
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("Reservas")
+                        if (uiState.connectionStatus == ConnectionStatus.CONNECTED) {
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Surface(
+                                color = MaterialTheme.colorScheme.primary,
+                                shape = MaterialTheme.shapes.small
+                            ) {
+                                Text("  En vivo  ", color = MaterialTheme.colorScheme.onPrimary, style = MaterialTheme.typography.labelSmall)
                             }
-                        )
+                        }
                     }
                 },
                 actions = {
-                    // Indicador de conexión
-                    IconButton(onClick = { }) {
-                        Icon(
-                            imageVector = if (uiState.connectionStatus == ConnectionStatus.CONNECTED) 
-                                Icons.Default.CloudQueue else Icons.Default.CloudOff,
-                            contentDescription = "Estado de conexión",
-                            tint = when (uiState.connectionStatus) {
-                                ConnectionStatus.CONNECTED -> Color(0xFF27AE60)
-                                else -> MaterialTheme.colorScheme.error
-                            }
-                        )
+                    IconButton(onClick = { viewModel.refreshReservations() }) {
+                        Icon(Icons.Default.Refresh, contentDescription = "Actualizar")
                     }
                 }
             )
-        },
-        snackbarHost = { SnackbarHost(snackbarHostState) }
+        }
     ) { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
         ) {
-            // Filtros
-            FilterChipsRow(
-                selectedFilter = uiState.selectedFilter,
-                onFilterSelected = { viewModel.setFilter(it) }
-            )
-
-            // Lista de reservas
-            Box(
+            // Filters
+            Row(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .pullRefresh(pullRefreshState)
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                when {
-                    uiState.isLoading -> {
-                        CircularProgressIndicator(
-                            modifier = Modifier.align(Alignment.Center)
-                        )
+                ReservationFilter.values().take(4).forEach { filter ->
+                    FilterChip(
+                        selected = selectedFilter == filter,
+                        onClick = {
+                            selectedFilter = filter
+                            viewModel.setFilter(filter)
+                        },
+                        label = { Text(filter.name.lowercase().capitalize()) }
+                    )
+                }
+            }
+
+            when {
+                uiState.isLoading -> {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator()
                     }
-                    uiState.reservations.isEmpty() -> {
-                        EmptyState()
-                    }
-                    else -> {
-                        LazyColumn(
-                            modifier = Modifier.fillMaxSize(),
-                            contentPadding = PaddingValues(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            items(
-                                items = viewModel.getFilteredReservations(),
-                                key = { it.id }
-                            ) { reservation ->
-                                ReservationCard(
-                                    reservation = reservation,
-                                    userRole = userRole,
-                                    onStatusUpdate = { status ->
-                                        viewModel.updateStatus(reservation.id, status)
-                                    },
-                                    onEdit = {
-                                        // TODO: Navigate to edit screen
-                                    },
-                                    onViewDetails = {
-                                        // TODO: Show detail dialog
-                                    }
-                                )
-                            }
+                }
+                uiState.error != null -> {
+                    Column(
+                        Modifier.fillMaxSize().padding(16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Text("Error: ${uiState.error}", color = MaterialTheme.colorScheme.error)
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Button(onClick = { viewModel.dismissError(); viewModel.loadReservations() }) {
+                            Text("Reintentar")
                         }
                     }
                 }
+                else -> {
+                    val filteredReservations = viewModel.getFilteredReservations()
 
-                // Indicador de pull-to-refresh
-                PullRefreshIndicator(
-                    refreshing = uiState.isRefreshing,
-                    state = pullRefreshState,
-                    modifier = Modifier.align(Alignment.TopCenter)
-                )
+                    LazyColumn(
+                        contentPadding = PaddingValues(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        items(filteredReservations) { reservation ->
+                            ReservationCard(
+                                customerName = reservation.customerName,
+                                time = reservation.time.format(DateTimeFormatter.ofPattern("HH:mm")),
+                                pax = reservation.pax,
+                                status = reservation.status,
+                                tableName = reservation.tableName,
+                                onStatusChange = { newStatus ->
+                                    viewModel.updateStatus(
+                                        reservation.id,
+                                        ReservationStatus.valueOf(newStatus.uppercase())
+                                    )
+                                }
+                            )
+                        }
+                    }
+                }
             }
         }
     }
 }
 
 @Composable
-private fun FilterChipsRow(
-    selectedFilter: ReservationFilter,
-    onFilterSelected: (ReservationFilter) -> Unit
+private fun ReservationCard(
+    customerName: String,
+    time: String,
+    pax: Int,
+    status: ReservationStatus,
+    tableName: String?,
+    onStatusChange: (String) -> Unit
 ) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-        FilterChip(
-            selected = selectedFilter == ReservationFilter.ALL,
-            onClick = { onFilterSelected(ReservationFilter.ALL) },
-            label = { Text("Todas") }
-        )
-        FilterChip(
-            selected = selectedFilter == ReservationFilter.PENDING,
-            onClick = { onFilterSelected(ReservationFilter.PENDING) },
-            label = { Text("Pendientes") }
-        )
-        FilterChip(
-            selected = selectedFilter == ReservationFilter.CONFIRMED,
-            onClick = { onFilterSelected(ReservationFilter.CONFIRMED) },
-            label = { Text("Confirmadas") }
-        )
-        FilterChip(
-            selected = selectedFilter == ReservationFilter.SEATED,
-            onClick = { onFilterSelected(ReservationFilter.SEATED) },
-            label = { Text("Sentados") }
-        )
-    }
-}
-
-@Composable
-private fun EmptyState() {
-    Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(
-                imageVector = Icons.Default.CloudOff,
-                contentDescription = null,
-                modifier = Modifier.size(64.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-            )
-            Text(
-                text = "No hay reservas para mostrar",
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Text(
-                text = "Desliza hacia abajo para actualizar",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-            )
+            Column(modifier = Modifier.weight(1f)) {
+                Text(customerName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Schedule, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("$time - $pax personas", style = MaterialTheme.typography.bodyMedium)
+                }
+                if (tableName != null) {
+                    Text("Mesa: $tableName", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+                }
+            }
+
+            Column(horizontalAlignment = Alignment.End) {
+                AssistChip(
+                    onClick = { },
+                    label = { Text(status.name) },
+                    colors = AssistChipDefaults.assistChipColors(
+                        containerColor = when (status) {
+                            ReservationStatus.CONFIRMED -> MaterialTheme.colorScheme.primaryContainer
+                            ReservationStatus.PENDING -> MaterialTheme.colorScheme.secondaryContainer
+                            ReservationStatus.SEATED -> MaterialTheme.colorScheme.tertiaryContainer
+                            else -> MaterialTheme.colorScheme.surfaceVariant
+                        }
+                    )
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Row {
+                    if (status == ReservationStatus.PENDING) {
+                        Button(
+                            onClick = { onStatusChange("confirmed") },
+                            modifier = Modifier.height(36.dp)
+                        ) {
+                            Text("Confirmar", style = MaterialTheme.typography.labelMedium)
+                        }
+                    }
+                    if (status == ReservationStatus.CONFIRMED) {
+                        Button(
+                            onClick = { onStatusChange("seated") },
+                            modifier = Modifier.height(36.dp)
+                        ) {
+                            Text("Sentar", style = MaterialTheme.typography.labelMedium)
+                        }
+                    }
+                }
+            }
         }
     }
 }
