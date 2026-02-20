@@ -21,11 +21,12 @@ import okhttp3.WebSocket
 import okhttp3.WebSocketListener
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
+import javax.inject.Singleton
 
 /**
  * Implementación de WebSocketService usando OkHttp nativo
  */
-@ActivityRetainedScoped
+@Singleton
 class WebSocketManager @Inject constructor() : WebSocketService {
 
     companion object {
