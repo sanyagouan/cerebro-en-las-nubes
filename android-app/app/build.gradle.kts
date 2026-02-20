@@ -4,7 +4,6 @@ plugins {
     alias(libs.plugins.kotlin.kapt)
     alias(libs.plugins.hilt.android)
     alias(libs.plugins.google.services)
-    alias(libs.plugins.kotlin.compose)
 }
 
 android {
@@ -51,6 +50,9 @@ android {
     buildFeatures {
         compose = true
         buildConfig = true
+    }
+    composeOptions {
+        kotlinCompilerExtensionVersion = "1.5.8"
     }
     packaging {
         resources {
