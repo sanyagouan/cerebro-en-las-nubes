@@ -81,7 +81,8 @@ dependencies {
     
     // Networking
     implementation(libs.bundles.retrofit)
-    // WebSocket usando OkHttp nativo (sin Scarlet)
+    // WebSocket
+    implementation(libs.bundles.scarlet)
     
     // Coroutines
     implementation(libs.kotlinx.coroutines)

@@ -3,7 +3,6 @@ package com.enlasnubes.restobar.data.websocket
 import android.util.Log
 import com.enlasnubes.restobar.BuildConfig
 import com.google.gson.Gson
-import dagger.hilt.android.scopes.ActivityRetainedScoped
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -19,15 +18,17 @@ import okhttp3.Request
 import okhttp3.Response
 import okhttp3.WebSocket
 import okhttp3.WebSocketListener
-import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Implementación de WebSocketService usando OkHttp nativo
+ * Implementación de WebSocketService usando OkHttp nativo.
+ * Inyecta el OkHttpClient compartido que incluye autenticación.
  */
 @Singleton
-class WebSocketManager @Inject constructor() : WebSocketService {
+class WebSocketManager @Inject constructor(
+    private val okHttpClient: OkHttpClient
+) : WebSocketService {
 
     companion object {
         private const val TAG = "WebSocketManager"
@@ -40,7 +41,6 @@ class WebSocketManager @Inject constructor() : WebSocketService {
     private val gson = Gson()
 
     private var webSocket: WebSocket? = null
-    private var okHttpClient: OkHttpClient? = null
     private var reconnectAttempts = 0
 
     private val _connectionState = MutableStateFlow<WebSocketService.ConnectionState>(
@@ -50,12 +50,6 @@ class WebSocketManager @Inject constructor() : WebSocketService {
 
     private val _reservationUpdatesFlow = MutableSharedFlow<ReservationUpdateEvent>()
     override val reservationUpdates: Flow<ReservationUpdateEvent> = _reservationUpdatesFlow
-
-    init {
-        okHttpClient = OkHttpClient.Builder()
-            .pingInterval(30, TimeUnit.SECONDS)
-            .build()
-    }
 
     override fun connect(token: String) {
         if (_connectionState.value == WebSocketService.ConnectionState.CONNECTED ||
@@ -67,7 +61,7 @@ class WebSocketManager @Inject constructor() : WebSocketService {
         val wsUrl = buildWsUrl(token)
         val request = Request.Builder().url(wsUrl).build()
 
-        webSocket = okHttpClient?.newWebSocket(request, object : WebSocketListener() {
+        webSocket = okHttpClient.newWebSocket(request, object : WebSocketListener() {
             override fun onOpen(webSocket: WebSocket, response: Response) {
                 _connectionState.value = WebSocketService.ConnectionState.CONNECTED
                 reconnectAttempts = 0

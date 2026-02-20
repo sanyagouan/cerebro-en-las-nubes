@@ -19,6 +19,7 @@ coil = "2.7.0"
 datastore = "1.1.1"
 googleServices = "4.4.2"
 firebaseBom = "33.7.0"
+scarlet = "0.1.12"
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
@@ -63,7 +64,7 @@ gson = { group = "com.google.code.gson", name = "gson", version.ref = "gson" }
 scarlet = { group = "com.tinder.scarlet", name = "scarlet", version.ref = "scarlet" }
 scarlet-websocket = { group = "com.tinder.scarlet", name = "websocket-okhttp", version.ref = "scarlet" }
 scarlet-gson = { group = "com.tinder.scarlet", name = "message-adapter-gson", version.ref = "scarlet" }
-scarlet-stream = { group = "com.tinder.scarlet", name = "stream-adapter-rxjava2", version.ref = "scarlet" }
+scarlet-stream = { group = "com.tinder.scarlet", name = "stream-adapter-coroutines", version.ref = "scarlet" }
 
 # Coroutines
 kotlinx-coroutines = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "coroutines" }
@@ -83,3 +84,4 @@ firebase-analytics = { group = "com.google.firebase", name = "firebase-analytics
 compose = ["androidx-ui", "androidx-ui-graphics", "androidx-ui-tooling-preview", "androidx-material3", "androidx-material-icons"]
 retrofit = ["retrofit", "retrofit-gson", "okhttp", "okhttp-logging", "gson"]
 hilt = ["hilt-android", "hilt-navigation-compose"]
+scarlet = ["scarlet", "scarlet-websocket", "scarlet-gson", "scarlet-stream"]
