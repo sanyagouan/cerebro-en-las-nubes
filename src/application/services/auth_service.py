@@ -1,5 +1,6 @@
 """
-Authentication Service - Manejo de JWT y autenticación de usuarios.
+Authentication Service - Manejo de JWT, bcrypt y autenticación de usuarios.
+TODO EN ESPAÑOL DE ESPAÑA.
 """
 
 import os
@@ -11,6 +12,9 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import JWTError, jwt
 from pydantic import BaseModel
 from loguru import logger
+import bcrypt
+
+from src.infrastructure.repositories.user_repository import user_repository
 
 
 # ========== MODELS ==========
@@ -20,20 +24,102 @@ class TokenData(BaseModel):
     """Datos extraídos del token JWT."""
 
     user_id: str
-    email: str
-    role: str
+    usuario: str
+    nombre: str
+    rol: str
 
 
 # ========== SECURITY ==========
 
 security = HTTPBearer()
 
+# Configuración bcrypt
+BCRYPT_ROUNDS = 12  # Work factor óptimo
+
+
+# ========== PERMISSIONS (RBAC) ==========
+
+# Matriz de permisos por rol (TODO EN ESPAÑOL)
+PERMISSIONS = {
+    "administradora": [
+        "reservas.ver",
+        "reservas.crear",
+        "reservas.editar",
+        "reservas.actualizar_estado",
+        "reservas.cancelar",
+        "mesas.ver",
+        "mesas.actualizar_estado",
+        "mesas.anadir_notas",
+        "cocina.ver",
+        "cocina.actualizar",
+        "cocina.enviar_avisos",
+        "usuarios.ver",
+        "usuarios.crear",
+        "usuarios.editar",
+        "usuarios.cambiar_password",
+        "usuarios.desactivar",
+        "config.ver",
+        "config.editar",
+        "reportes.ver",
+        "notificaciones.enviar",
+        "notificaciones.recibir",
+    ],
+    "encargada": [
+        "reservas.ver",
+        "reservas.crear",
+        "reservas.editar",
+        "reservas.actualizar_estado",
+        "reservas.cancelar",
+        "mesas.ver",
+        "mesas.actualizar_estado",
+        "mesas.anadir_notas",
+        "cocina.ver",
+        "cocina.actualizar",
+        "cocina.enviar_avisos",
+        "reportes.ver",
+        "notificaciones.enviar",
+        "notificaciones.recibir",
+    ],
+    "camarero": [
+        "reservas.ver",
+        "reservas.actualizar_estado",
+        "mesas.ver",
+        "mesas.actualizar_estado",
+        "mesas.anadir_notas",
+        "cocina.enviar_avisos",
+        "notificaciones.enviar",
+        "notificaciones.recibir",
+    ],
+    "cocina": [
+        "cocina.ver",
+        "cocina.actualizar",
+        "cocina.enviar_avisos",
+        "notificaciones.enviar",
+        "notificaciones.recibir",
+    ],
+}
+
+
+def check_permission(role: str, permission: str) -> bool:
+    """
+    Verifica si un rol tiene un permiso específico.
+
+    Args:
+        role: Rol del usuario (administradora, encargada, camarero, cocina)
+        permission: Permiso a verificar (ej: "reservas.ver")
+
+    Returns:
+        True si tiene el permiso, False si no
+    """
+    role_permissions = PERMISSIONS.get(role, [])
+    return permission in role_permissions
+
 
 # ========== SERVICE ==========
 
 
 class AuthService:
-    """Servicio de autenticación con JWT."""
+    """Servicio de autenticación con JWT y bcrypt."""
 
     def __init__(self):
         self.secret_key = os.getenv(
@@ -43,51 +129,41 @@ class AuthService:
         self.access_token_expire_minutes = 60  # 1 hora
         self.refresh_token_expire_days = 7  # 7 días
 
-        # Usuarios demo para desarrollo (en producción usar base de datos)
-        self._demo_users = {
-            "admin@enlasnubes.com": {
-                "id": "user_admin_001",
-                "email": "admin@enlasnubes.com",
-                "password": "admin123",
-                "name": "Administrador",
-                "role": "admin",
-            },
-            "manager@enlasnubes.com": {
-                "id": "user_manager_001",
-                "email": "manager@enlasnubes.com",
-                "password": "manager123",
-                "name": "Encargada",
-                "role": "manager",
-            },
-            "waiter@enlasnubes.com": {
-                "id": "user_waiter_001",
-                "email": "waiter@enlasnubes.com",
-                "password": "waiter123",
-                "name": "Camarero",
-                "role": "waiter",
-            },
-        }
+    def _hash_password(self, password: str) -> str:
+        """Hashea una contraseña con bcrypt directamente."""
+        salt = bcrypt.gensalt(rounds=BCRYPT_ROUNDS)
+        return bcrypt.hashpw(password.encode("utf-8"), salt).decode("utf-8")
 
-    def create_access_token(self, user_id: str, email: str, role: str) -> str:
+    def _verify_password(self, password: str, hash: str) -> bool:
+        """Verifica una contraseña contra su hash."""
+        return bcrypt.checkpw(password.encode("utf-8"), hash.encode("utf-8"))
+
+    def create_access_token(
+        self, user_id: str, usuario: str, nombre: str, rol: str
+    ) -> str:
         """Crea un JWT access token."""
         expire = datetime.utcnow() + timedelta(minutes=self.access_token_expire_minutes)
         payload = {
             "sub": user_id,
-            "email": email,
-            "role": role,
+            "usuario": usuario,
+            "nombre": nombre,
+            "rol": rol,
             "type": "access",
             "exp": expire,
             "iat": datetime.utcnow(),
         }
         return jwt.encode(payload, self.secret_key, algorithm=self.algorithm)
 
-    def create_refresh_token(self, user_id: str, email: str, role: str) -> str:
+    def create_refresh_token(
+        self, user_id: str, usuario: str, nombre: str, rol: str
+    ) -> str:
         """Crea un JWT refresh token."""
         expire = datetime.utcnow() + timedelta(days=self.refresh_token_expire_days)
         payload = {
             "sub": user_id,
-            "email": email,
-            "role": role,
+            "usuario": usuario,
+            "nombre": nombre,
+            "rol": rol,
             "type": "refresh",
             "exp": expire,
             "iat": datetime.utcnow(),
@@ -103,48 +179,83 @@ class AuthService:
             logger.warning(f"JWT verification failed: {e}")
             return None
 
+    def decode_token(self, token: str) -> Optional[Dict[str, Any]]:
+        """Alias para verify_token (compatibilidad)."""
+        return self.verify_token(token)
+
     async def authenticate_user(
-        self, email: str, password: str
+        self, usuario: str, password: str
     ) -> Optional[Dict[str, Any]]:
         """
-        Autentica un usuario por email y password.
-        Retorna los datos del usuario si es exitoso, None si no.
+        Autentica un usuario por nombre de usuario y contraseña.
+
+        Args:
+            usuario: Nombre de usuario
+            password: Contraseña en texto plano
+
+        Returns:
+            Datos del usuario si es exitoso, None si no
         """
-        user = self._demo_users.get(email)
+        # Buscar usuario en Airtable
+        user = await user_repository.get_by_usuario(usuario)
+
         if not user:
+            logger.warning(f"Usuario no encontrado: {usuario}")
             return None
 
-        if password != user["password"]:
+        # Verificar que esté activo
+        if not user.activo:
+            logger.warning(f"Usuario inactivo: {usuario}")
+            return None
+
+        # Verificar contraseña con bcrypt
+        if not self._verify_password(password, user.password_hash):
+            logger.warning(f"Contraseña incorrecta para: {usuario}")
             return None
 
         return {
-            "id": user["id"],
-            "email": user["email"],
-            "name": user["name"],
-            "role": user["role"],
+            "id": user.id,
+            "usuario": user.usuario,
+            "nombre": user.nombre,
+            "rol": user.rol.value,
         }
 
-    async def create_user(
-        self, email: str, password: str, name: str, role: str = "staff"
-    ) -> Dict[str, Any]:
-        """Crea un nuevo usuario (solo para desarrollo)."""
-        user_id = f"user_{email.split('@')[0]}_{len(self._demo_users) + 1}"
-        new_user = {
-            "id": user_id,
-            "email": email,
-            "password": password,
-            "name": name,
-            "role": role,
-        }
-        self._demo_users[email] = new_user
-        logger.info(f"Created new user: {email} (role: {role})")
+    def verify_role_permission(self, role: str, permission: str) -> bool:
+        """Verifica si un rol tiene un permiso específico."""
+        return check_permission(role, permission)
 
-        return {
-            "id": user_id,
-            "email": email,
-            "name": name,
-            "role": role,
-        }
+    async def hash_password(self, password: str) -> str:
+        """Hashea una contraseña (para uso externo)."""
+        return self._hash_password(password)
+
+    async def change_user_password(self, user_id: str, new_password: str) -> bool:
+        """
+        Cambia la contraseña de un usuario.
+
+        Args:
+            user_id: ID del usuario
+            new_password: Nueva contraseña en texto plano
+
+        Returns:
+            True si se cambió correctamente
+        """
+        password_hash = self._hash_password(new_password)
+        return await user_repository.update_password(user_id, password_hash)
+
+    async def register_device_token(self, user_id: str, device_token: str) -> bool:
+        """Registra el token FCM del dispositivo del usuario."""
+        return await user_repository.update_device_token(user_id, device_token)
+
+    async def invalidate_token(self, token: str) -> bool:
+        """
+        Invalida un token añadiéndolo a una blacklist en Redis.
+
+        Por ahora, solo retornamos True ya que los tokens
+        expiran naturalmente según su tiempo de vida.
+        """
+        # TODO: Implementar blacklist en Redis si es necesario
+        logger.info(f"Token invalidado (logout): {token[:20]}...")
+        return True
 
 
 # Instancia singleton
@@ -154,14 +265,76 @@ auth_service = AuthService()
 # ========== DEPENDENCIES ==========
 
 
+async def get_current_user(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+) -> TokenData:
+    """Dependency para verificar JWT token y obtener datos del usuario."""
+    token = credentials.credentials
+    payload = auth_service.verify_token(token)
+
+    if not payload or payload.get("type") != "access":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token inválido o expirado",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    return TokenData(
+        user_id=payload["sub"],
+        usuario=payload.get("usuario", ""),
+        nombre=payload.get("nombre", ""),
+        rol=payload.get("rol", ""),
+    )
+
+
+def require_permission(permission: str):
+    """
+    Dependency que verifica que el usuario tenga un permiso específico.
+
+    Uso:
+        @router.get("/admin-only")
+        async def admin_endpoint(user: TokenData = Depends(require_permission("usuarios.ver"))):
+            return {"message": f"Hola {user.nombre}"}
+    """
+
+    async def _require_permission(
+        credentials: HTTPAuthorizationCredentials = Depends(security),
+    ) -> TokenData:
+        token = credentials.credentials
+        payload = auth_service.verify_token(token)
+
+        if not payload or payload.get("type") != "access":
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Token inválido o expirado",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
+        user_role = payload.get("rol", "")
+        if not check_permission(user_role, permission):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Permiso denegado: {permission}",
+            )
+
+        return TokenData(
+            user_id=payload["sub"],
+            usuario=payload.get("usuario", ""),
+            nombre=payload.get("nombre", ""),
+            rol=user_role,
+        )
+
+    return _require_permission
+
+
 def require_role(allowed_roles: List[str]):
     """
     FastAPI dependency que verifica que el usuario tenga uno de los roles permitidos.
 
     Uso:
         @router.get("/admin-only")
-        async def admin_endpoint(user: TokenData = Depends(require_role(["admin"]))):
-            return {"message": f"Hello admin {user.email}"}
+        async def admin_endpoint(user: TokenData = Depends(require_role(["administradora"]))):
+            return {"message": f"Hola administradora {user.nombre}"}
     """
 
     async def _require_role(
@@ -177,7 +350,7 @@ def require_role(allowed_roles: List[str]):
                 headers={"WWW-Authenticate": "Bearer"},
             )
 
-        user_role = payload.get("role", "guest")
+        user_role = payload.get("rol", "")
         if user_role not in allowed_roles:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -186,8 +359,9 @@ def require_role(allowed_roles: List[str]):
 
         return TokenData(
             user_id=payload["sub"],
-            email=payload["email"],
-            role=user_role,
+            usuario=payload.get("usuario", ""),
+            nombre=payload.get("nombre", ""),
+            rol=user_role,
         )
 
     return _require_role

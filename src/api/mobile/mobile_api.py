@@ -10,7 +10,7 @@ from typing import List, Optional
 from datetime import date, datetime
 import logging
 
-from src.services.auth_service import auth_service, UserLogin, TokenData
+from src.application.services.auth_service import auth_service, TokenData
 from src.api.websocket.connection_manager import manager
 from src.api.mobile.models import (
     CreateReservationRequest,
@@ -44,7 +44,7 @@ RESERVATIONS_TABLE_NAME = "Reservas"
 
 
 class LoginRequest(BaseModel):
-    email: str
+    usuario: str  # Cambiado de email a usuario
     password: str
     device_token: Optional[str] = None  # FCM token
 
@@ -53,7 +53,7 @@ class LoginResponse(BaseModel):
     access_token: str
     refresh_token: str
     token_type: str = "bearer"
-    user: dict
+    user: dict  # {id, usuario, nombre, rol}
 
 
 class RefreshRequest(BaseModel):
@@ -103,6 +103,72 @@ class DashboardStats(BaseModel):
     pax_total: int
 
 
+# ============ MODELOS PARA USUARIOS ============
+
+
+class UserProfileResponse(BaseModel):
+    """Respuesta con datos del perfil de usuario."""
+
+    id: str
+    usuario: str
+    nombre: str
+    rol: str
+    telefono: Optional[str] = None
+    activo: bool = True
+
+
+class ChangePasswordRequest(BaseModel):
+    """Request para cambiar propia contraseña."""
+
+    current_password: str
+    new_password: str
+
+
+class AdminChangePasswordRequest(BaseModel):
+    """Request para que admin cambie contraseña de otro usuario."""
+
+    new_password: str
+
+
+class CreateUserRequest(BaseModel):
+    """Request para crear nuevo usuario (solo administradora)."""
+
+    usuario: str
+    nombre: str
+    password: str
+    rol: str  # administradora, encargada, camarero, cocina
+    telefono: Optional[str] = None
+
+
+class UpdateUserRequest(BaseModel):
+    """Request para actualizar usuario (solo administradora)."""
+
+    nombre: Optional[str] = None
+    telefono: Optional[str] = None
+    rol: Optional[str] = None
+
+
+class SendNotificationRequest(BaseModel):
+    """Request para enviar notificación a roles."""
+
+    titulo: str
+    cuerpo: str
+    roles_destino: List[str]  # ["camarero", "cocina"] o ["todos"]
+    datos: Optional[dict] = None
+
+
+class UserListResponse(BaseModel):
+    """Respuesta con lista de usuarios."""
+
+    id: str
+    usuario: str
+    nombre: str
+    rol: str
+    telefono: Optional[str] = None
+    activo: bool = True
+    device_token: Optional[str] = None
+
+
 # ============ DEPENDENCIAS ============
 
 
@@ -125,15 +191,15 @@ async def get_current_user(
 
     return TokenData(
         user_id=payload["sub"],
-        email=payload["email"],
-        role=payload["role"],
-        permissions=payload.get("permissions", []),
+        usuario=payload.get("usuario", ""),
+        nombre=payload.get("nombre", ""),
+        rol=payload.get("rol", ""),
     )
 
 
 def check_permission(user: TokenData, permission: str):
     """Verifica si usuario tiene permiso."""
-    if not auth_service.verify_role_permission(user.role, permission):
+    if not auth_service.verify_role_permission(user.rol, permission):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=f"Permission denied: {permission}",
@@ -146,64 +212,35 @@ def check_permission(user: TokenData, permission: str):
 @router.post("/auth/login", response_model=LoginResponse)
 async def login(request: LoginRequest):
     """Login de usuario móvil. Retorna JWT tokens."""
-    # TODO: Implementar autenticación real contra Supabase Auth
-    # Por ahora, usuarios hardcodeados para desarrollo
-
-    # Usuarios de prueba
-    DEMO_USERS = {
-        "admin@enlasnubes.com": {
-            "id": "user_admin_001",
-            "email": "admin@enlasnubes.com",
-            "password": "admin123",  # En producción: hash bcrypt
-            "name": "Administrador",
-            "role": "admin",
-        },
-        "manager@enlasnubes.com": {
-            "id": "user_manager_001",
-            "email": "manager@enlasnubes.com",
-            "password": "manager123",
-            "name": "Encargada",
-            "role": "manager",
-        },
-        "waiter@enlasnubes.com": {
-            "id": "user_waiter_001",
-            "email": "waiter@enlasnubes.com",
-            "password": "waiter123",
-            "name": "Camarero",
-            "role": "waiter",
-        },
-    }
-
-    # Buscar usuario
-    user = DEMO_USERS.get(request.email)
+    # Autenticar contra Airtable via AuthService
+    user = await auth_service.authenticate_user(request.usuario, request.password)
 
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Email o contraseña incorrectos",
-        )
-
-    # Verificar contraseña (en desarrollo, comparación simple; en producción: bcrypt)
-    if request.password != user["password"]:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Email o contraseña incorrectos",
+            detail="Usuario o contraseña incorrectos",
         )
 
     # Generar tokens JWT
     access_token = auth_service.create_access_token(
-        user_id=user["id"], email=user["email"], role=user["role"]
+        user_id=user["id"],
+        usuario=user["usuario"],
+        nombre=user["nombre"],
+        rol=user["rol"],
     )
 
     refresh_token = auth_service.create_refresh_token(
-        user_id=user["id"], email=user["email"], role=user["role"]
+        user_id=user["id"],
+        usuario=user["usuario"],
+        nombre=user["nombre"],
+        rol=user["rol"],
     )
 
     # Registrar device token si se proporciona (para push notifications)
     if request.device_token:
         await auth_service.register_device_token(user["id"], request.device_token)
 
-    logger.info(f"User logged in: {user['email']} (role: {user['role']})")
+    logger.info(f"Usuario logueado: {user['usuario']} (rol: {user['rol']})")
 
     return LoginResponse(
         access_token=access_token,
@@ -211,9 +248,9 @@ async def login(request: LoginRequest):
         token_type="bearer",
         user={
             "id": user["id"],
-            "email": user["email"],
-            "name": user["name"],
-            "role": user["role"],
+            "usuario": user["usuario"],
+            "nombre": user["nombre"],
+            "rol": user["rol"],
         },
     )
 
@@ -229,21 +266,18 @@ async def refresh_token(request: RefreshRequest):
         )
 
     user_id = payload["sub"]
+    usuario = payload.get("usuario", "")
+    nombre = payload.get("nombre", "")
+    rol = payload.get("rol", "")
 
-    # TODO: Verificar que usuario existe y está activo
-
-    # TODO: Obtener usuario real desde base de datos
-    # Por ahora, usar datos del token si existen
-    email = payload.get("email", "")
-    role = payload.get("role", "")
-    if not email or not role:
+    if not usuario or not rol:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Missing user data for token refresh",
         )
 
     new_access_token = auth_service.create_access_token(
-        user_id=user_id, email=email, role=role
+        user_id=user_id, usuario=usuario, nombre=nombre, rol=rol
     )
 
     return {"access_token": new_access_token, "token_type": "bearer"}
@@ -265,6 +299,510 @@ async def logout(request: Request, user: TokenData = Depends(get_current_user)):
         await auth_service.invalidate_token(token)
 
     return {"message": "Logged out successfully"}
+
+
+# ============ USER PROFILE ENDPOINTS ============
+
+
+@router.get("/auth/yo", response_model=UserProfileResponse)
+async def get_current_user_profile(user: TokenData = Depends(get_current_user)):
+    """
+    Obtiene los datos del usuario actualmente autenticado.
+
+    Returns:
+        UserProfileResponse con id, usuario, nombre, rol, telefono, activo
+    """
+    from src.infrastructure.repositories.user_repository import user_repository
+
+    user_data = await user_repository.get_by_id(user.user_id)
+    if not user_data:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Usuario no encontrado"
+        )
+
+    return UserProfileResponse(
+        id=user_data.id,
+        usuario=user_data.usuario,
+        nombre=user_data.nombre,
+        rol=user_data.rol.value,
+        telefono=user_data.telefono,
+        activo=user_data.activo,
+    )
+
+
+@router.put("/auth/password")
+async def change_own_password(
+    request: ChangePasswordRequest, user: TokenData = Depends(get_current_user)
+):
+    """
+    Cambia la contraseña del usuario actualmente autenticado.
+
+    Requiere la contraseña actual para verificar identidad.
+    """
+    from src.infrastructure.repositories.user_repository import user_repository
+
+    # Verificar contraseña actual
+    user_data = await user_repository.get_by_id(user.user_id)
+    if not user_data:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Usuario no encontrado"
+        )
+
+    # Verificar contraseña actual
+    if not auth_service._verify_password(
+        request.current_password, user_data.password_hash
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="La contraseña actual es incorrecta",
+        )
+
+    # Validar nueva contraseña (mínimo 6 caracteres)
+    if len(request.new_password) < 6:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="La nueva contraseña debe tener al menos 6 caracteres",
+        )
+
+    # Cambiar contraseña
+    success = await auth_service.change_user_password(
+        user.user_id, request.new_password
+    )
+
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error al cambiar la contraseña",
+        )
+
+    logger.info(f"Contraseña cambiada para usuario {user.usuario}")
+    return {"message": "Contraseña actualizada correctamente"}
+
+
+# ============ USERS MANAGEMENT ENDPOINTS (ADMIN ONLY) ============
+
+
+@router.get("/usuarios", response_model=List[UserListResponse])
+async def list_users(
+    rol: Optional[str] = None,
+    activo: Optional[bool] = None,
+    user: TokenData = Depends(get_current_user),
+):
+    """
+    Lista todos los usuarios del sistema (solo administradora).
+
+    Query params:
+    - rol: Filtrar por rol (administradora, encargada, camarero, cocina)
+    - activo: Filtrar por estado activo (true/false)
+    """
+    check_permission(user, "usuarios.ver")
+
+    from src.infrastructure.repositories.user_repository import user_repository
+
+    users = await user_repository.list_all(rol=rol, activo=activo)
+
+    return [
+        UserListResponse(
+            id=u.id,
+            usuario=u.usuario,
+            nombre=u.nombre,
+            rol=u.rol.value,
+            telefono=u.telefono,
+            activo=u.activo,
+            device_token=u.device_token,
+        )
+        for u in users
+    ]
+
+
+@router.post(
+    "/usuarios", response_model=UserProfileResponse, status_code=status.HTTP_201_CREATED
+)
+async def create_user(
+    request: CreateUserRequest, user: TokenData = Depends(get_current_user)
+):
+    """
+    Crea un nuevo usuario (solo administradora).
+
+    Args:
+        request: Datos del nuevo usuario (usuario, nombre, password, rol, telefono)
+
+    Returns:
+        UserProfileResponse con el usuario creado
+    """
+    check_permission(user, "usuarios.crear")
+
+    from src.infrastructure.repositories.user_repository import user_repository
+
+    # Validar rol
+    roles_validos = ["administradora", "encargada", "camarero", "cocina"]
+    if request.rol not in roles_validos:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Rol inválido. Valores válidos: {', '.join(roles_validos)}",
+        )
+
+    # Validar contraseña
+    if len(request.password) < 6:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="La contraseña debe tener al menos 6 caracteres",
+        )
+
+    # Verificar que el usuario no exista
+    existing = await user_repository.get_by_usuario(request.usuario)
+    if existing:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"El usuario '{request.usuario}' ya existe",
+        )
+
+    # Hashear contraseña
+    password_hash = auth_service._hash_password(request.password)
+
+    # Crear usuario
+    new_user = await user_repository.create(
+        usuario=request.usuario,
+        nombre=request.nombre,
+        password_hash=password_hash,
+        rol=request.rol,
+        telefono=request.telefono,
+    )
+
+    logger.info(
+        f"Usuario creado: {request.usuario} (rol: {request.rol}) por {user.usuario}"
+    )
+
+    return UserProfileResponse(
+        id=new_user.id,
+        usuario=new_user.usuario,
+        nombre=new_user.nombre,
+        rol=new_user.rol.value,
+        telefono=new_user.telefono,
+        activo=new_user.activo,
+    )
+
+
+@router.get("/usuarios/{user_id}", response_model=UserProfileResponse)
+async def get_user(user_id: str, user: TokenData = Depends(get_current_user)):
+    """
+    Obtiene los datos de un usuario específico (solo administradora).
+    """
+    check_permission(user, "usuarios.ver")
+
+    from src.infrastructure.repositories.user_repository import user_repository
+
+    user_data = await user_repository.get_by_id(user_id)
+    if not user_data:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Usuario {user_id} no encontrado",
+        )
+
+    return UserProfileResponse(
+        id=user_data.id,
+        usuario=user_data.usuario,
+        nombre=user_data.nombre,
+        rol=user_data.rol.value,
+        telefono=user_data.telefono,
+        activo=user_data.activo,
+    )
+
+
+@router.put("/usuarios/{user_id}", response_model=UserProfileResponse)
+async def update_user(
+    user_id: str,
+    request: UpdateUserRequest,
+    user: TokenData = Depends(get_current_user),
+):
+    """
+    Actualiza datos de un usuario existente (solo administradora).
+
+    Solo se actualizan los campos proporcionados (partial update).
+    """
+    check_permission(user, "usuarios.editar")
+
+    from src.infrastructure.repositories.user_repository import user_repository
+
+    # Validar rol si se proporciona
+    if request.rol:
+        roles_validos = ["administradora", "encargada", "camarero", "cocina"]
+        if request.rol not in roles_validos:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Rol inválido. Valores válidos: {', '.join(roles_validos)}",
+            )
+
+    # Construir updates
+    updates = {}
+    if request.nombre is not None:
+        updates["nombre"] = request.nombre
+    if request.telefono is not None:
+        updates["telefono"] = request.telefono
+    if request.rol is not None:
+        updates["rol"] = request.rol
+
+    if not updates:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No hay campos para actualizar",
+        )
+
+    updated_user = await user_repository.update(user_id, **updates)
+
+    if not updated_user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Usuario {user_id} no encontrado",
+        )
+
+    logger.info(f"Usuario {user_id} actualizado por {user.usuario}")
+
+    return UserProfileResponse(
+        id=updated_user.id,
+        usuario=updated_user.usuario,
+        nombre=updated_user.nombre,
+        rol=updated_user.rol.value,
+        telefono=updated_user.telefono,
+        activo=updated_user.activo,
+    )
+
+
+@router.put("/usuarios/{user_id}/password")
+async def admin_change_user_password(
+    user_id: str,
+    request: AdminChangePasswordRequest,
+    user: TokenData = Depends(get_current_user),
+):
+    """
+    Cambia la contraseña de cualquier usuario (solo administradora).
+
+    No requiere la contraseña actual del usuario.
+    """
+    check_permission(user, "usuarios.cambiar_password")
+
+    from src.infrastructure.repositories.user_repository import user_repository
+
+    # Validar nueva contraseña
+    if len(request.new_password) < 6:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="La contraseña debe tener al menos 6 caracteres",
+        )
+
+    # Verificar que el usuario existe
+    user_data = await user_repository.get_by_id(user_id)
+    if not user_data:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Usuario {user_id} no encontrado",
+        )
+
+    # Cambiar contraseña
+    success = await auth_service.change_user_password(user_id, request.new_password)
+
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error al cambiar la contraseña",
+        )
+
+    logger.info(
+        f"Contraseña de usuario {user_data.usuario} cambiada por {user.usuario}"
+    )
+
+    return {"message": f"Contraseña de {user_data.usuario} actualizada correctamente"}
+
+
+@router.delete("/usuarios/{user_id}")
+async def deactivate_user(user_id: str, user: TokenData = Depends(get_current_user)):
+    """
+    Desactiva un usuario (soft delete, solo administradora).
+
+    El usuario no se elimina, se marca como inactivo.
+    """
+    check_permission(user, "usuarios.desactivar")
+
+    from src.infrastructure.repositories.user_repository import user_repository
+
+    # Verificar que el usuario existe
+    user_data = await user_repository.get_by_id(user_id)
+    if not user_data:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Usuario {user_id} no encontrado",
+        )
+
+    # No permitir desactivar la última administradora
+    if user_data.rol.value == "administradora":
+        admin_count = await user_repository.count_admins()
+        if admin_count <= 1:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No se puede desactivar la última administradora",
+            )
+
+    # No permitir desactivarse a sí mismo
+    if user_id == user.user_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No puedes desactivar tu propio usuario",
+        )
+
+    success = await user_repository.deactivate(user_id)
+
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error al desactivar usuario",
+        )
+
+    logger.info(f"Usuario {user_data.usuario} desactivado por {user.usuario}")
+
+    return {"message": f"Usuario {user_data.usuario} desactivado correctamente"}
+
+
+# ============ NOTIFICACIONES ENDPOINTS ============
+
+
+@router.post("/notificaciones/enviar")
+async def send_notification(
+    request: SendNotificationRequest, user: TokenData = Depends(get_current_user)
+):
+    """
+    Envía una notificación push a uno o más roles.
+
+    Args:
+        request: titulo, cuerpo, roles_destino (["camarero", "cocina"] o ["todos"])
+
+    Returns:
+        Confirmación con número de notificaciones enviadas
+    """
+    check_permission(user, "notificaciones.enviar")
+
+    from src.infrastructure.repositories.user_repository import user_repository
+
+    # Determinar roles destino
+    if "todos" in request.roles_destino:
+        roles_destino = ["administradora", "encargada", "camarero", "cocina"]
+    else:
+        roles_validos = ["administradora", "encargada", "camarero", "cocina"]
+        for rol in request.roles_destino:
+            if rol not in roles_validos:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Rol inválido: {rol}",
+                )
+        roles_destino = request.roles_destino
+
+    # Obtener usuarios de los roles destino con device_token
+    notifications_sent = 0
+    for rol in roles_destino:
+        users_in_role = await user_repository.list_all(rol=rol, activo=True)
+        for u in users_in_role:
+            if u.device_token:
+                # TODO: Implementar envío FCM real cuando esté configurado
+                # await fcm_service.send_to_token(u.device_token, request.titulo, request.cuerpo, request.datos)
+                notifications_sent += 1
+
+    logger.info(
+        f"Notificación enviada por {user.usuario} a {notifications_sent} dispositivos"
+    )
+
+    return {
+        "message": "Notificación enviada",
+        "destinatarios": notifications_sent,
+        "roles_destino": roles_destino,
+    }
+
+
+# ============ COCINA ENDPOINTS ============
+
+
+@router.get("/cocina/pedidos")
+async def get_cocina_pedidos(
+    fecha: Optional[date] = None, user: TokenData = Depends(get_current_user)
+):
+    """
+    Obtiene las reservas del día con información relevante para cocina.
+
+    Incluye: hora, pax, notas especiales (alergias, sin gluten, etc.)
+
+    Permisos: cocina.ver (administradora, encargada, cocina)
+    """
+    check_permission(user, "cocina.ver")
+
+    from datetime import date as today_date
+    from src.infrastructure.mcp.airtable_client import airtable_client
+
+    # Usar hoy si no se especifica fecha
+    if fecha is None:
+        fecha = today_date.today()
+
+    try:
+        # Obtener reservas del día
+        filter_formula = f"{{{AIRTABLE_FIELD_MAP['fecha']}}} = '{fecha.isoformat()}'"
+
+        reservations_response = await airtable_client.list_records(
+            base_id=AIRTABLE_BASE_ID,
+            table_name=RESERVATIONS_TABLE_NAME,
+            filterByFormula=filter_formula,
+            sort=[{"field": AIRTABLE_FIELD_MAP["hora"], "direction": "asc"}],
+            max_records=500,
+        )
+
+        records = reservations_response.get("records", [])
+
+        # Filtrar solo reservas activas (no canceladas)
+        pedidos = []
+        for record in records:
+            fields = record.get("fields", {})
+            estado = fields.get(AIRTABLE_FIELD_MAP["estado"], "")
+
+            if estado not in ["Cancelada"]:
+                pedido = {
+                    "id": record.get("id"),
+                    "hora": fields.get(AIRTABLE_FIELD_MAP["hora"], ""),
+                    "pax": fields.get(AIRTABLE_FIELD_MAP["pax"], 0),
+                    "nombre_cliente": fields.get(AIRTABLE_FIELD_MAP["nombre"], ""),
+                    "mesa": fields.get(AIRTABLE_FIELD_MAP["mesa_asignada"], []),
+                    "estado": estado,
+                    "notas": fields.get(AIRTABLE_FIELD_MAP["notas"], ""),
+                    "notas_especiales": [],
+                }
+
+                # Extraer notas especiales
+                notas = pedido["notas"].lower() if pedido["notas"] else ""
+                if "sin gluten" in notas or "celiaco" in notas:
+                    pedido["notas_especiales"].append("⚠️ SIN GLUTEN")
+                if "alergia" in notas or "alérgico" in notas:
+                    pedido["notas_especiales"].append("⚠️ ALERGIAS")
+                if "vegano" in notas or "vegetariano" in notas:
+                    pedido["notas_especiales"].append("🥬 VEGETARIANO/VEGANO")
+                if (
+                    "bebé" in notas
+                    or "bebe" in notas
+                    or "niño" in notas
+                    or "trona" in notas
+                ):
+                    pedido["notas_especiales"].append("👶 CON NIÑOS")
+
+                pedidos.append(pedido)
+
+        logger.info(f"Pedidos cocina consultados: {len(pedidos)} para {fecha}")
+
+        return {
+            "fecha": fecha.isoformat(),
+            "total_pedidos": len(pedidos),
+            "pedidos": pedidos,
+        }
+
+    except Exception as e:
+        logger.error(f"Error obteniendo pedidos de cocina: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error obteniendo pedidos: {str(e)}",
+        )
 
 
 # ============ RESERVATIONS ENDPOINTS ============
