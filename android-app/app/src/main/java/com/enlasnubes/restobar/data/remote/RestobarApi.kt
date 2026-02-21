@@ -8,6 +8,7 @@ import com.enlasnubes.restobar.data.model.Table
 import com.enlasnubes.restobar.data.model.User
 import retrofit2.Response
 import retrofit2.http.Body
+import retrofit2.http.DELETE
 import retrofit2.http.GET
 import retrofit2.http.POST
 import retrofit2.http.PUT
@@ -29,6 +30,9 @@ interface RestobarApi {
     
     @GET("api/mobile/auth/yo")
     suspend fun getCurrentUser(): Response<User>
+
+    @PUT("api/mobile/auth/password")
+    suspend fun changeOwnPassword(@Body request: ChangeOwnPasswordRequest): Response<MessageResponse>
 
     // Reservations
     @GET("api/mobile/reservations")
@@ -73,6 +77,34 @@ interface RestobarApi {
     // Push Notifications
     @POST("api/mobile/notifications/register")
     suspend fun registerDeviceToken(@Body request: DeviceTokenRequest): Response<Unit>
+
+    // Users (Administradora only)
+    @GET("api/mobile/usuarios")
+    suspend fun getUsers(
+        @Query("rol") rol: String? = null,
+        @Query("activo") activo: Boolean? = null
+    ): Response<List<User>>
+
+    @GET("api/mobile/usuarios/{id}")
+    suspend fun getUser(@Path("id") id: String): Response<User>
+
+    @POST("api/mobile/usuarios")
+    suspend fun createUser(@Body request: CreateUserRequest): Response<User>
+
+    @PUT("api/mobile/usuarios/{id}")
+    suspend fun updateUser(
+        @Path("id") id: String,
+        @Body request: UpdateUserRequest
+    ): Response<User>
+
+    @PUT("api/mobile/usuarios/{id}/password")
+    suspend fun changeUserPassword(
+        @Path("id") id: String,
+        @Body request: ChangePasswordRequest
+    ): Response<MessageResponse>
+
+    @DELETE("api/mobile/usuarios/{id}")
+    suspend fun deactivateUser(@Path("id") id: String): Response<MessageResponse>
 }
 
 data class RefreshRequest(
@@ -115,4 +147,31 @@ data class CreateResponse(
 
 data class DeviceTokenRequest(
     val deviceToken: String
+)
+
+data class CreateUserRequest(
+    val usuario: String,
+    val nombre: String,
+    val password: String,
+    val rol: String,
+    val telefono: String? = null
+)
+
+data class UpdateUserRequest(
+    val nombre: String? = null,
+    val telefono: String? = null,
+    val rol: String? = null
+)
+
+data class ChangePasswordRequest(
+    val newPassword: String
+)
+
+data class ChangeOwnPasswordRequest(
+    val currentPassword: String,
+    val newPassword: String
+)
+
+data class MessageResponse(
+    val message: String
 )

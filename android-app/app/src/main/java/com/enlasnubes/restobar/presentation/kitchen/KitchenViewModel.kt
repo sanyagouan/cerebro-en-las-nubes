@@ -110,10 +110,37 @@ class KitchenViewModel @Inject constructor(
     }
 
     fun updateOrderStatus(orderId: String, newStatus: KitchenOrderStatus) {
-        _uiState.update { state ->
-            state.copy(orders = state.orders.map { 
-                if (it.reservationId == orderId) it.copy(status = newStatus) else it 
-            })
+        viewModelScope.launch {
+            // Mapear KitchenOrderStatus a estado de reserva del backend
+            // PREPARING = cliente sentado, la cocina está preparando
+            // READY = plato listo para servir
+            val reservationStatus = when (newStatus) {
+                KitchenOrderStatus.PREPARING -> "seated"
+                KitchenOrderStatus.READY -> "seated" // No hay estado "ready" en backend
+                KitchenOrderStatus.SERVED -> "completed"
+                else -> null
+            }
+            
+            if (reservationStatus != null) {
+                repository.updateReservationStatus(orderId, reservationStatus)
+                    .onSuccess {
+                        _uiState.update { state ->
+                            state.copy(orders = state.orders.map { 
+                                if (it.reservationId == orderId) it.copy(status = newStatus) else it 
+                            })
+                        }
+                    }
+                    .onFailure { error ->
+                        _uiState.update { it.copy(error = "Error al actualizar: ${error.message}") }
+                    }
+            } else {
+                // Solo actualizar localmente para estados sin mapeo
+                _uiState.update { state ->
+                    state.copy(orders = state.orders.map { 
+                        if (it.reservationId == orderId) it.copy(status = newStatus) else it 
+                    })
+                }
+            }
         }
     }
 

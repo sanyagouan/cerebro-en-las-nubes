@@ -6,6 +6,7 @@ import com.enlasnubes.restobar.data.model.LoginResponse
 import com.enlasnubes.restobar.data.model.Reservation
 import com.enlasnubes.restobar.data.model.Table
 import com.enlasnubes.restobar.data.model.User
+import com.enlasnubes.restobar.data.remote.ChangeOwnPasswordRequest
 import com.enlasnubes.restobar.data.remote.ChangePasswordRequest
 import com.enlasnubes.restobar.data.remote.CreateReservationRequest
 import com.enlasnubes.restobar.data.remote.CreateUserRequest
@@ -50,6 +51,32 @@ class RestobarRepository @Inject constructor(
         return try {
             api.registerDeviceToken(DeviceTokenRequest(token))
             Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun getCurrentUser(): Result<User> {
+        return try {
+            val response = api.getCurrentUser()
+            if (response.isSuccessful) {
+                Result.success(response.body()!!)
+            } else {
+                Result.failure(Exception("Error al obtener usuario: ${response.code()}"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun changeOwnPassword(currentPassword: String, newPassword: String): Result<String> {
+        return try {
+            val response = api.changeOwnPassword(ChangeOwnPasswordRequest(currentPassword, newPassword))
+            if (response.isSuccessful) {
+                Result.success(response.body()?.message ?: "Contrasena actualizada")
+            } else {
+                Result.failure(Exception("Error al cambiar contrasena: ${response.code()}"))
+            }
         } catch (e: Exception) {
             Result.failure(e)
         }

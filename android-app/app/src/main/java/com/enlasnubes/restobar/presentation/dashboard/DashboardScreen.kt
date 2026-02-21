@@ -8,6 +8,7 @@ import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.filled.AdminPanelSettings
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Event
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material.icons.filled.TableBar
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -29,6 +30,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import com.enlasnubes.restobar.presentation.admin.AdminScreen
 import com.enlasnubes.restobar.presentation.admin.UserManagementScreen
 import com.enlasnubes.restobar.presentation.kitchen.KitchenScreen
+import com.enlasnubes.restobar.presentation.profile.ProfileScreen
 import com.enlasnubes.restobar.presentation.reservations.ReservationsScreen
 import com.enlasnubes.restobar.presentation.tables.TablesScreen
 
@@ -51,6 +53,7 @@ fun DashboardScreen(
 ) {
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
     var showUserManagement by rememberSaveable { mutableStateOf(false) }
+    var showProfile by rememberSaveable { mutableStateOf(false) }
 
     val tabs = when (userRol) {
         "camarero" -> listOf(TabItem.Reservations, TabItem.Tables)
@@ -58,6 +61,16 @@ fun DashboardScreen(
         "encargada" -> listOf(TabItem.Reservations, TabItem.Tables, TabItem.Kitchen)
         "administradora" -> listOf(TabItem.Reservations, TabItem.Tables, TabItem.Kitchen, TabItem.Admin)
         else -> listOf(TabItem.Reservations) // Default fallback
+    }
+
+    // Si estamos en ProfileScreen, mostrar esa pantalla
+    if (showProfile) {
+        ProfileScreen(
+            userRol = userRol,
+            userName = userName,
+            onBack = { showProfile = false }
+        )
+        return
     }
 
     // Si estamos en UserManagement, mostrar esa pantalla
@@ -95,6 +108,9 @@ fun DashboardScreen(
             TopAppBar(
                 title = { Text("En Las Nubes - ${getRoleName(userRol)}") },
                 actions = {
+                    IconButton(onClick = { showProfile = true }) {
+                        Icon(Icons.Default.Person, contentDescription = "Mi perfil")
+                    }
                     IconButton(onClick = onLogout) {
                         Icon(Icons.AutoMirrored.Filled.ExitToApp, contentDescription = "Cerrar sesion")
                     }

@@ -73,6 +73,10 @@ class AuthRepository @Inject constructor(
         return dataStore.data.first()[ACCESS_TOKEN]
     }
 
+    suspend fun getCurrentUser(): User? {
+        return currentUser.first()
+    }
+
     fun getAccessTokenBlocking(): String? {
         return runBlocking { getAccessToken() }
     }
