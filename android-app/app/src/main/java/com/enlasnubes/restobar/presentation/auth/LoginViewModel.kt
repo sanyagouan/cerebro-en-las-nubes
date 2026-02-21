@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.enlasnubes.restobar.data.repository.AuthRepository
 import com.enlasnubes.restobar.data.repository.RestobarRepository
+import com.enlasnubes.restobar.service.FcmService
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -49,11 +50,14 @@ class LoginViewModel @Inject constructor(
         }
     }
 
-    fun login(usuario: String, password: String, deviceToken: String? = null) {
+    fun login(usuario: String, password: String) {
         viewModelScope.launch {
             _authState.update { it.copy(isLoading = true, error = null) }
 
-            restobarRepository.login(usuario, password, deviceToken)
+            // Obtener token FCM si está disponible
+            val fcmToken = FcmService.currentToken
+
+            restobarRepository.login(usuario, password, fcmToken)
                 .onSuccess { response ->
                     authRepository.saveAuthData(
                         accessToken = response.accessToken,
@@ -75,7 +79,7 @@ class LoginViewModel @Inject constructor(
                     _authState.update {
                         it.copy(
                             isLoading = false,
-                            error = error.message ?: "Error de autenticación"
+                            error = error.message ?: "Error de autenticacion"
                         )
                     }
                 }
