@@ -15,7 +15,8 @@ import androidx.compose.ui.unit.dp
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AdminScreen(
-    userRol: String
+    userRol: String,
+    onNavigateToUsers: () -> Unit = {}
 ) {
     var selectedTab by remember { mutableIntStateOf(0) }
 
@@ -54,7 +55,7 @@ fun AdminScreen(
                         icon = Icons.Default.People,
                         title = "Gestion de Usuarios",
                         subtitle = "Crear y editar usuarios del sistema",
-                        onClick = { }
+                        onClick = onNavigateToUsers
                     )
                     Divider()
                     AdminMenuItem(

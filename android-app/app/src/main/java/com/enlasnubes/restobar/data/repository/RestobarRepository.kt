@@ -5,10 +5,14 @@ import com.enlasnubes.restobar.data.model.LoginRequest
 import com.enlasnubes.restobar.data.model.LoginResponse
 import com.enlasnubes.restobar.data.model.Reservation
 import com.enlasnubes.restobar.data.model.Table
+import com.enlasnubes.restobar.data.model.User
+import com.enlasnubes.restobar.data.remote.ChangePasswordRequest
 import com.enlasnubes.restobar.data.remote.CreateReservationRequest
+import com.enlasnubes.restobar.data.remote.CreateUserRequest
 import com.enlasnubes.restobar.data.remote.DeviceTokenRequest
 import com.enlasnubes.restobar.data.remote.RestobarApi
 import com.enlasnubes.restobar.data.remote.UpdateStatusRequest
+import com.enlasnubes.restobar.data.remote.UpdateUserRequest
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import java.time.LocalDate
@@ -149,6 +153,72 @@ class RestobarRepository @Inject constructor(
                 Result.success(response.body()!!)
             } else {
                 Result.failure(Exception("Failed to get stats: ${response.code()}"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    // Users (Administradora only)
+    suspend fun getUsuarios(rol: String? = null, activo: Boolean? = null): Result<List<User>> {
+        return try {
+            val response = api.getUsers(rol, activo)
+            if (response.isSuccessful) {
+                Result.success(response.body() ?: emptyList())
+            } else {
+                Result.failure(Exception("Error al obtener usuarios: ${response.code()}"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun createUsuario(usuario: String, nombre: String, password: String, rol: String, telefono: String?): Result<User> {
+        return try {
+            val response = api.createUser(CreateUserRequest(usuario, nombre, password, rol, telefono))
+            if (response.isSuccessful) {
+                Result.success(response.body()!!)
+            } else {
+                Result.failure(Exception("Error al crear usuario: ${response.code()}"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun updateUsuario(id: String, nombre: String?, telefono: String?, rol: String?): Result<User> {
+        return try {
+            val response = api.updateUser(id, UpdateUserRequest(nombre, telefono, rol))
+            if (response.isSuccessful) {
+                Result.success(response.body()!!)
+            } else {
+                Result.failure(Exception("Error al actualizar usuario: ${response.code()}"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun changeUserPassword(id: String, newPassword: String): Result<String> {
+        return try {
+            val response = api.changeUserPassword(id, ChangePasswordRequest(newPassword))
+            if (response.isSuccessful) {
+                Result.success(response.body()?.message ?: "Contraseña actualizada")
+            } else {
+                Result.failure(Exception("Error al cambiar contraseña: ${response.code()}"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun deactivateUser(id: String): Result<String> {
+        return try {
+            val response = api.deactivateUser(id)
+            if (response.isSuccessful) {
+                Result.success(response.body()?.message ?: "Usuario desactivado")
+            } else {
+                Result.failure(Exception("Error al desactivar usuario: ${response.code()}"))
             }
         } catch (e: Exception) {
             Result.failure(e)

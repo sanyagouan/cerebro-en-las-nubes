@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.filled.AdminPanelSettings
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Event
 import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material.icons.filled.TableBar
@@ -20,11 +21,13 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.enlasnubes.restobar.presentation.admin.AdminScreen
+import com.enlasnubes.restobar.presentation.admin.UserManagementScreen
 import com.enlasnubes.restobar.presentation.kitchen.KitchenScreen
 import com.enlasnubes.restobar.presentation.reservations.ReservationsScreen
 import com.enlasnubes.restobar.presentation.tables.TablesScreen
@@ -47,6 +50,7 @@ fun DashboardScreen(
     onLogout: () -> Unit
 ) {
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
+    var showUserManagement by rememberSaveable { mutableStateOf(false) }
 
     val tabs = when (userRol) {
         "camarero" -> listOf(TabItem.Reservations, TabItem.Tables)
@@ -54,6 +58,36 @@ fun DashboardScreen(
         "encargada" -> listOf(TabItem.Reservations, TabItem.Tables, TabItem.Kitchen)
         "administradora" -> listOf(TabItem.Reservations, TabItem.Tables, TabItem.Kitchen, TabItem.Admin)
         else -> listOf(TabItem.Reservations) // Default fallback
+    }
+
+    // Si estamos en UserManagement, mostrar esa pantalla
+    if (showUserManagement) {
+        Scaffold(
+            topBar = {
+                TopAppBar(
+                    title = { Text("Gestion de Usuarios") },
+                    navigationIcon = {
+                        IconButton(onClick = { showUserManagement = false }) {
+                            Icon(Icons.Default.ArrowBack, contentDescription = "Volver")
+                        }
+                    },
+                    actions = {
+                        IconButton(onClick = onLogout) {
+                            Icon(Icons.AutoMirrored.Filled.ExitToApp, contentDescription = "Cerrar sesion")
+                        }
+                    }
+                )
+            }
+        ) { padding ->
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+            ) {
+                UserManagementScreen(userRol = userRol)
+            }
+        }
+        return
     }
 
     Scaffold(
@@ -91,7 +125,10 @@ fun DashboardScreen(
                 TabItem.Reservations -> ReservationsScreen(userRol = userRol)
                 TabItem.Tables -> TablesScreen(userRol = userRol)
                 TabItem.Kitchen -> KitchenScreen(userRol = userRol)
-                TabItem.Admin -> AdminScreen(userRol = userRol)
+                TabItem.Admin -> AdminScreen(
+                    userRol = userRol,
+                    onNavigateToUsers = { showUserManagement = true }
+                )
                 else -> {}
             }
         }
