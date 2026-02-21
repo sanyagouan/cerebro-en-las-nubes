@@ -110,7 +110,7 @@ class ReservationsViewModel @Inject constructor(
                 ReservationStatus.SEATED -> webSocketService.markReservationSeated(reservationId, notes)
                 ReservationStatus.CANCELLED -> webSocketService.markReservationCancelled(reservationId, notes)
                 ReservationStatus.COMPLETED -> webSocketService.sendMessage(
-                    StatusUpdateMessage("reservation", reservationId, "completed", notes)
+                    StatusUpdateMessage(entityType = "reservation", entityId = reservationId, status = "completed", notes = notes)
                 )
                 else -> {}
             }

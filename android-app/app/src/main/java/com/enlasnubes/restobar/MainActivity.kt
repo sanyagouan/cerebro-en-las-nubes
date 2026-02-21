@@ -65,7 +65,7 @@ fun RestobarApp(
 
         composable(Screen.Dashboard.route) {
             DashboardScreen(
-                userRole = authState.userRole,
+                userRol = authState.userRol,
                 userName = authState.userName,
                 onLogout = {
                     loginViewModel.logout()

@@ -24,7 +24,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
-import com.enlasnubes.restobar.data.model.UserRole
+import com.enlasnubes.restobar.presentation.admin.AdminScreen
 import com.enlasnubes.restobar.presentation.kitchen.KitchenScreen
 import com.enlasnubes.restobar.presentation.reservations.ReservationsScreen
 import com.enlasnubes.restobar.presentation.tables.TablesScreen
@@ -42,23 +42,24 @@ sealed class TabItem(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DashboardScreen(
-    userRole: UserRole,
+    userRol: String,
     userName: String,
     onLogout: () -> Unit
 ) {
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
 
-    val tabs = when (userRole) {
-        UserRole.WAITER -> listOf(TabItem.Reservations, TabItem.Tables)
-        UserRole.COOK -> listOf(TabItem.Kitchen)
-        UserRole.MANAGER -> listOf(TabItem.Reservations, TabItem.Tables, TabItem.Kitchen)
-        UserRole.ADMIN -> listOf(TabItem.Reservations, TabItem.Tables, TabItem.Kitchen, TabItem.Admin)
+    val tabs = when (userRol) {
+        "camarero" -> listOf(TabItem.Reservations, TabItem.Tables)
+        "cocina" -> listOf(TabItem.Kitchen)
+        "encargada" -> listOf(TabItem.Reservations, TabItem.Tables, TabItem.Kitchen)
+        "administradora" -> listOf(TabItem.Reservations, TabItem.Tables, TabItem.Kitchen, TabItem.Admin)
+        else -> listOf(TabItem.Reservations) // Default fallback
     }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("En Las Nubes - ${getRoleName(userRole)}") },
+                title = { Text("En Las Nubes - ${getRoleName(userRol)}") },
                 actions = {
                     IconButton(onClick = onLogout) {
                         Icon(Icons.AutoMirrored.Filled.ExitToApp, contentDescription = "Cerrar sesion")
@@ -87,21 +88,22 @@ fun DashboardScreen(
                 .padding(padding)
         ) {
             when (tabs.getOrNull(selectedTab)) {
-                TabItem.Reservations -> ReservationsScreen(userRole = userRole)
-                TabItem.Tables -> TablesScreen(userRole = userRole)
-                TabItem.Kitchen -> KitchenScreen(userRole = userRole)
-                TabItem.Admin -> Text("Panel Admin (Proximamente)")
+                TabItem.Reservations -> ReservationsScreen(userRol = userRol)
+                TabItem.Tables -> TablesScreen(userRol = userRol)
+                TabItem.Kitchen -> KitchenScreen(userRol = userRol)
+                TabItem.Admin -> AdminScreen(userRol = userRol)
                 else -> {}
             }
         }
     }
 }
 
-private fun getRoleName(role: UserRole): String {
-    return when (role) {
-        UserRole.WAITER -> "Camarero"
-        UserRole.COOK -> "Cocinero"
-        UserRole.MANAGER -> "Encargada"
-        UserRole.ADMIN -> "Admin"
+private fun getRoleName(rol: String): String {
+    return when (rol) {
+        "camarero" -> "Camarero"
+        "cocina" -> "Cocina"
+        "encargada" -> "Encargada"
+        "administradora" -> "Administradora"
+        else -> rol.replaceFirstChar { it.uppercase() }
     }
 }

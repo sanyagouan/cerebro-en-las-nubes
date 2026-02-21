@@ -7,14 +7,15 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.enlasnubes.restobar.data.model.UserRole
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AdminScreen(
-    userRole: UserRole
+    userRol: String
 ) {
     var selectedTab by remember { mutableIntStateOf(0) }
 
@@ -83,7 +84,7 @@ fun AdminScreen(
 }
 
 @Composable
-private fun StatCard(title: String, value: String, icon: androidx.compose.ui.graphics.vector.ImageVector, color: Color) {
+private fun RowScope.StatCard(title: String, value: String, icon: ImageVector, color: Color) {
     Card(
         modifier = Modifier.weight(1f),
         colors = CardDefaults.cardColors(containerColor = color.copy(alpha = 0.1f))
@@ -102,7 +103,7 @@ private fun StatCard(title: String, value: String, icon: androidx.compose.ui.gra
 
 @Composable
 private fun AdminMenuItem(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    icon: ImageVector,
     title: String,
     subtitle: String,
     onClick: () -> Unit

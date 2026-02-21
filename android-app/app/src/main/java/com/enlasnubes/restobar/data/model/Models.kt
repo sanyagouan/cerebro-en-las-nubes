@@ -6,10 +6,10 @@ import java.time.LocalTime
 import java.time.Instant
 
 enum class UserRole {
-    @SerializedName("waiter") WAITER,
-    @SerializedName("cook") COOK,
-    @SerializedName("manager") MANAGER,
-    @SerializedName("admin") ADMIN
+    @SerializedName("administradora") ADMINISTRADORA,
+    @SerializedName("encargada") ENCARGADA,
+    @SerializedName("camarero") CAMARERO,
+    @SerializedName("cocina") COCINA
 }
 
 enum class ReservationStatus {
@@ -36,10 +36,11 @@ enum class TableStatus {
 
 data class User(
     val id: String,
-    val email: String,
-    val name: String,
-    val role: UserRole,
-    val isActive: Boolean = true
+    val usuario: String,
+    val nombre: String,
+    val rol: String,
+    val telefono: String? = null,
+    val activo: Boolean = true
 )
 
 data class Reservation(
@@ -83,5 +84,12 @@ data class DashboardStats(
 data class LoginResponse(
     @SerializedName("access_token") val accessToken: String,
     @SerializedName("refresh_token") val refreshToken: String,
+    @SerializedName("token_type") val tokenType: String = "bearer",
     val user: User
+)
+
+data class LoginRequest(
+    val usuario: String,
+    val password: String,
+    @SerializedName("device_token") val deviceToken: String? = null
 )

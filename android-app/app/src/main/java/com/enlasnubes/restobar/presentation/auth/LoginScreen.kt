@@ -12,7 +12,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -49,7 +49,7 @@ fun LoginScreen(
     val authState by viewModel.authState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
 
-    var email by remember { mutableStateOf("") }
+    var usuario by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
 
     // Handle errors
@@ -106,16 +106,16 @@ fun LoginScreen(
 
                 Spacer(modifier = Modifier.height(32.dp))
 
-                // Email field
+                // Usuario field
                 OutlinedTextField(
-                    value = email,
-                    onValueChange = { email = it },
-                    label = { Text("Email") },
+                    value = usuario,
+                    onValueChange = { usuario = it },
+                    label = { Text("Usuario") },
                     leadingIcon = {
-                        Icon(Icons.Default.Email, contentDescription = null)
+                        Icon(Icons.Default.Person, contentDescription = null)
                     },
                     keyboardOptions = KeyboardOptions(
-                        keyboardType = KeyboardType.Email,
+                        keyboardType = KeyboardType.Text,
                         imeAction = ImeAction.Next
                     ),
                     modifier = Modifier.fillMaxWidth(),
@@ -145,9 +145,9 @@ fun LoginScreen(
 
                 // Login button
                 Button(
-                    onClick = { viewModel.login(email, password) },
+                    onClick = { viewModel.login(usuario, password) },
                     modifier = Modifier.fillMaxWidth(),
-                    enabled = !authState.isLoading && email.isNotBlank() && password.isNotBlank()
+                    enabled = !authState.isLoading && usuario.isNotBlank() && password.isNotBlank()
                 ) {
                     if (authState.isLoading) {
                         CircularProgressIndicator(
@@ -163,7 +163,7 @@ fun LoginScreen(
 
                 // Test credentials hint
                 Text(
-                    text = "Credenciales de prueba:\ntest@enlasnubes.com / test123",
+                    text = "Credenciales de prueba:\nadministradora / administradora123",
                     style = MaterialTheme.typography.bodySmall,
                     textAlign = TextAlign.Center,
                     color = MaterialTheme.colorScheme.onSurfaceVariant

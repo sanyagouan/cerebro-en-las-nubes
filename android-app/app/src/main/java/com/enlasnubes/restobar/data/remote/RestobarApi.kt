@@ -1,9 +1,11 @@
 package com.enlasnubes.restobar.data.remote
 
 import com.enlasnubes.restobar.data.model.DashboardStats
+import com.enlasnubes.restobar.data.model.LoginRequest
 import com.enlasnubes.restobar.data.model.LoginResponse
 import com.enlasnubes.restobar.data.model.Reservation
 import com.enlasnubes.restobar.data.model.Table
+import com.enlasnubes.restobar.data.model.User
 import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.GET
@@ -24,6 +26,9 @@ interface RestobarApi {
 
     @POST("api/mobile/auth/refresh")
     suspend fun refreshToken(@Body request: RefreshRequest): Response<TokenResponse>
+    
+    @GET("api/mobile/auth/yo")
+    suspend fun getCurrentUser(): Response<User>
 
     // Reservations
     @GET("api/mobile/reservations")
@@ -69,12 +74,6 @@ interface RestobarApi {
     @POST("api/mobile/notifications/register")
     suspend fun registerDeviceToken(@Body request: DeviceTokenRequest): Response<Unit>
 }
-
-data class LoginRequest(
-    val email: String,
-    val password: String,
-    val deviceToken: String? = null
-)
 
 data class RefreshRequest(
     val refreshToken: String

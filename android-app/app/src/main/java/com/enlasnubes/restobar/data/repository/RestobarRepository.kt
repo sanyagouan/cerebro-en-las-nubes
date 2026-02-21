@@ -1,14 +1,12 @@
 package com.enlasnubes.restobar.data.repository
 
 import com.enlasnubes.restobar.data.model.DashboardStats
+import com.enlasnubes.restobar.data.model.LoginRequest
 import com.enlasnubes.restobar.data.model.LoginResponse
 import com.enlasnubes.restobar.data.model.Reservation
 import com.enlasnubes.restobar.data.model.Table
-import com.enlasnubes.restobar.data.model.User
-import com.enlasnubes.restobar.data.model.UserRole
 import com.enlasnubes.restobar.data.remote.CreateReservationRequest
 import com.enlasnubes.restobar.data.remote.DeviceTokenRequest
-import com.enlasnubes.restobar.data.remote.LoginRequest
 import com.enlasnubes.restobar.data.remote.RestobarApi
 import com.enlasnubes.restobar.data.remote.UpdateStatusRequest
 import kotlinx.coroutines.flow.Flow
@@ -22,13 +20,13 @@ class RestobarRepository @Inject constructor(
     private val api: RestobarApi
 ) {
     // Auth
-    suspend fun login(email: String, password: String, deviceToken: String?): Result<LoginResponse> {
+    suspend fun login(usuario: String, password: String, deviceToken: String?): Result<LoginResponse> {
         return try {
-            val response = api.login(LoginRequest(email, password, deviceToken))
+            val response = api.login(LoginRequest(usuario, password, deviceToken))
             if (response.isSuccessful) {
                 Result.success(response.body()!!)
             } else {
-                Result.failure(Exception("Login failed: ${response.code()}"))
+                Result.failure(Exception("Login fallido: ${response.code()}"))
             }
         } catch (e: Exception) {
             Result.failure(e)

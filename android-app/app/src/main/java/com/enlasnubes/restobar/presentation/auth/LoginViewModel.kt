@@ -2,7 +2,6 @@ package com.enlasnubes.restobar.presentation.auth
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.enlasnubes.restobar.data.model.UserRole
 import com.enlasnubes.restobar.data.repository.AuthRepository
 import com.enlasnubes.restobar.data.repository.RestobarRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -19,7 +18,8 @@ data class AuthState(
     val error: String? = null,
     val userId: String = "",
     val userName: String = "",
-    val userRole: UserRole = UserRole.WAITER
+    val userUsuario: String = "",
+    val userRol: String = ""
 )
 
 @HiltViewModel
@@ -39,8 +39,9 @@ class LoginViewModel @Inject constructor(
                         it.copy(
                             isAuthenticated = true,
                             userId = user.id,
-                            userName = user.name,
-                            userRole = user.role
+                            userName = user.nombre,
+                            userUsuario = user.usuario,
+                            userRol = user.rol
                         )
                     }
                 }
@@ -48,11 +49,11 @@ class LoginViewModel @Inject constructor(
         }
     }
 
-    fun login(email: String, password: String, deviceToken: String? = null) {
+    fun login(usuario: String, password: String, deviceToken: String? = null) {
         viewModelScope.launch {
             _authState.update { it.copy(isLoading = true, error = null) }
 
-            restobarRepository.login(email, password, deviceToken)
+            restobarRepository.login(usuario, password, deviceToken)
                 .onSuccess { response ->
                     authRepository.saveAuthData(
                         accessToken = response.accessToken,
@@ -64,8 +65,9 @@ class LoginViewModel @Inject constructor(
                             isAuthenticated = true,
                             isLoading = false,
                             userId = response.user.id,
-                            userName = response.user.name,
-                            userRole = response.user.role
+                            userName = response.user.nombre,
+                            userUsuario = response.user.usuario,
+                            userRol = response.user.rol
                         )
                     }
                 }

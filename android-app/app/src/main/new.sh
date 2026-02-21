@@ -1,0 +1,2 @@
+    ./gradlew :app:assembleDebug --stacktrace
+    

@@ -26,24 +26,25 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.enlasnubes.restobar.data.model.Table
 import com.enlasnubes.restobar.data.model.TableLocation
 import com.enlasnubes.restobar.data.model.TableStatus
-import com.enlasnubes.restobar.data.model.UserRole
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TablesScreen(
-    userRole: UserRole,
+    userRol: String,
     viewModel: TablesViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var selectedLocation by remember { mutableStateOf<TableLocation?>(null) }
     var selectedTable by remember { mutableStateOf<Table?>(null) }
+    
+    val canEdit = userRol == "encargada" || userRol == "administradora"
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("Mapa de Mesas") },
                 actions = {
-                    if (userRole == UserRole.MANAGER || userRole == UserRole.ADMIN) {
+                    if (canEdit) {
                         IconButton(onClick = { }) {
                             Icon(Icons.Default.Edit, contentDescription = "Editar")
                         }
@@ -52,7 +53,7 @@ fun TablesScreen(
             )
         },
         floatingActionButton = {
-            if (userRole == UserRole.MANAGER || userRole == UserRole.ADMIN) {
+            if (canEdit) {
                 FloatingActionButton(
                     onClick = { },
                     containerColor = MaterialTheme.colorScheme.primary
@@ -142,7 +143,7 @@ fun TablesScreen(
 }
 
 @Composable
-private fun StatBox(label: String, value: Int, color: Color) {
+private fun RowScope.StatBox(label: String, value: Int, color: Color) {
     Card(
         modifier = Modifier.weight(1f),
         colors = CardDefaults.cardColors(containerColor = color.copy(alpha = 0.1f))

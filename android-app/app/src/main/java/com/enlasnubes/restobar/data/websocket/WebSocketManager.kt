@@ -98,11 +98,11 @@ class WebSocketManager @Inject constructor(
     }
 
     override fun markReservationSeated(reservationId: String, notes: String?) {
-        sendMessage(StatusUpdateMessage("reservation", reservationId, "seated", notes))
+        sendMessage(StatusUpdateMessage(entityType = "reservation", entityId = reservationId, status = "seated", notes = notes))
     }
 
     override fun markReservationCancelled(reservationId: String, reason: String?) {
-        sendMessage(StatusUpdateMessage("reservation", reservationId, "cancelled", reason))
+        sendMessage(StatusUpdateMessage(entityType = "reservation", entityId = reservationId, status = "cancelled", notes = reason))
     }
 
     override fun sendMessage(message: WebSocketMessage) {

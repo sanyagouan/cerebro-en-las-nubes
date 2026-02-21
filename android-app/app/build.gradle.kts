@@ -1,9 +1,22 @@
+import java.util.Properties
+import java.io.FileInputStream
+import java.io.File
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
-    alias(libs.plugins.kotlin.kapt)
+    alias(libs.plugins.ksp)
     alias(libs.plugins.hilt.android)
     alias(libs.plugins.google.services)
+}
+
+// Cargar configuración de firma
+val keystoreProperties = Properties()
+val keystorePropertiesFile = rootProject.file("keystore.properties")
+if (keystorePropertiesFile.exists()) {
+    keystorePropertiesFile.inputStream().use { input ->
+        keystoreProperties.load(input)
+    }
 }
 
 android {
@@ -22,18 +35,46 @@ android {
             useSupportLibrary = true
         }
 
-        // API Base URL - Servidor Coolify producción
         buildConfigField("String", "API_BASE_URL", "\"https://go84sgscs4ckcs08wog84o0o.app.generaia.site\"")
         buildConfigField("String", "WS_BASE_URL", "\"wss://go84sgscs4ckcs08wog84o0o.app.generaia.site\"")
+    }
+
+    signingConfigs {
+        create("release") {
+            keyAlias = keystoreProperties.getProperty("keyAlias")
+            keyPassword = keystoreProperties.getProperty("keyPassword")
+            storePassword = keystoreProperties.getProperty("storePassword")
+            
+            val storeFilePath = keystoreProperties.getProperty("storeFile")
+            if (storeFilePath != null) {
+                val kFile = rootProject.file(storeFilePath)
+                if (kFile.exists()) {
+                    storeFile = kFile
+                }
+            }
+        }
+    }
+
+    // Fix for Android Studio injected 'externalOverride' config
+    // This forces the injected config to use the absolute path relative to project root
+    afterEvaluate {
+        signingConfigs.findByName("externalOverride")?.let { config ->
+            val storeFilePath = keystoreProperties.getProperty("storeFile")
+            if (storeFilePath != null) {
+                config.storeFile = rootProject.file(storeFilePath)
+            }
+        }
     }
 
     buildTypes {
         release {
             isMinifyEnabled = false
+            isShrinkResources = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            signingConfig = signingConfigs.getByName("release")
         }
         debug {
             buildConfigField("String", "API_BASE_URL", "\"http://10.0.2.2:8000\"")
@@ -77,7 +118,7 @@ dependencies {
     
     // Hilt
     implementation(libs.bundles.hilt)
-    kapt(libs.hilt.compiler)
+    ksp(libs.hilt.compiler)
     
     // Networking
     implementation(libs.bundles.retrofit)
@@ -93,7 +134,7 @@ dependencies {
     // DataStore
     implementation(libs.androidx.datastore)
     
-    // Firebase - Using BOM for version management
+    // Firebase
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.messaging)
     implementation(libs.firebase.analytics)

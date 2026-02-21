@@ -28,7 +28,7 @@ class AuthRepository @Inject constructor(
         val ACCESS_TOKEN = stringPreferencesKey("access_token")
         val REFRESH_TOKEN = stringPreferencesKey("refresh_token")
         val USER_ID = stringPreferencesKey("user_id")
-        val USER_EMAIL = stringPreferencesKey("user_email")
+        val USER_USUARIO = stringPreferencesKey("user_usuario")
         val USER_NAME = stringPreferencesKey("user_name")
         val USER_ROLE = stringPreferencesKey("user_role")
     }
@@ -38,15 +38,15 @@ class AuthRepository @Inject constructor(
     
     val currentUser: Flow<User?> = dataStore.data.map { prefs ->
         val userId = prefs[USER_ID] ?: return@map null
-        val email = prefs[USER_EMAIL] ?: return@map null
-        val name = prefs[USER_NAME] ?: return@map null
-        val roleStr = prefs[USER_ROLE] ?: return@map null
+        val usuario = prefs[USER_USUARIO] ?: return@map null
+        val nombre = prefs[USER_NAME] ?: return@map null
+        val rol = prefs[USER_ROLE] ?: return@map null
         
         User(
             id = userId,
-            email = email,
-            name = name,
-            role = UserRole.valueOf(roleStr)
+            usuario = usuario,
+            nombre = nombre,
+            rol = rol
         )
     }
 
@@ -59,9 +59,9 @@ class AuthRepository @Inject constructor(
             prefs[ACCESS_TOKEN] = accessToken
             prefs[REFRESH_TOKEN] = refreshToken
             prefs[USER_ID] = user.id
-            prefs[USER_EMAIL] = user.email
-            prefs[USER_NAME] = user.name
-            prefs[USER_ROLE] = user.role.name
+            prefs[USER_USUARIO] = user.usuario
+            prefs[USER_NAME] = user.nombre
+            prefs[USER_ROLE] = user.rol
         }
     }
 

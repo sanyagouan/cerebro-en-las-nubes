@@ -2,6 +2,7 @@ package com.enlasnubes.restobar.presentation.admin
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.enlasnubes.restobar.data.model.UserRole
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -9,6 +10,28 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+
+// Data classes for Admin screen
+data class PeakHour(val hour: String, val reservations: Int)
+
+data class AdminStats(
+    val totalReservations: Int,
+    val totalRevenue: Double,
+    val occupancyRate: Float,
+    val totalCustomers: Int,
+    val noShowRate: Float,
+    val cancellationRate: Float,
+    val averagePartySize: Float,
+    val peakHours: List<PeakHour>
+)
+
+data class UserManagement(
+    val id: String,
+    val email: String,
+    val name: String,
+    val role: UserRole,
+    val isActive: Boolean
+)
 
 data class AdminUiState(
     val stats: AdminStats? = null,
@@ -72,28 +95,28 @@ class AdminViewModel @Inject constructor(
                     id = "1",
                     email = "camarero1@enlasnubes.com",
                     name = "Juan Pérez",
-                    role = com.enlasnubes.restobar.data.model.UserRole.WAITER,
+                    role = UserRole.WAITER,
                     isActive = true
                 ),
                 UserManagement(
                     id = "2",
                     email = "cocinero@enlasnubes.com",
                     name = "María García",
-                    role = com.enlasnubes.restobar.data.model.UserRole.COOK,
+                    role = UserRole.COOK,
                     isActive = true
                 ),
                 UserManagement(
                     id = "3",
                     email = "encargada@enlasnubes.com",
                     name = "Ana López",
-                    role = com.enlasnubes.restobar.data.model.UserRole.MANAGER,
+                    role = UserRole.MANAGER,
                     isActive = true
                 ),
                 UserManagement(
                     id = "4",
                     email = "admin@enlasnubes.com",
                     name = "Carlos Ruiz",
-                    role = com.enlasnubes.restobar.data.model.UserRole.ADMIN,
+                    role = UserRole.ADMIN,
                     isActive = true
                 )
             )
@@ -123,7 +146,7 @@ class AdminViewModel @Inject constructor(
         }
     }
 
-    fun addUser(name: String, email: String, role: com.enlasnubes.restobar.data.model.UserRole) {
+    fun addUser(name: String, email: String, role: UserRole) {
         viewModelScope.launch {
             // TODO: Llamar a API para crear
             val newUser = UserManagement(

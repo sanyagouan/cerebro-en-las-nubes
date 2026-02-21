@@ -10,3 +10,8 @@ local.properties
 .cxx
 *.apk
 *.aab
+
+# Firma release (NO commitear)
+keystore.properties
+*.keystore
+*.jks

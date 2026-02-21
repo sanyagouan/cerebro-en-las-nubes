@@ -57,7 +57,6 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.enlasnubes.restobar.data.model.Reservation
 import com.enlasnubes.restobar.data.model.ReservationStatus
-import com.enlasnubes.restobar.data.model.UserRole
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 
@@ -106,7 +105,7 @@ enum class KitchenTimeFilter {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun KitchenScreen(
-    userRole: UserRole,
+    userRol: String,
     viewModel: KitchenViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
