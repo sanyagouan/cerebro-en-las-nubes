@@ -126,7 +126,7 @@ fun ProfileScreen(
                         ProfileInfoRow(
                             icon = Icons.Default.Phone,
                             label = "Telefono",
-                            value = uiState.user.telefono
+                            value = uiState.user?.telefono ?: ""
                         )
                     }
                 }

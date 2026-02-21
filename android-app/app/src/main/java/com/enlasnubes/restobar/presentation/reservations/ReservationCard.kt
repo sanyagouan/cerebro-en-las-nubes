@@ -284,7 +284,7 @@ private fun QuickActionsRow(
         when (reservation.status) {
             ReservationStatus.PENDING, ReservationStatus.CONFIRMED -> {
                 // Botón Sentado (Camarero, Encargada, Admin)
-                if (userRole != UserRole.COOK) {
+                if (userRole != UserRole.COCINA) {
                     QuickActionButton(
                         icon = Icons.Default.EventSeat,
                         label = "Sentado",
@@ -295,7 +295,7 @@ private fun QuickActionsRow(
                 }
 
                 // Botón Cancelar (Encargada, Admin)
-                if (userRole == UserRole.MANAGER || userRole == UserRole.ADMIN) {
+                if (userRole == UserRole.ENCARGADA || userRole == UserRole.ADMINISTRADORA) {
                     QuickActionButton(
                         icon = Icons.Default.Cancel,
                         label = "Cancelar",
@@ -316,7 +316,7 @@ private fun QuickActionsRow(
                 )
 
                 // No-show
-                if (userRole == UserRole.MANAGER || userRole == UserRole.ADMIN) {
+                if (userRole == UserRole.ENCARGADA || userRole == UserRole.ADMINISTRADORA) {
                     QuickActionButton(
                         icon = Icons.Default.Delete,
                         label = "No Show",
@@ -330,7 +330,7 @@ private fun QuickActionsRow(
         }
 
         // Menú de más opciones (Editar, etc)
-        if (userRole == UserRole.MANAGER || userRole == UserRole.ADMIN) {
+        if (userRole == UserRole.ENCARGADA || userRole == UserRole.ADMINISTRADORA) {
             Box {
                 IconButton(onClick = { showMoreOptions = true }) {
                     Icon(Icons.Default.Edit, contentDescription = "Más opciones")
