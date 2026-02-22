@@ -1,6 +1,7 @@
 """
 API endpoints para app móvil.
 Autenticación, reservas, mesas y notificaciones.
+Updated: 2026-02-22 - Forzar rebuild con login usuario
 """
 
 from fastapi import APIRouter, Depends, HTTPException, status, Request
