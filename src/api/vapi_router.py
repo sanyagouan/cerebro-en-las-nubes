@@ -54,7 +54,7 @@ async def vapi_voice_webhook(request: Request):
 <Response>
     <Connect>
         <Stream url="wss://api.vapi.ai/twilio/stream">
-            <Parameter name="assistantId" value="9a1f2df2-1c2d-4061-b11c-bdde7568c85d"/>
+            <Parameter name="assistantId" value="{os.getenv('VAPI_ASSISTANT_ID', '9a1f2df2-1c2d-4061-b11c-bdde7568c85d')}"/>
             <Parameter name="customerPhoneNumber" value="{from_number}"/>
         </Stream>
     </Connect>
@@ -135,8 +135,8 @@ async def get_assistant_config(request: Request):
 
         # Aquí podrías personalizar la respuesta según el caller_id, etc.
 
-        # Base URL for tools
-        base_url = "https://go84sgscs4ckcs08wog84o0o.app.generaia.site"
+        # Base URL for tools (obtenida dinámicamente)
+        base_url = os.getenv("PUBLIC_URL", "https://api.cerebro.enlasnubes.restobar").rstrip("/")
 
         # VAPI espera la configuración DENTRO de la clave "assistant"
         return {
