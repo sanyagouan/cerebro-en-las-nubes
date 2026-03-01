@@ -58,6 +58,7 @@ async def vapi_voice_webhook(request: Request):
             <Parameter name="customerPhoneNumber" value="{from_number}"/>
         </Stream>
     </Connect>
+    <Pause length="43200"/>
 </Response>"""
 
         return Response(content=twiml_response, media_type="application/xml")
