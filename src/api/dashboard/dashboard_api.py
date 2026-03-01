@@ -97,7 +97,7 @@ async def refresh_token(request: Request, refresh_data: RefreshRequest):
     """
     Refresca el access token usando un refresh token válido.
     """
-    payload = auth_service.verify_token(refresh_data.refresh_token)
+    payload = auth_service.decode_token(refresh_data.refresh_token)
 
     if not payload or payload.get("type") != "refresh":
         raise HTTPException(
@@ -142,7 +142,7 @@ async def get_current_user(request: Request):
         )
 
     token = auth_header.replace("Bearer ", "")
-    payload = auth_service.verify_token(token)
+    payload = auth_service.decode_token(token)
 
     if not payload or payload.get("type") != "access":
         raise HTTPException(

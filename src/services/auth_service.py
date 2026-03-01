@@ -213,28 +213,24 @@ class AuthService:
     
     async def authenticate_user(self, email: str, password: str) -> Optional[Dict]:
         """
-        Autentica usuario contra base de datos.
-        En producción, esto consultaría Supabase/Airtable.
+        Autentica usuario. Usuarios demo quemados.
         """
-        # TODO: Implementar consulta real a base de datos
-        # Por ahora, estructura del retorno esperado:
-        """
-        user = await get_user_by_email(email)
-        if not user:
-            return None
-        
-        if not self.verify_password(password, user["password_hash"]):
-            return None
-        
-        return {
-            "id": user["id"],
-            "email": user["email"],
-            "name": user["name"],
-            "role": user["role"],
-            "is_active": user["is_active"]
+        demo_users = {
+            "admin@enlasnubes.com": {"password": "admin123", "role": "admin", "name": "Administrador", "id": "ADMIN-01"},
+            "manager@enlasnubes.com": {"password": "manager123", "role": "manager", "name": "Encargado", "id": "MGR-01"},
+            "waiter@enlasnubes.com": {"password": "waiter123", "role": "waiter", "name": "Camarero", "id": "WTR-01"}
         }
-        """
-        return None  # Placeholder
+        
+        user = demo_users.get(email)
+        if user and user["password"] == password:
+            return {
+                "id": user["id"],
+                "email": email,
+                "name": user["name"],
+                "role": user["role"],
+                "is_active": True
+            }
+        return None
     
     async def register_device_token(self, user_id: str, device_token: str):
         """Registra token FCM para push notifications."""
