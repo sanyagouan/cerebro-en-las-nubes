@@ -1,0 +1,76 @@
+# Coolify Deployment Configuration
+# Para "En Las Nubes" - Asistente de Voz Restobar
+
+name: en-las-nubes-backend
+
+# Configuración del servicio
+services:
+  - name: cerebro-backend
+    type: docker-compose
+    
+    # Build configuration
+    build:
+      context: .
+      dockerfile: Dockerfile
+      
+    # Environment variables
+    environment:
+      - ENVIRONMENT=production
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
+      - AIRTABLE_API_KEY=${AIRTABLE_API_KEY}
+      - AIRTABLE_BASE_ID=${AIRTABLE_BASE_ID}
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_SERVICE_KEY=${SUPABASE_SERVICE_KEY}
+      - VAPI_API_KEY=${VAPI_API_KEY}
+      - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID}
+      - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN}
+      - TWILIO_FROM_NUMBER=${TWILIO_FROM_NUMBER}
+      - FCM_SERVER_KEY=${FCM_SERVER_KEY}
+      - REDIS_URL=${REDIS_URL}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS}
+      
+    # Ports
+    ports:
+      - "8000:8000"
+      
+    # Health check
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+      
+    # Volumes
+    volumes:
+      - ./logs:/app/logs
+      
+    # Restart policy
+    restart: unless-stopped
+    
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '1'
+          memory: 512M
+
+  # Redis para cache y WebSocket pub/sub
+  - name: redis
+    type: docker-compose
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+volumes:
+  redis_data:

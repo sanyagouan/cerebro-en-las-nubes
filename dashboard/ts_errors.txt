@@ -1,0 +1,23 @@
+src/components/SystemHealth.tsx(7,8): error TS6133: 'HealthCheck' is declared but its value is never read.
+src/components/SystemHealth.tsx(341,24): error TS18048: 'metrics' is possibly 'undefined'.
+src/components/SystemHealth.tsx(348,49): error TS18048: 'metrics' is possibly 'undefined'.
+src/components/SystemHealth.tsx(364,36): error TS18048: 'metrics' is possibly 'undefined'.
+src/components/SystemHealth.tsx(371,49): error TS18048: 'metrics' is possibly 'undefined'.
+src/components/SystemHealth.tsx(375,20): error TS18048: 'metrics' is possibly 'undefined'.
+src/components/SystemHealth.tsx(375,73): error TS18048: 'metrics' is possibly 'undefined'.
+src/components/SystemHealth.tsx(390,24): error TS18048: 'metrics' is possibly 'undefined'.
+src/components/SystemHealth.tsx(393,24): error TS18048: 'metrics' is possibly 'undefined'.
+src/components/SystemHealth.tsx(410,24): error TS18048: 'metrics' is possibly 'undefined'.
+src/components/SystemHealth.tsx(413,31): error TS18048: 'metrics' is possibly 'undefined'.
+src/components/WhatsAppLogs.tsx(11,3): error TS6133: 'Send' is declared but its value is never read.
+src/components/WhatsAppLogs.tsx(15,3): error TS6133: 'TrendingUp' is declared but its value is never read.
+src/components/WhatsAppLogs.tsx(68,34): error TS7006: Parameter 'message' implicitly has an 'any' type.
+src/components/WhatsAppLogs.tsx(97,36): error TS7006: Parameter 'msg' implicitly has an 'any' type.
+src/components/WhatsAppLogs.tsx(115,20): error TS7006: Parameter 'row' implicitly has an 'any' type.
+src/components/WhatsAppLogs.tsx(115,37): error TS7006: Parameter 'cell' implicitly has an 'any' type.
+src/components/WhatsAppLogs.tsx(156,9): error TS2353: Object literal may only specify known properties, and 'content' does not exist in type '{ id: string; data: Partial<MessageTemplate>; }'.
+src/components/WhatsAppLogs.tsx(341,40): error TS7006: Parameter 'template' implicitly has an 'any' type.
+src/components/WhatsAppLogs.tsx(375,48): error TS7006: Parameter 'v' implicitly has an 'any' type.
+src/components/WhatsAppLogs.tsx(423,46): error TS7006: Parameter 'm' implicitly has an 'any' type.
+src/components/WhatsAppLogs.tsx(460,48): error TS7006: Parameter 'm' implicitly has an 'any' type.
+src/components/WhatsAppLogs.tsx(528,35): error TS7006: Parameter 'message' implicitly has an 'any' type.

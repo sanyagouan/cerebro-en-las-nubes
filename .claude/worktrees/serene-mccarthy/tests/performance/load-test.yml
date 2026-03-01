@@ -1,0 +1,114 @@
+# Artillery Load Testing Configuration
+# Para ejecutar: artillery run tests/performance/load-test.yml
+
+config:
+  target: "http://localhost:5678" # URL de n8n
+  phases:
+    # Fase 1: Warm-up
+    - duration: 60
+      arrivalRate: 5
+      name: "Warm-up"
+
+    # Fase 2: Carga normal
+    - duration: 120
+      arrivalRate: 20
+      name: "Normal load"
+
+    # Fase 3: Pico de carga
+    - duration: 60
+      arrivalRate: 50
+      name: "Peak load"
+
+    # Fase 4: Stress test
+    - duration: 60
+      arrivalRate: 100
+      name: "Stress test"
+
+  # Variables de entorno
+  variables:
+    apiKey: "{{ $processEnvironment.N8N_API_KEY }}"
+
+  # Headers por defecto
+  defaults:
+    headers:
+      X-N8N-API-KEY: "{{ apiKey }}"
+      Content-Type: "application/json"
+
+  # Plugins
+  plugins:
+    expect: {}
+    metrics-by-endpoint: {}
+
+  # Métricas
+  processor: "./tests/performance/processor.js"
+
+scenarios:
+  # Escenario 1: Crear reserva via VAPI
+  - name: "VAPI Reservation Flow"
+    weight: 40
+    flow:
+      - post:
+          url: "/webhook/vapi-reservation"
+          json:
+            call_id: "{{ $randomString() }}"
+            type: "end-of-call-report"
+            analysis:
+              structuredData:
+                intent: "reserva"
+                guest_count: "{{ $randomNumber(1, 10) }}"
+                service_date: "{{ $randomDate() }}"
+                service_time: "21:00"
+                customer_phone: "+34{{ $randomNumber(600000000, 699999999) }}"
+          expect:
+            - statusCode: 200
+            - contentType: json
+          capture:
+            - json: "$.reservationId"
+              as: "reservationId"
+
+  # Escenario 2: Confirmación WhatsApp
+  - name: "WhatsApp Confirmation"
+    weight: 30
+    flow:
+      - post:
+          url: "/webhook/twilio-whatsapp"
+          json:
+            MessageSid: "SM{{ $randomString() }}"
+            From: "whatsapp:+34{{ $randomNumber(600000000, 699999999) }}"
+            To: "whatsapp:+14155238886"
+            Body: "{{ $pick(['CONFIRMAR', 'CANCELAR', 'OK', 'NO']) }}"
+          expect:
+            - statusCode: 200
+
+  # Escenario 3: FAQ
+  - name: "FAQ Request"
+    weight: 20
+    flow:
+      - post:
+          url: "/webhook/vapi-reservation"
+          json:
+            call_id: "{{ $randomString() }}"
+            analysis:
+              structuredData:
+                intent: "faq"
+                faq_category: "{{ $pick(['horarios', 'menu', 'ubicacion']) }}"
+          expect:
+            - statusCode: 200
+
+  # Escenario 4: Workflow de recordatorios
+  - name: "Reminders Workflow"
+    weight: 10
+    flow:
+      - post:
+          url: "/webhook/reminders"
+          json:
+            date: "{{ $randomDate() }}"
+            trigger: "scheduled"
+          expect:
+            - statusCode: 200
+
+# Condiciones de éxito
+ensure:
+  maxErrorRate: 1 # Máximo 1% de errores
+  p95: 2000 # 95% de requests en <2s
+  p99: 5000 # 99% de requests en <5s

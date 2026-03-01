@@ -1,0 +1,35 @@
+[tool.poetry]
+name = "cerebro-en-las-nubes"
+version = "0.1.0"
+description = "Brain AI for En Las Nubes Restobar"
+authors = ["Yago <yago@enlasnubes.rest>"]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+fastapi = "^0.109.0"
+uvicorn = "^0.27.0"
+pydantic = "^2.6.0"
+pydantic-settings = "^2.1.0"
+python-dotenv = "^1.0.0"
+httpx = "^0.26.0"
+openai = "^1.10.0"
+pyairtable = "^2.2.0"
+twilio = "^8.11.0"
+redis = "^5.0.1"
+loguru = "^0.7.2"
+deepseek-api = "^0.1.0" # Placeholder, we'll use OpenAI client usually
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.0.0"
+black = "^24.0.0"
+isort = "^5.13.0"
+mypy = "^1.8.0"
+pytest-asyncio = "^0.23.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]

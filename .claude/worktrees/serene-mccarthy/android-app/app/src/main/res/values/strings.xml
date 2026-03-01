@@ -1,0 +1,48 @@
+<resources>
+    <string name="app_name">En Las Nubes</string>
+    
+    <!-- Auth -->
+    <string name="login_title">Iniciar Sesión</string>
+    <string name="email_hint">Email</string>
+    <string name="password_hint">Contraseña</string>
+    <string name="login_button">Iniciar Sesión</string>
+    
+    <!-- Navigation -->
+    <string name="nav_reservations">Reservas</string>
+    <string name="nav_tables">Mesas</string>
+    <string name="nav_kitchen">Cocina</string>
+    <string name="nav_admin">Admin</string>
+    
+    <!-- Reservation Status -->
+    <string name="status_pending">Pendiente</string>
+    <string name="status_confirmed">Confirmada</string>
+    <string name="status_seated">Sentado</string>
+    <string name="status_paying">Pagando</string>
+    <string name="status_completed">Completada</string>
+    <string name="status_cancelled">Cancelada</string>
+    <string name="status_no_show">No Show</string>
+    
+    <!-- Actions -->
+    <string name="action_confirm">Confirmar</string>
+    <string name="action_cancel">Cancelar</string>
+    <string name="action_seated">Marcar Sentado</string>
+    <string name="action_free">Liberar Mesa</string>
+    <string name="action_edit">Editar</string>
+    <string name="action_save">Guardar</string>
+    
+    <!-- Table Status -->
+    <string name="table_free">Libre</string>
+    <string name="table_occupied">Ocupada</string>
+    <string name="table_reserved">Reservada</string>
+    <string name="table_maintenance">Mantenimiento</string>
+    
+    <!-- Locations -->
+    <string name="location_interior">Interior</string>
+    <string name="location_terrace">Terraza</string>
+    
+    <!-- Roles -->
+    <string name="role_waiter">Camarero</string>
+    <string name="role_cook">Cocinero</string>
+    <string name="role_manager">Encargada</string>
+    <string name="role_admin">Administrador</string>
+</resources>
