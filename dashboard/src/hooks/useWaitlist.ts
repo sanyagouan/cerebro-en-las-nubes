@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { API_BASE_URL } from '../config/api';
+import { api } from '../config/api';
 
 export interface WaitlistEntry {
   id: string;
@@ -25,79 +25,37 @@ interface WaitlistResponse {
   };
 }
 
-async function fetchWaitlist(token?: string): Promise<WaitlistResponse> {
-  const response = await fetch(`${API_BASE_URL}/api/mobile/waitlist`, {
-    headers: {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-  });
-
-  if (!response.ok) {
-    throw new Error('Error al cargar lista de espera');
-  }
-
-  return response.json();
+async function fetchWaitlist(): Promise<WaitlistResponse> {
+  const response = await api.get('/api/mobile/waitlist');
+  return response.data;
 }
 
-async function addToWaitlist(data: Partial<WaitlistEntry>, token?: string): Promise<WaitlistEntry> {
-  const response = await fetch(`${API_BASE_URL}/api/mobile/waitlist`, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(data),
-  });
-
-  if (!response.ok) {
-    throw new Error('Error al agregar a lista de espera');
-  }
-
-  return response.json();
+async function addToWaitlist(data: Partial<WaitlistEntry>): Promise<WaitlistEntry> {
+  const response = await api.post('/api/mobile/waitlist', data);
+  return response.data;
 }
 
-async function removeFromWaitlist(id: string, token?: string): Promise<void> {
-  const response = await fetch(`${API_BASE_URL}/api/mobile/waitlist/${id}`, {
-    method: 'DELETE',
-    headers: {
-      'Authorization': `Bearer ${token}`,
-    },
-  });
-
-  if (!response.ok) {
-    throw new Error('Error al eliminar de lista de espera');
-  }
+async function removeFromWaitlist(id: string): Promise<void> {
+  await api.delete(`/api/mobile/waitlist/${id}`);
 }
 
-async function notifyWaitlist(id: string, token?: string): Promise<void> {
-  const response = await fetch(`${API_BASE_URL}/api/mobile/waitlist/${id}/notify`, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${token}`,
-    },
-    body: JSON.stringify({ estado: 'notified' }),
-  });
-
-  if (!response.ok) {
-    throw new Error('Error al notificar cliente');
-  }
+async function notifyWaitlist(id: string): Promise<void> {
+  await api.post(`/api/mobile/waitlist/${id}/notify`, { estado: 'notified' });
 }
 
-export function useWaitlist(token?: string) {
+export function useWaitlist(_token?: string) { // _token mantenido por compatibilidad
   return useQuery({
     queryKey: ['waitlist'],
-    queryFn: () => fetchWaitlist(token),
-    refetchInterval: 30000, // Refetch every 30 seconds
+    queryFn: fetchWaitlist,
+    refetchInterval: 30000,
   });
 }
 
 export function useAddToWaitlist() {
   const queryClient = useQueryClient();
-
   return useMutation({
-    mutationFn: ({ data, token }: { data: Partial<WaitlistEntry>; token?: string }) =>
-      addToWaitlist(data, token),
+    mutationFn: ({ data }: { data: Partial<WaitlistEntry>; token?: string }) =>
+      addToWaitlist(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['waitlist'] });
     },
@@ -106,10 +64,8 @@ export function useAddToWaitlist() {
 
 export function useRemoveFromWaitlist() {
   const queryClient = useQueryClient();
-
   return useMutation({
-    mutationFn: ({ id, token }: { id: string; token?: string }) =>
-      removeFromWaitlist(id, token),
+    mutationFn: ({ id }: { id: string; token?: string }) => removeFromWaitlist(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['waitlist'] });
     },
@@ -118,10 +74,8 @@ export function useRemoveFromWaitlist() {
 
 export function useNotifyWaitlist() {
   const queryClient = useQueryClient();
-
   return useMutation({
-    mutationFn: ({ id, token }: { id: string; token?: string }) =>
-      notifyWaitlist(id, token),
+    mutationFn: ({ id }: { id: string; token?: string }) => notifyWaitlist(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['waitlist'] });
     },

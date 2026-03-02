@@ -9,7 +9,6 @@ import {
   Reservation,
   ReservationStatus,
 } from '../hooks/useReservations';
-import { useAuth } from '../contexts/AuthContext';
 import ReservaDetalle from './ReservaDetalle';
 import ReservaForm from './ReservaForm';
 import { format, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-fns';
@@ -48,7 +47,6 @@ function getChannelBadge(canal: string): string {
 }
 
 export default function Reservas() {
-  const { token } = useAuth();
   const [filtroEstado, setFiltroEstado] = useState<string>('todos');
   const [filtroFecha, setFiltroFecha] = useState<DateFilter>('hoy');
   const [busqueda, setBusqueda] = useState('');
@@ -59,12 +57,11 @@ export default function Reservas() {
   const [selectedReservaForEdit, setSelectedReservaForEdit] = useState<Reservation | null>(null);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
-  // Fetch reservations with filters
+  // Fetch reservations con token JWT inyectado automáticamente por el interceptor
   const { data, isLoading, error } = useReservations(
     filtroEstado !== 'todos' ? { estado: filtroEstado as ReservationStatus } : undefined,
     0,
-    100,
-    token
+    100
   );
   const updateStatusMutation = useUpdateReservationStatus();
   const createMutation = useCreateReservation();
@@ -246,8 +243,8 @@ export default function Reservas() {
                   key={key}
                   onClick={() => setFiltroFecha(key as DateFilter)}
                   className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${filtroFecha === key
-                      ? 'bg-white text-primary-600 shadow-sm'
-                      : 'text-secondary-600 hover:text-secondary-800'
+                    ? 'bg-white text-primary-600 shadow-sm'
+                    : 'text-secondary-600 hover:text-secondary-800'
                     }`}
                 >
                   {label}

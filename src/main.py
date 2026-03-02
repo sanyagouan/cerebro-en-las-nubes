@@ -21,6 +21,9 @@ from src.api.sync.sync_api import router as sync_router
 from src.api.analytics_router import router as analytics_router
 from src.api.mesas_router import router as mesas_router
 from src.api.vapi_tools_router import router as vapi_tools_router
+from src.api.dashboard.ai_metrics_api import router as ai_metrics_router
+from src.api.dashboard.clients_api import router as clients_router
+from src.api.dashboard.config_api import router as config_router
 
 # Import Middleware
 from src.api.middleware.twilio_validation import TwilioValidationMiddleware
@@ -31,12 +34,13 @@ from slowapi.errors import RateLimitExceeded
 from src.infrastructure.services.scheduler_service import get_scheduler
 
 # Get CORS origins from environment
-allowed_origins = os.getenv("ALLOWED_ORIGINS", "*").split(",")
-if os.getenv("ENVIRONMENT") == "production":
-    # In production, deny wildcard origins for security
-    if "*" in allowed_origins:
-        logger.warning("Wildard CORS (*) detected in production - this is insecure!")
-        allowed_origins = []  # Deny all if misconfigured
+_raw_origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:5173")
+allowed_origins = [o.strip() for o in _raw_origins.split(",") if o.strip()]
+
+# Safety: never allow empty list in production (would block all requests)
+if not allowed_origins:
+    allowed_origins = ["http://localhost:3000", "http://localhost:5173"]
+    logger.warning("ALLOWED_ORIGINS was empty — using localhost fallback. Set it correctly in production!")
 
 settings_errors = settings.validate()
 if settings_errors:
@@ -59,7 +63,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
     allow_credentials=True,
-    allow_methods=["GET", "POST", "OPTIONS", "DELETE"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=["Content-Type", "Authorization", "X-Request-ID"],
 )
 
@@ -77,6 +81,9 @@ app.include_router(sync_router)
 app.include_router(analytics_router)  # Analytics and reporting
 app.include_router(mesas_router)  # Table assignment (Tetris)
 app.include_router(vapi_tools_router)  # VAPI dynamic tools (horarios, info, etc.)
+app.include_router(ai_metrics_router)  # AI Metrics and System Health for Dashboard
+app.include_router(clients_router)   # CRM de clientes
+app.include_router(config_router)    # Configuración del restaurante
 
 logger.info(
     f"Cerebro starting - Environment: {os.getenv('ENVIRONMENT', 'development')}"

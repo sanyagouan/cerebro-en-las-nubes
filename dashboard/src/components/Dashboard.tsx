@@ -16,7 +16,6 @@ import {
 import { useReservations, Reservation } from '../hooks/useReservations';
 import { useActivity } from '../hooks/useActivity';
 import { useWebSocket } from '../hooks/useWebSocket';
-import { useAuth } from '../contexts/AuthContext';
 import { useMemo, useEffect, useState } from 'react';
 import { isToday, parseISO, format, formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -76,13 +75,12 @@ function formatTimeAgo(timestamp: string): string {
 }
 
 export default function Dashboard() {
-  const { token } = useAuth();
   const {
     data: reservasData,
     isLoading: reservasLoading,
     error: reservasError,
     refetch: refetchReservas
-  } = useReservations({}, 0, 100, token);
+  } = useReservations({}, 0, 100);
 
   const {
     data: activityData,

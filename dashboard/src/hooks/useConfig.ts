@@ -1,12 +1,12 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { config } from '../config/api';
+import { api } from '../config/api';
 
 // ==================== INTERFACES ====================
 
 export interface DaySchedule {
   day: 'lunes' | 'martes' | 'miércoles' | 'jueves' | 'viernes' | 'sábado' | 'domingo';
   is_open: boolean;
-  lunch_start?: string; // HH:mm
+  lunch_start?: string;
   lunch_end?: string;
   dinner_start?: string;
   dinner_end?: string;
@@ -14,7 +14,7 @@ export interface DaySchedule {
 
 export interface Holiday {
   id: string;
-  date: string; // YYYY-MM-DD
+  date: string;
   name: string;
   is_closed: boolean;
   special_hours?: {
@@ -28,7 +28,7 @@ export interface Holiday {
 export interface Shift {
   id: string;
   name: 'almuerzo' | 'cena';
-  default_start: string; // HH:mm
+  default_start: string;
   default_end: string;
   max_capacity: number;
   is_active: boolean;
@@ -38,7 +38,7 @@ export interface CapacityConfig {
   max_simultaneous_reservations: number;
   max_party_size: number;
   min_party_size: number;
-  overbooking_percentage: number; // 0-20
+  overbooking_percentage: number;
 }
 
 export interface ReservationTiming {
@@ -58,262 +58,174 @@ export interface StaffUser {
   last_login?: string;
 }
 
-// ==================== HOOKS ====================
+// ==================== HOOKS — Axios con JWT automático ====================
 
-// Hook 1: Gestión horarios por día de la semana
 export function useSchedule() {
   return useQuery<{ schedule: DaySchedule[] }>({
     queryKey: ['schedule'],
     queryFn: async () => {
-      const response = await fetch(`${config.API_BASE_URL}/api/config/schedule`);
-      if (!response.ok) throw new Error('Error al cargar horarios');
-      return response.json();
+      const response = await api.get('/api/config/schedule');
+      return response.data;
     },
   });
 }
 
 export function useUpdateSchedule() {
   const queryClient = useQueryClient();
-
   return useMutation({
     mutationFn: async (schedule: DaySchedule[]) => {
-      const response = await fetch(`${config.API_BASE_URL}/api/config/schedule`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ schedule }),
-      });
-      if (!response.ok) throw new Error('Error al actualizar horarios');
-      return response.json();
+      const response = await api.put('/api/config/schedule', { schedule });
+      return response.data;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['schedule'] });
-    },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['schedule'] }); },
   });
 }
 
-// Hook 2: Gestión festivos
 export function useHolidays() {
   return useQuery<{ holidays: Holiday[] }>({
     queryKey: ['holidays'],
     queryFn: async () => {
-      const response = await fetch(`${config.API_BASE_URL}/api/config/holidays`);
-      if (!response.ok) throw new Error('Error al cargar festivos');
-      return response.json();
+      const response = await api.get('/api/config/holidays');
+      return response.data;
     },
   });
 }
 
 export function useCreateHoliday() {
   const queryClient = useQueryClient();
-
   return useMutation({
     mutationFn: async (holiday: Omit<Holiday, 'id'>) => {
-      const response = await fetch(`${config.API_BASE_URL}/api/config/holidays`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(holiday),
-      });
-      if (!response.ok) throw new Error('Error al crear festivo');
-      return response.json();
+      const response = await api.post('/api/config/holidays', holiday);
+      return response.data;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['holidays'] });
-    },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['holidays'] }); },
   });
 }
 
 export function useUpdateHoliday() {
   const queryClient = useQueryClient();
-
   return useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Partial<Holiday> }) => {
-      const response = await fetch(`${config.API_BASE_URL}/api/config/holidays/${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      });
-      if (!response.ok) throw new Error('Error al actualizar festivo');
-      return response.json();
+      const response = await api.put(`/api/config/holidays/${id}`, data);
+      return response.data;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['holidays'] });
-    },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['holidays'] }); },
   });
 }
 
 export function useDeleteHoliday() {
   const queryClient = useQueryClient();
-
   return useMutation({
     mutationFn: async (id: string) => {
-      const response = await fetch(`${config.API_BASE_URL}/api/config/holidays/${id}`, {
-        method: 'DELETE',
-      });
-      if (!response.ok) throw new Error('Error al eliminar festivo');
-      return response.json();
+      const response = await api.delete(`/api/config/holidays/${id}`);
+      return response.data;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['holidays'] });
-    },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['holidays'] }); },
   });
 }
 
-// Hook 3: Gestión turnos
 export function useShifts() {
   return useQuery<{ shifts: Shift[] }>({
     queryKey: ['shifts'],
     queryFn: async () => {
-      const response = await fetch(`${config.API_BASE_URL}/api/config/shifts`);
-      if (!response.ok) throw new Error('Error al cargar turnos');
-      return response.json();
+      const response = await api.get('/api/config/shifts');
+      return response.data;
     },
   });
 }
 
 export function useUpdateShift() {
   const queryClient = useQueryClient();
-
   return useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Partial<Shift> }) => {
-      const response = await fetch(`${config.API_BASE_URL}/api/config/shifts/${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      });
-      if (!response.ok) throw new Error('Error al actualizar turno');
-      return response.json();
+      const response = await api.put(`/api/config/shifts/${id}`, data);
+      return response.data;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['shifts'] });
-    },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['shifts'] }); },
   });
 }
 
-// Hook 4: Gestión capacidad
 export function useCapacity() {
   return useQuery<CapacityConfig>({
     queryKey: ['capacity'],
     queryFn: async () => {
-      const response = await fetch(`${config.API_BASE_URL}/api/config/capacity`);
-      if (!response.ok) throw new Error('Error al cargar capacidad');
-      return response.json();
+      const response = await api.get('/api/config/capacity');
+      return response.data;
     },
   });
 }
 
 export function useUpdateCapacity() {
   const queryClient = useQueryClient();
-
   return useMutation({
     mutationFn: async (capacity: CapacityConfig) => {
-      const response = await fetch(`${config.API_BASE_URL}/api/config/capacity`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(capacity),
-      });
-      if (!response.ok) throw new Error('Error al actualizar capacidad');
-      return response.json();
+      const response = await api.put('/api/config/capacity', capacity);
+      return response.data;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['capacity'] });
-    },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['capacity'] }); },
   });
 }
 
-// Hook 5: Gestión tiempos de reserva
 export function useReservationTimings() {
   return useQuery<{ timings: ReservationTiming[] }>({
     queryKey: ['reservation-timings'],
     queryFn: async () => {
-      const response = await fetch(`${config.API_BASE_URL}/api/config/timings`);
-      if (!response.ok) throw new Error('Error al cargar tiempos de reserva');
-      return response.json();
+      const response = await api.get('/api/config/timings');
+      return response.data;
     },
   });
 }
 
 export function useUpdateReservationTimings() {
   const queryClient = useQueryClient();
-
   return useMutation({
     mutationFn: async (timings: ReservationTiming[]) => {
-      const response = await fetch(`${config.API_BASE_URL}/api/config/timings`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ timings }),
-      });
-      if (!response.ok) throw new Error('Error al actualizar tiempos');
-      return response.json();
+      const response = await api.put('/api/config/timings', { timings });
+      return response.data;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['reservation-timings'] });
-    },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['reservation-timings'] }); },
   });
 }
 
-// Hook 6: Gestión usuarios staff
 export function useUsers() {
   return useQuery<{ users: StaffUser[] }>({
     queryKey: ['staff-users'],
     queryFn: async () => {
-      const response = await fetch(`${config.API_BASE_URL}/api/config/users`);
-      if (!response.ok) throw new Error('Error al cargar usuarios');
-      return response.json();
+      const response = await api.get('/api/config/users');
+      return response.data;
     },
   });
 }
 
 export function useCreateUser() {
   const queryClient = useQueryClient();
-
   return useMutation({
     mutationFn: async (user: Omit<StaffUser, 'id' | 'created_at' | 'last_login'>) => {
-      const response = await fetch(`${config.API_BASE_URL}/api/config/users`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(user),
-      });
-      if (!response.ok) throw new Error('Error al crear usuario');
-      return response.json();
+      const response = await api.post('/api/config/users', user);
+      return response.data;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['staff-users'] });
-    },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['staff-users'] }); },
   });
 }
 
 export function useUpdateUser() {
   const queryClient = useQueryClient();
-
   return useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Partial<StaffUser> }) => {
-      const response = await fetch(`${config.API_BASE_URL}/api/config/users/${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      });
-      if (!response.ok) throw new Error('Error al actualizar usuario');
-      return response.json();
+      const response = await api.put(`/api/config/users/${id}`, data);
+      return response.data;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['staff-users'] });
-    },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['staff-users'] }); },
   });
 }
 
 export function useDeleteUser() {
   const queryClient = useQueryClient();
-
   return useMutation({
     mutationFn: async (id: string) => {
-      const response = await fetch(`${config.API_BASE_URL}/api/config/users/${id}`, {
-        method: 'DELETE',
-      });
-      if (!response.ok) throw new Error('Error al eliminar usuario');
-      return response.json();
+      const response = await api.delete(`/api/config/users/${id}`);
+      return response.data;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['staff-users'] });
-    },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['staff-users'] }); },
   });
 }

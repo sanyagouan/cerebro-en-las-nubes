@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { API_BASE_URL } from '../config/api';
+import { api } from '../config/api';
 
 export interface HealthCheck {
   status: 'healthy' | 'unhealthy' | 'degraded';
@@ -57,42 +57,21 @@ export interface UptimeStatus {
   healthy_since: string;
 }
 
-async function fetchSystemHealth(token?: string): Promise<SystemHealth> {
-  const response = await fetch(`${API_BASE_URL}/api/system/health`, {
-    headers: {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-  });
-
-  if (!response.ok) {
-    throw new Error('Error al cargar estado del sistema');
-  }
-
-  return response.json();
+async function fetchSystemHealth(): Promise<SystemHealth> {
+  const response = await api.get('/api/system/health');
+  return response.data;
 }
 
-async function fetchSystemMetrics(token?: string): Promise<SystemMetrics> {
-  const response = await fetch(`${API_BASE_URL}/api/system/metrics`, {
-    headers: {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-  });
-
-  if (!response.ok) {
-    throw new Error('Error al cargar métricas del sistema');
-  }
-
-  return response.json();
+async function fetchSystemMetrics(): Promise<SystemMetrics> {
+  const response = await api.get('/api/system/metrics');
+  return response.data;
 }
 
 async function fetchErrorLogs(
   limit: number = 50,
   level?: string,
   service?: string,
-  desde?: string,
-  token?: string
+  desde?: string
 ): Promise<ErrorLogsResponse> {
   const params = new URLSearchParams();
   params.append('limit', limit.toString());
@@ -100,48 +79,28 @@ async function fetchErrorLogs(
   if (service) params.append('service', service);
   if (desde) params.append('desde', desde);
 
-  const response = await fetch(`${API_BASE_URL}/api/system/logs?${params}`, {
-    headers: {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-  });
-
-  if (!response.ok) {
-    throw new Error('Error al cargar logs de errores');
-  }
-
-  return response.json();
+  const response = await api.get(`/api/system/logs?${params.toString()}`);
+  return response.data;
 }
 
-async function fetchUptimeStatus(token?: string): Promise<UptimeStatus> {
-  const response = await fetch(`${API_BASE_URL}/api/system/uptime`, {
-    headers: {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-  });
-
-  if (!response.ok) {
-    throw new Error('Error al cargar uptime del sistema');
-  }
-
-  return response.json();
+async function fetchUptimeStatus(): Promise<UptimeStatus> {
+  const response = await api.get('/api/system/uptime');
+  return response.data;
 }
 
-export function useSystemHealth(token?: string) {
+export function useSystemHealth() {
   return useQuery({
     queryKey: ['system-health'],
-    queryFn: () => fetchSystemHealth(token),
+    queryFn: () => fetchSystemHealth(),
     refetchInterval: 30000, // Refetch every 30 seconds
   });
 }
 
-export function useSystemMetrics(token?: string) {
+export function useSystemMetrics() {
   return useQuery({
     queryKey: ['system-metrics'],
-    queryFn: () => fetchSystemMetrics(token),
-    refetchInterval: 10000, // Refetch every 10 seconds for real-time monitoring
+    queryFn: () => fetchSystemMetrics(),
+    refetchInterval: 10000,
   });
 }
 
@@ -149,20 +108,19 @@ export function useErrorLogs(
   limit: number = 50,
   level?: string,
   service?: string,
-  desde?: string,
-  token?: string
+  desde?: string
 ) {
   return useQuery({
     queryKey: ['error-logs', limit, level, service, desde],
-    queryFn: () => fetchErrorLogs(limit, level, service, desde, token),
-    refetchInterval: 15000, // Refetch every 15 seconds
+    queryFn: () => fetchErrorLogs(limit, level, service, desde),
+    refetchInterval: 15000,
   });
 }
 
-export function useUptimeStatus(token?: string) {
+export function useUptimeStatus() {
   return useQuery({
     queryKey: ['uptime-status'],
-    queryFn: () => fetchUptimeStatus(token),
-    refetchInterval: 60000, // Refetch every 60 seconds
+    queryFn: () => fetchUptimeStatus(),
+    refetchInterval: 60000,
   });
 }

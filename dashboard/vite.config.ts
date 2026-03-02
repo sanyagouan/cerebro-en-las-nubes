@@ -7,7 +7,7 @@ export default defineConfig({
     port: 3000,
     proxy: {
       '/api': {
-        target: 'https://go84sgscs4ckcs08wog84o0o.app.generaia.site',
+        target: 'http://127.0.0.1:8000',
         changeOrigin: true,
       },
     },

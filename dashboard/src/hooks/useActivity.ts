@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { API_BASE_URL } from '../config/api';
+import { api } from '../config/api';
 
 export interface ActivityEvent {
   id: string;
@@ -23,37 +23,30 @@ interface ActivityResponse {
 async function fetchActivity(
   limit: number = 50,
   tipo?: string,
-  desde?: string,
-  token?: string
+  desde?: string
 ): Promise<ActivityResponse> {
-  const params = new URLSearchParams();
-  params.append('limit', limit.toString());
-  if (tipo) params.append('tipo', tipo);
-  if (desde) params.append('desde', desde);
+  const params: Record<string, any> = { limit };
+  if (tipo) params.tipo = tipo;
+  if (desde) params.desde = desde;
 
-  const response = await fetch(`${API_BASE_URL}/api/mobile/activity?${params}`, {
-    headers: {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-  });
-
-  if (!response.ok) {
-    throw new Error('Error al cargar actividad');
+  try {
+    const response = await api.get('/api/mobile/activity', { params });
+    return response.data;
+  } catch {
+    // Endpoint puede no existir aún — devolver datos vacíos sin romper la UI
+    return { events: [], total: 0 };
   }
-
-  return response.json();
 }
 
 export function useActivity(
   limit: number = 50,
   tipo?: string,
   desde?: string,
-  token?: string
+  _token?: string  // mantenido por compatibilidad pero ya no se usa
 ) {
   return useQuery({
     queryKey: ['activity', limit, tipo, desde],
-    queryFn: () => fetchActivity(limit, tipo, desde, token),
-    refetchInterval: 5000, // Refetch every 5 seconds for real-time feel
+    queryFn: () => fetchActivity(limit, tipo, desde),
+    refetchInterval: 10000,
   });
 }

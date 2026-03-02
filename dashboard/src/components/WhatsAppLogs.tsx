@@ -117,13 +117,18 @@ export default function WhatsAppLogs() {
       type: 'text/csv;charset=utf-8;',
     });
 
+    const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
-    link.setAttribute('href', URL.createObjectURL(blob));
+    link.setAttribute('href', url);
     link.setAttribute(
       'download',
       `whatsapp_logs_${format(new Date(), 'yyyy-MM-dd_HH-mm', { locale: es })}.csv`
     );
+    // Añadir al DOM para compatibilidad cross-browser (evita abrir ventana nueva)
+    document.body.appendChild(link);
     link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
 
     showToast('CSV exportado exitosamente', 'success');
   };
@@ -423,8 +428,8 @@ export default function WhatsAppLogs() {
                     key={status}
                     onClick={() => setStatusFilter(status)}
                     className={`px-4 py-2 rounded-lg font-medium transition-colors ${statusFilter === status
-                        ? 'bg-primary-600 text-white'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      ? 'bg-primary-600 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                       }`}
                   >
                     {status === 'all'
@@ -459,8 +464,8 @@ export default function WhatsAppLogs() {
                       key={type}
                       onClick={() => setTypeFilter(type)}
                       className={`px-4 py-2 rounded-lg font-medium transition-colors ${typeFilter === type
-                          ? 'bg-primary-600 text-white'
-                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        ? 'bg-primary-600 text-white'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                         }`}
                     >
                       {type === 'all'

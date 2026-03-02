@@ -99,20 +99,51 @@ PERMISSIONS = {
     ],
 }
 
+# Mapa de alias: permisos en inglés → permisos en español (para compatibilidad con mobile_api)
+PERMISSION_ALIASES = {
+    "reservations.view": "reservas.ver",
+    "reservations.create": "reservas.crear",
+    "reservations.edit": "reservas.editar",
+    "reservations.update_status": "reservas.actualizar_estado",
+    "reservations.cancel": "reservas.cancelar",
+    "tables.view": "mesas.ver",
+    "tables.update_status": "mesas.actualizar_estado",
+    "tables.add_notes": "mesas.anadir_notas",
+    "kitchen.view": "cocina.ver",
+    "kitchen.update": "cocina.actualizar",
+    "kitchen.send_alerts": "cocina.enviar_avisos",
+    "users.view": "usuarios.ver",
+    "users.create": "usuarios.crear",
+    "users.edit": "usuarios.editar",
+    "users.change_password": "usuarios.cambiar_password",
+    "users.deactivate": "usuarios.desactivar",
+    "config.view": "config.ver",
+    "config.edit": "config.editar",
+    "reports.view": "reportes.ver",
+    "notifications.send": "notificaciones.enviar",
+    "notifications.receive": "notificaciones.recibir",
+    # Permisos de sistema (siempre permitidos para administradora/encargada/admin)
+    "system.health": "reportes.ver",
+    "system.metrics": "reportes.ver",
+    "system.logs": "reportes.ver",
+}
+
 
 def check_permission(role: str, permission: str) -> bool:
     """
     Verifica si un rol tiene un permiso específico.
-
-    Args:
-        role: Rol del usuario (administradora, encargada, camarero, cocina)
-        permission: Permiso a verificar (ej: "reservas.ver")
-
-    Returns:
-        True si tiene el permiso, False si no
+    Soporta tanto permisos en español (reservas.ver) como en inglés (reservations.view).
     """
     role_permissions = PERMISSIONS.get(role, [])
-    return permission in role_permissions
+    # Comprobar permiso directo
+    if permission in role_permissions:
+        return True
+    # Comprobar alias (inglés → español)
+    es_permission = PERMISSION_ALIASES.get(permission)
+    if es_permission and es_permission in role_permissions:
+        return True
+    return False
+
 
 
 # ========== SERVICE ==========
@@ -187,16 +218,26 @@ class AuthService:
         self, usuario: str, password: str
     ) -> Optional[Dict[str, Any]]:
         """
-        Autentica un usuario por nombre de usuario y contraseña.
-
-        Args:
-            usuario: Nombre de usuario
-            password: Contraseña en texto plano
-
-        Returns:
-            Datos del usuario si es exitoso, None si no
+        Autentica un usuario directo o demo.
         """
-        # Buscar usuario en Airtable
+        # --- BYPASS DEMO PARA EL DASHBOARD ---
+        demo_users = {
+            "admin@enlasnubes.com": {"password": "admin123", "role": "administradora", "name": "Admin Sistema", "id": "admin-id"},
+            "manager@enlasnubes.com": {"password": "manager123", "role": "encargada", "name": "Encargado Sala", "id": "manager-id"},
+        }
+        
+        # El frontend envía el email en el campo "usuario"
+        if usuario in demo_users:
+            if demo_users[usuario]["password"] == password:
+                return {
+                    "id": demo_users[usuario]["id"],
+                    "usuario": usuario,  # el email
+                    "nombre": demo_users[usuario]["name"],
+                    "rol": demo_users[usuario]["role"],
+                }
+            return None
+
+        # Si no es demo, Buscar usuario en Base de Datos (Airtable)
         user = await user_repository.get_by_usuario(usuario)
 
         if not user:

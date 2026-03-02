@@ -70,14 +70,14 @@ async def dashboard_login(request: Request, login_data: LoginRequest):
 
     # Generar tokens JWT
     access_token = auth_service.create_access_token(
-        user_id=user["id"], email=user["email"], role=user["role"]
+        user_id=user["id"], usuario=user["usuario"], nombre=user["nombre"], rol=user["rol"]
     )
 
     refresh_token = auth_service.create_refresh_token(
-        user_id=user["id"], email=user["email"], role=user["role"]
+        user_id=user["id"], usuario=user["usuario"], nombre=user["nombre"], rol=user["rol"]
     )
 
-    logger.info(f"Dashboard login successful: {user['email']} (role: {user['role']})")
+    logger.info(f"Dashboard login successful: {user['usuario']} (role: {user['rol']})")
 
     return LoginResponse(
         access_token=access_token,
@@ -85,9 +85,9 @@ async def dashboard_login(request: Request, login_data: LoginRequest):
         token_type="bearer",
         user={
             "id": user["id"],
-            "email": user["email"],
-            "name": user["name"],
-            "role": user["role"],
+            "email": user["usuario"],
+            "name": user["nombre"],
+            "role": user["rol"],
         },
     )
 
@@ -108,8 +108,9 @@ async def refresh_token(request: Request, refresh_data: RefreshRequest):
     # Generar nuevo access token
     new_access_token = auth_service.create_access_token(
         user_id=payload["sub"],
-        email=payload["email"],
-        role=payload["role"],
+        usuario=payload.get("usuario"),
+        nombre=payload.get("nombre", "Usuario"),
+        rol=payload.get("rol", "admin"),
     )
 
     return TokenResponse(

@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import config from '../config/api';
+import { api } from '../config/api';
 
 // ============ TYPES ============
 
@@ -8,11 +8,11 @@ export type TableStatus = 'Libre' | 'Ocupada' | 'Reservada' | 'Bloqueada';
 
 export interface Table {
   id: string;
-  numero: string;  // nombre en backend
-  capacidad: number;  // capacidad_min en backend
+  numero: string;
+  capacidad: number;
   capacidad_max?: number;
-  ubicacion: TableLocation;  // zona en backend
-  estado: TableStatus;  // status en backend
+  ubicacion: TableLocation;
+  estado: TableStatus;
   notas?: string;
   ampliable?: boolean;
   capacidad_ampliada?: number;
@@ -41,11 +41,8 @@ interface BackendTableResponse {
   prioridad?: number;
 }
 
-// ============ API FUNCTIONS ============
+// ============ TRANSFORMS ============
 
-const API_URL = config.API_BASE_URL;
-
-// Transform backend response to frontend Table
 function transformTable(backendTable: BackendTableResponse): Table {
   return {
     id: backendTable.id,
@@ -60,10 +57,8 @@ function transformTable(backendTable: BackendTableResponse): Table {
   };
 }
 
-// Transform frontend Table to backend fields
 function transformToBackend(table: Partial<Table>): Record<string, any> {
   const backendFields: Record<string, any> = {};
-  
   if (table.numero !== undefined) backendFields.nombre = table.numero;
   if (table.capacidad !== undefined) backendFields.capacidad_min = table.capacidad;
   if (table.capacidad_max !== undefined) backendFields.capacidad_max = table.capacidad_max;
@@ -72,99 +67,40 @@ function transformToBackend(table: Partial<Table>): Record<string, any> {
   if (table.notas !== undefined) backendFields.notas = table.notas;
   if (table.ampliable !== undefined) backendFields.ampliable = table.ampliable;
   if (table.capacidad_ampliada !== undefined) backendFields.capacidad_ampliada = table.capacidad_ampliada;
-  
   return backendFields;
 }
 
+// ============ API FUNCTIONS (usando axios con JWT automático) ============
+
 async function fetchTables(zona?: TableLocation): Promise<Table[]> {
-  const params = new URLSearchParams();
-  if (zona) params.append('zona', zona);
-  
-  const url = `${API_URL}/api/mobile/tables${params.toString() ? `?${params.toString()}` : ''}`;
-  
-  const response = await fetch(url, {
-    headers: {
-      'Content-Type': 'application/json',
-    },
-  });
-  
-  if (!response.ok) {
-    throw new Error(`Error fetching tables: ${response.statusText}`);
-  }
-  
-  const data: BackendTableResponse[] = await response.json();
+  const params: Record<string, any> = {};
+  if (zona) params.zona = zona;
+  const response = await api.get('/api/mobile/tables', { params });
+  const data: BackendTableResponse[] = response.data;
   return data.map(transformTable);
 }
 
 async function createTable(tableData: Partial<Table>): Promise<Table> {
   const backendData = transformToBackend(tableData);
-  
-  const response = await fetch(`${API_URL}/api/mobile/tables`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(backendData),
-  });
-  
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({ detail: response.statusText }));
-    throw new Error(error.detail || 'Error creating table');
-  }
-  
-  const data: BackendTableResponse = await response.json();
-  return transformTable(data);
+  const response = await api.post('/api/mobile/tables', backendData);
+  return transformTable(response.data);
 }
 
 async function updateTable({ id, data }: { id: string; data: Partial<Table> }): Promise<Table> {
   const backendData = transformToBackend(data);
-  
-  const response = await fetch(`${API_URL}/api/mobile/tables/${id}`, {
-    method: 'PUT',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(backendData),
-  });
-  
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({ detail: response.statusText }));
-    throw new Error(error.detail || 'Error updating table');
-  }
-  
-  const responseData: BackendTableResponse = await response.json();
-  return transformTable(responseData);
+  const response = await api.put(`/api/mobile/tables/${id}`, backendData);
+  return transformTable(response.data);
 }
 
 async function deleteTable(id: string): Promise<void> {
-  const response = await fetch(`${API_URL}/api/mobile/tables/${id}`, {
-    method: 'DELETE',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-  });
-  
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({ detail: response.statusText }));
-    throw new Error(error.detail || 'Error deleting table');
-  }
+  await api.delete(`/api/mobile/tables/${id}`);
 }
 
 async function updateTableStatus({ id, estado }: { id: string; estado: TableStatus }): Promise<Table> {
-  const response = await fetch(`${API_URL}/api/mobile/tables/${id}/status?status_update=${estado}`, {
-    method: 'PUT',
-    headers: {
-      'Content-Type': 'application/json',
-    },
+  const response = await api.put(`/api/mobile/tables/${id}/status`, null, {
+    params: { status_update: estado }
   });
-  
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({ detail: response.statusText }));
-    throw new Error(error.detail || 'Error updating table status');
-  }
-  
-  const data: BackendTableResponse = await response.json();
-  return transformTable(data);
+  return transformTable(response.data);
 }
 
 // ============ HOOKS ============
@@ -173,18 +109,16 @@ export function useTables(zona?: TableLocation) {
   return useQuery<Table[], Error>({
     queryKey: ['tables', zona],
     queryFn: () => fetchTables(zona),
-    staleTime: 30000, // 30 seconds
-    refetchInterval: 60000, // Refetch every minute
+    staleTime: 30000,
+    refetchInterval: 60000,
   });
 }
 
 export function useCreateTable() {
   const queryClient = useQueryClient();
-  
   return useMutation<Table, Error, Partial<Table>>({
     mutationFn: createTable,
     onSuccess: () => {
-      // Invalidate all table queries to refetch
       queryClient.invalidateQueries({ queryKey: ['tables'] });
     },
   });
@@ -192,7 +126,6 @@ export function useCreateTable() {
 
 export function useUpdateTable() {
   const queryClient = useQueryClient();
-  
   return useMutation<Table, Error, { id: string; data: Partial<Table> }>({
     mutationFn: updateTable,
     onSuccess: () => {
@@ -203,7 +136,6 @@ export function useUpdateTable() {
 
 export function useDeleteTable() {
   const queryClient = useQueryClient();
-  
   return useMutation<void, Error, string>({
     mutationFn: deleteTable,
     onSuccess: () => {
@@ -214,17 +146,11 @@ export function useDeleteTable() {
 
 export function useUpdateTableStatus() {
   const queryClient = useQueryClient();
-  
   return useMutation<Table, Error, { id: string; estado: TableStatus }>({
     mutationFn: updateTableStatus,
     onMutate: async ({ id, estado }) => {
-      // Cancel outgoing refetches
       await queryClient.cancelQueries({ queryKey: ['tables'] });
-      
-      // Snapshot previous value
       const previousTables = queryClient.getQueryData<Table[]>(['tables']);
-      
-      // Optimistically update
       if (previousTables) {
         queryClient.setQueryData<Table[]>(['tables'], (old) =>
           old?.map((table) =>
@@ -232,11 +158,9 @@ export function useUpdateTableStatus() {
           ) || []
         );
       }
-      
       return { previousTables } as { previousTables: Table[] | undefined };
     },
     onError: (_err, _variables, context) => {
-      // Rollback on error
       const typedContext = context as { previousTables: Table[] | undefined } | undefined;
       if (typedContext?.previousTables) {
         queryClient.setQueryData(['tables'], typedContext.previousTables);
@@ -251,13 +175,11 @@ export function useUpdateTableStatus() {
 // Derived hook for table stats
 export function useTableStats() {
   const { data: tables } = useTables();
-  
   const stats: TableStats = {
     total: tables?.length || 0,
     libres: tables?.filter((t) => t.estado === 'Libre').length || 0,
     ocupadas: tables?.filter((t) => t.estado === 'Ocupada').length || 0,
     reservadas: tables?.filter((t) => t.estado === 'Reservada').length || 0,
   };
-  
   return stats;
 }
