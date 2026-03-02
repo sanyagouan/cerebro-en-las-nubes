@@ -126,7 +126,8 @@ async def get_whatsapp_logs(user: TokenData = Depends(require_role(["administrad
             "read_at": (sent + timedelta(minutes=5)).isoformat() if i % 2 == 0 else None,
             "cost": 0.04
         })
-    return messages
+    # FIXED: Wrap in object so frontend `logs?.messages` works correctly
+    return {"messages": messages, "total": len(messages)}
 
 @router.get("/whatsapp/analytics")
 async def get_whatsapp_analytics(user: TokenData = Depends(require_role(["administradora", "encargada", "admin", "manager"]))):

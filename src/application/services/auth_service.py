@@ -368,15 +368,42 @@ def require_permission(permission: str):
     return _require_permission
 
 
+
+# Mapa de roles canónicos: permite que cualquier alias sea tratado como su forma canónica
+ROLE_ALIASES: dict = {
+    "admin": "administradora",
+    "manager": "encargada",
+    "waiter": "camarero",
+    "kitchen": "cocina",
+}
+
+
+def _normalize_role(role: str) -> str:
+    """Normaliza un rol a su forma canónica. Ej: 'admin' → 'administradora'."""
+    return ROLE_ALIASES.get(role.lower(), role)
+
+
 def require_role(allowed_roles: List[str]):
     """
     FastAPI dependency que verifica que el usuario tenga uno de los roles permitidos.
+    Soporta alias de roles (admin → administradora, manager → encargada).
 
     Uso:
         @router.get("/admin-only")
         async def admin_endpoint(user: TokenData = Depends(require_role(["administradora"]))):
             return {"message": f"Hola administradora {user.nombre}"}
     """
+    # Expandir allowed_roles para incluir también los alias inversos
+    expanded_roles = set(allowed_roles)
+    for alias, canonical in ROLE_ALIASES.items():
+        if canonical in expanded_roles:
+            expanded_roles.add(alias)
+    # También añadir la versión canónica de cada alias en la lista
+    for role in list(allowed_roles):
+        canonical = _normalize_role(role)
+        if canonical != role:
+            expanded_roles.add(canonical)
+    expanded_roles_list = list(expanded_roles)
 
     async def _require_role(
         credentials: HTTPAuthorizationCredentials = Depends(security),
@@ -392,7 +419,9 @@ def require_role(allowed_roles: List[str]):
             )
 
         user_role = payload.get("rol", "")
-        if user_role not in allowed_roles:
+        normalized_role = _normalize_role(user_role)
+
+        if normalized_role not in expanded_roles_list and user_role not in expanded_roles_list:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=f"Acceso denegado. Roles requeridos: {allowed_roles}",
