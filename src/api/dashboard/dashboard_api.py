@@ -169,3 +169,4 @@ async def get_current_user(request: Request):
         "name": payload.get("nombre", ""),
         "role": payload.get("rol", ""),
     }
+# Busteando cache de coolify backend
