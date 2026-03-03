@@ -14,8 +14,8 @@ from src.application.services.auth_service import TokenData, require_role
 
 router = APIRouter(prefix="/api/clients", tags=["clients"])
 
-ALLOWED_ROLES = ["administradora", "encargada", "admin", "manager"]
-ADMIN_ROLES = ["administradora", "admin"]
+ALLOWED_ROLES = ["administradora", "encargada"]
+ADMIN_ROLES = ["administradora"]
 
 AIRTABLE_BASE_ID = os.getenv("AIRTABLE_BASE_ID", "")
 RESERVATIONS_TABLE = "Reservas"   # Tabla real verificada

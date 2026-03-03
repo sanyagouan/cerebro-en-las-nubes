@@ -8,12 +8,9 @@ from src.application.services.auth_service import TokenData, require_role
 
 router = APIRouter(prefix="/api/config", tags=["config"])
 
-ALLOWED_ROLES = ["administradora", "encargada", "admin", "manager"]
-ADMIN_ROLES = ["administradora", "admin"]
-
 
 @router.get("/schedule")
-async def get_schedule(user: TokenData = Depends(require_role(ALLOWED_ROLES))):
+async def get_schedule(user: TokenData = Depends(require_role(["administradora", "encargada"]))):
     """Horario semanal del restaurante."""
     days = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"]
     return {
@@ -32,12 +29,12 @@ async def get_schedule(user: TokenData = Depends(require_role(ALLOWED_ROLES))):
 
 
 @router.put("/schedule")
-async def update_schedule(data: dict, user: TokenData = Depends(require_role(ADMIN_ROLES))):
+async def update_schedule(data: dict, user: TokenData = Depends(require_role(["administradora"]))):
     return {"updated": True, "schedule": data.get("schedule", [])}
 
 
 @router.get("/holidays")
-async def get_holidays(user: TokenData = Depends(require_role(ALLOWED_ROLES))):
+async def get_holidays(user: TokenData = Depends(require_role(["administradora", "encargada"]))):
     """Festivos y días especiales."""
     return {
         "holidays": [
@@ -68,22 +65,22 @@ async def get_holidays(user: TokenData = Depends(require_role(ALLOWED_ROLES))):
 
 
 @router.post("/holidays")
-async def create_holiday(data: dict, user: TokenData = Depends(require_role(ADMIN_ROLES))):
+async def create_holiday(data: dict, user: TokenData = Depends(require_role(["administradora"]))):
     return {"id": f"hol-{datetime.now().timestamp()}", **data}
 
 
 @router.put("/holidays/{holiday_id}")
-async def update_holiday(holiday_id: str, data: dict, user: TokenData = Depends(require_role(ADMIN_ROLES))):
+async def update_holiday(holiday_id: str, data: dict, user: TokenData = Depends(require_role(["administradora"]))):
     return {"id": holiday_id, **data, "updated": True}
 
 
 @router.delete("/holidays/{holiday_id}")
-async def delete_holiday(holiday_id: str, user: TokenData = Depends(require_role(ADMIN_ROLES))):
+async def delete_holiday(holiday_id: str, user: TokenData = Depends(require_role(["administradora"]))):
     return {"deleted": True}
 
 
 @router.get("/shifts")
-async def get_shifts(user: TokenData = Depends(require_role(ALLOWED_ROLES))):
+async def get_shifts(user: TokenData = Depends(require_role(["administradora", "encargada"]))):
     """Turnos del restaurante."""
     return {
         "shifts": [
@@ -108,12 +105,12 @@ async def get_shifts(user: TokenData = Depends(require_role(ALLOWED_ROLES))):
 
 
 @router.put("/shifts/{shift_id}")
-async def update_shift(shift_id: str, data: dict, user: TokenData = Depends(require_role(ADMIN_ROLES))):
+async def update_shift(shift_id: str, data: dict, user: TokenData = Depends(require_role(["administradora"]))):
     return {"id": shift_id, **data, "updated": True}
 
 
 @router.get("/capacity")
-async def get_capacity(user: TokenData = Depends(require_role(ALLOWED_ROLES))):
+async def get_capacity(user: TokenData = Depends(require_role(["administradora", "encargada"]))):
     """Configuración de capacidad."""
     return {
         "max_simultaneous_reservations": 20,
@@ -124,12 +121,12 @@ async def get_capacity(user: TokenData = Depends(require_role(ALLOWED_ROLES))):
 
 
 @router.put("/capacity")
-async def update_capacity(data: dict, user: TokenData = Depends(require_role(ADMIN_ROLES))):
+async def update_capacity(data: dict, user: TokenData = Depends(require_role(["administradora"]))):
     return {**data, "updated": True}
 
 
 @router.get("/timings")
-async def get_timings(user: TokenData = Depends(require_role(ALLOWED_ROLES))):
+async def get_timings(user: TokenData = Depends(require_role(["administradora", "encargada"]))):
     """Tiempos de ocupación de mesa por tamaño de grupo."""
     return {
         "timings": [
@@ -142,12 +139,12 @@ async def get_timings(user: TokenData = Depends(require_role(ALLOWED_ROLES))):
 
 
 @router.put("/timings")
-async def update_timings(data: dict, user: TokenData = Depends(require_role(ADMIN_ROLES))):
+async def update_timings(data: dict, user: TokenData = Depends(require_role(["administradora"]))):
     return {"timings": data.get("timings", []), "updated": True}
 
 
 @router.get("/users")
-async def get_users(user: TokenData = Depends(require_role(ADMIN_ROLES))):
+async def get_users(user: TokenData = Depends(require_role(["administradora"]))):
     """Usuarios del sistema."""
     return {
         "users": [
@@ -156,7 +153,7 @@ async def get_users(user: TokenData = Depends(require_role(ADMIN_ROLES))):
                 "name": "Administrador",
                 "email": "admin@enlasnubes.com",
                 "phone": "+34600000001",
-                "role": "Admin",
+                "role": "administradora",
                 "is_active": True,
                 "created_at": (datetime.now() - timedelta(days=365)).isoformat(),
             },
@@ -165,7 +162,7 @@ async def get_users(user: TokenData = Depends(require_role(ADMIN_ROLES))):
                 "name": "Encargada",
                 "email": "encargada@enlasnubes.com",
                 "phone": "+34600000002",
-                "role": "Manager",
+                "role": "encargada",
                 "is_active": True,
                 "created_at": (datetime.now() - timedelta(days=180)).isoformat(),
             },
@@ -174,15 +171,15 @@ async def get_users(user: TokenData = Depends(require_role(ADMIN_ROLES))):
 
 
 @router.post("/users")
-async def create_user(data: dict, user: TokenData = Depends(require_role(ADMIN_ROLES))):
+async def create_user(data: dict, user: TokenData = Depends(require_role(["administradora"]))):
     return {"id": f"usr-{datetime.now().timestamp()}", **data, "created_at": datetime.now().isoformat()}
 
 
 @router.put("/users/{user_id}")
-async def update_user(user_id: str, data: dict, user: TokenData = Depends(require_role(ADMIN_ROLES))):
+async def update_user(user_id: str, data: dict, user: TokenData = Depends(require_role(["administradora"]))):
     return {"id": user_id, **data, "updated": True}
 
 
 @router.delete("/users/{user_id}")
-async def delete_user(user_id: str, user: TokenData = Depends(require_role(ADMIN_ROLES))):
+async def delete_user(user_id: str, user: TokenData = Depends(require_role(["administradora"]))):
     return {"deleted": True}

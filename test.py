@@ -1,0 +1,1 @@
+import requests, urllib3; urllib3.disable_warnings(); resp = requests.post('https://go84sgscs4ckcs08wog84o0o.app.generaia.site/api/auth/login', json={'email':'admin@enlasnubes.com', 'password':'admin123'}, verify=False); print('Status:', resp.status_code); print('Body:', resp.text)

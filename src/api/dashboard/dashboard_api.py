@@ -58,12 +58,7 @@ class TokenResponse(BaseModel):
 @router.post("/auth/login", response_model=LoginResponse)
 async def dashboard_login(request: Request, login_data: LoginRequest):
     """
-    Login para dashboard web. Retorna JWT tokens.
-
-    **Usuarios demo:**
-    - admin@enlasnubes.com / admin123 (administrador)
-    - manager@enlasnubes.com / manager123 (encargado)
-    - waiter@enlasnubes.com / waiter123 (camarero)
+    Login para dashboard web. Retorna JWT tokens validando en Airtable.
     """
     # Autenticar usuario (acepta nombre de usuario o email)
     identifier = login_data.get_usuario()

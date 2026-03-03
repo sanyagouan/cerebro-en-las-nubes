@@ -17,7 +17,7 @@ auth_service = AuthService()
 
 # Tiempo de inicio del proceso
 _PROCESS_START_TIME = time.time()
-ALLOWED_ROLES = ["administradora", "encargada", "admin", "manager"]
+ALLOWED_ROLES = ["administradora", "encargada"]
 ADMIN_ROLES = ["administradora", "admin"]
 
 # ========== HELPERS HEALTH CHECKS REALES =========
