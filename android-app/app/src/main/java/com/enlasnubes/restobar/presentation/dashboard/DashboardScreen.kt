@@ -6,8 +6,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.filled.AdminPanelSettings
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ListAlt
 import androidx.compose.material.icons.filled.Event
+import androidx.compose.material.icons.filled.ListAlt
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material.icons.filled.TableBar
@@ -33,12 +35,14 @@ import com.enlasnubes.restobar.presentation.kitchen.KitchenScreen
 import com.enlasnubes.restobar.presentation.profile.ProfileScreen
 import com.enlasnubes.restobar.presentation.reservations.ReservationsScreen
 import com.enlasnubes.restobar.presentation.tables.TablesScreen
+import com.enlasnubes.restobar.presentation.waitlist.WaitlistScreen
 
 sealed class TabItem(
     val title: String,
     val icon: ImageVector
 ) {
     data object Reservations : TabItem("Reservas", Icons.Default.Event)
+    data object Waitlist : TabItem("Espera", Icons.AutoMirrored.Filled.ListAlt)
     data object Tables : TabItem("Mesas", Icons.Default.TableBar)
     data object Kitchen : TabItem("Cocina", Icons.Default.Restaurant)
     data object Admin : TabItem("Admin", Icons.Default.AdminPanelSettings)
@@ -56,10 +60,10 @@ fun DashboardScreen(
     var showProfile by rememberSaveable { mutableStateOf(false) }
 
     val tabs = when (userRol) {
-        "camarero" -> listOf(TabItem.Reservations, TabItem.Tables)
+        "camarero" -> listOf(TabItem.Reservations, TabItem.Waitlist, TabItem.Tables)
         "cocina" -> listOf(TabItem.Kitchen)
-        "encargada" -> listOf(TabItem.Reservations, TabItem.Tables, TabItem.Kitchen)
-        "administradora" -> listOf(TabItem.Reservations, TabItem.Tables, TabItem.Kitchen, TabItem.Admin)
+        "encargada" -> listOf(TabItem.Reservations, TabItem.Waitlist, TabItem.Tables, TabItem.Kitchen)
+        "administradora" -> listOf(TabItem.Reservations, TabItem.Waitlist, TabItem.Tables, TabItem.Kitchen, TabItem.Admin)
         else -> listOf(TabItem.Reservations) // Default fallback
     }
 
@@ -81,7 +85,7 @@ fun DashboardScreen(
                     title = { Text("Gestion de Usuarios") },
                     navigationIcon = {
                         IconButton(onClick = { showUserManagement = false }) {
-                            Icon(Icons.Default.ArrowBack, contentDescription = "Volver")
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver")
                         }
                     },
                     actions = {
@@ -138,7 +142,8 @@ fun DashboardScreen(
                 .padding(padding)
         ) {
             when (tabs.getOrNull(selectedTab)) {
-                TabItem.Reservations -> ReservationsScreen(userRol = userRol)
+                TabItem.Reservations -> ReservationsScreen()
+                TabItem.Waitlist -> WaitlistScreen()
                 TabItem.Tables -> TablesScreen(userRol = userRol)
                 TabItem.Kitchen -> KitchenScreen(userRol = userRol)
                 TabItem.Admin -> AdminScreen(

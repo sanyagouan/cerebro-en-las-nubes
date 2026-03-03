@@ -6,6 +6,8 @@ import com.enlasnubes.restobar.data.model.LoginResponse
 import com.enlasnubes.restobar.data.model.Reservation
 import com.enlasnubes.restobar.data.model.Table
 import com.enlasnubes.restobar.data.model.User
+import com.enlasnubes.restobar.data.model.WaitlistCreateRequest
+import com.enlasnubes.restobar.data.model.WaitlistResponse
 import com.enlasnubes.restobar.data.remote.ChangeOwnPasswordRequest
 import com.enlasnubes.restobar.data.remote.ChangePasswordRequest
 import com.enlasnubes.restobar.data.remote.CreateReservationRequest
@@ -183,6 +185,59 @@ class RestobarRepository @Inject constructor(
                 Result.success(response.body()!!)
             } else {
                 Result.failure(Exception("Failed to get stats: ${response.code()}"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    // Waitlist
+    suspend fun getWaitlist(fecha: LocalDate? = null, estado: String? = null): Result<List<WaitlistResponse>> {
+        return try {
+            val response = api.getWaitlist(fecha, estado)
+            if (response.isSuccessful) {
+                Result.success(response.body() ?: emptyList())
+            } else {
+                Result.failure(Exception("Failed to get waitlist: ${response.code()}"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun createWaitlistEntry(request: WaitlistCreateRequest): Result<WaitlistResponse> {
+        return try {
+            val response = api.createWaitlistEntry(request)
+            if (response.isSuccessful) {
+                Result.success(response.body()!!)
+            } else {
+                Result.failure(Exception("Failed to create waitlist entry: ${response.code()}"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun notifyWaitlistEntry(id: String): Result<WaitlistResponse> {
+        return try {
+            val response = api.notifyWaitlistEntry(id)
+            if (response.isSuccessful) {
+                Result.success(response.body()!!)
+            } else {
+                Result.failure(Exception("Failed to notify waitlist entry: ${response.code()}"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun deleteWaitlistEntry(id: String): Result<Unit> {
+        return try {
+            val response = api.deleteWaitlistEntry(id)
+            if (response.isSuccessful) {
+                Result.success(Unit)
+            } else {
+                Result.failure(Exception("Failed to delete waitlist entry: ${response.code()}"))
             }
         } catch (e: Exception) {
             Result.failure(e)

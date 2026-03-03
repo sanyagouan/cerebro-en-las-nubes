@@ -93,3 +93,36 @@ data class LoginRequest(
     val password: String,
     @SerializedName("device_token") val deviceToken: String? = null
 )
+
+enum class WaitlistStatus {
+    @SerializedName("waiting") WAITING,
+    @SerializedName("notified") NOTIFIED,
+    @SerializedName("confirmed") CONFIRMED,
+    @SerializedName("expired") EXPIRED,
+    @SerializedName("cancelled") CANCELLED
+}
+
+data class WaitlistResponse(
+    val id: String,
+    @SerializedName("nombre_cliente") val nombreCliente: String,
+    @SerializedName("telefono_cliente") val telefonoCliente: String,
+    val fecha: String,
+    val hora: String,
+    @SerializedName("num_personas") val numPersonas: Int,
+    @SerializedName("zona_preferida") val zonaPreferida: String?,
+    val estado: String,
+    val posicion: Int?,
+    @SerializedName("created_at") val createdAt: String,
+    @SerializedName("notified_at") val notifiedAt: String?,
+    val notas: String?
+)
+
+data class WaitlistCreateRequest(
+    @SerializedName("nombre_cliente") val nombreCliente: String,
+    @SerializedName("telefono_cliente") val telefonoCliente: String,
+    val fecha: String,
+    val hora: String,
+    @SerializedName("num_personas") val numPersonas: Int,
+    @SerializedName("zona_preferida") val zonaPreferida: String? = null,
+    val notas: String? = null
+)

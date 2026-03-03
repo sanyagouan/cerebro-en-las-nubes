@@ -72,7 +72,7 @@ class ReservationsViewModel @Inject constructor(
     fun loadReservations(date: LocalDate = LocalDate.now()) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
-            repository.getReservations(date = date)
+            repository.getReservations(fecha = date)
                 .onSuccess { reservations ->
                     _uiState.update { it.copy(reservations = reservations.sortedBy { r -> r.time }, isLoading = false) }
                 }

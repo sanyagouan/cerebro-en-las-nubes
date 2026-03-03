@@ -7,12 +7,16 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.EventSeat
+import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.Restaurant
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -140,6 +144,25 @@ fun TablesScreen(
             }
         }
     }
+
+    if (selectedTable != null) {
+        TableQuickActionsDialog(
+            table = selectedTable!!,
+            onDismiss = { selectedTable = null },
+            onStatusChange = { status ->
+                viewModel.updateTableStatus(selectedTable!!.id, status)
+                selectedTable = null
+            },
+            onAddWalkIn = {
+                viewModel.updateTableStatus(selectedTable!!.id, "occupied")
+                selectedTable = null
+            },
+            onReportIssue = {
+                viewModel.updateTableStatus(selectedTable!!.id, "maintenance")
+                selectedTable = null
+            }
+        )
+    }
 }
 
 @Composable
@@ -171,12 +194,15 @@ private fun TableCard(
         TableStatus.MAINTENANCE -> Color(0xFF95A5A6)
     }
 
+    val shape = if (table.capacity <= 2) CircleShape else RoundedCornerShape(16.dp)
+
     Card(
         modifier = Modifier
             .aspectRatio(1f)
-            .border(2.dp, statusColor, RoundedCornerShape(16.dp))
+            .border(2.dp, statusColor, shape)
             .clickable(onClick = onClick),
-        colors = CardDefaults.cardColors(containerColor = statusColor.copy(alpha = 0.1f))
+        shape = shape,
+        colors = CardDefaults.cardColors(containerColor = statusColor.copy(alpha = 0.15f))
     ) {
         Column(
             modifier = Modifier
@@ -194,19 +220,62 @@ private fun TableCard(
             Text(
                 text = "${table.capacity} pax",
                 style = MaterialTheme.typography.bodySmall,
-                color = statusColor.copy(alpha = 0.7f)
+                color = statusColor.copy(alpha = 0.8f)
             )
-            Spacer(modifier = Modifier.height(8.dp))
-            Button(
-                onClick = {
-                    val newStatus = if (table.status == TableStatus.FREE) "occupied" else "free"
-                    onStatusChange(newStatus)
-                },
-                colors = ButtonDefaults.buttonColors(containerColor = statusColor),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(if (table.status == TableStatus.FREE) "Ocupar" else "Liberar", style = MaterialTheme.typography.labelSmall)
+            if (table.status == TableStatus.RESERVED) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Surface(
+                    color = statusColor,
+                    shape = RoundedCornerShape(4.dp)
+                ) {
+                    Text(
+                        "Reserva",
+                        color = Color.White,
+                        style = MaterialTheme.typography.labelSmall,
+                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                    )
+                }
             }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun TableQuickActionsDialog(
+    table: Table,
+    onDismiss: () -> Unit,
+    onStatusChange: (String) -> Unit,
+    onAddWalkIn: () -> Unit,
+    onReportIssue: () -> Unit
+) {
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+            Text("Gestión rápida - Mesa ${table.number}", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            ListItem(
+                headlineContent = { Text("Walk-in (Sentar sin reserva)") },
+                leadingContent = { Icon(Icons.Default.PersonAdd, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+                modifier = Modifier.clickable { onAddWalkIn() }
+            )
+            ListItem(
+                headlineContent = { Text(if (table.status == TableStatus.FREE) "Marcar como Ocupada" else "Liberar Mesa") },
+                leadingContent = { 
+                    Icon(
+                        if (table.status == TableStatus.FREE) Icons.Default.EventSeat else Icons.Default.CheckCircle, 
+                        contentDescription = null,
+                        tint = if (table.status == TableStatus.FREE) MaterialTheme.colorScheme.error else Color(0xFF27AE60)
+                    ) 
+                },
+                modifier = Modifier.clickable { onStatusChange(if (table.status == TableStatus.FREE) "occupied" else "free") }
+            )
+            ListItem(
+                headlineContent = { Text("Reportar Incidencia (Mantenimiento)") },
+                leadingContent = { Icon(Icons.Default.Warning, contentDescription = null, tint = Color(0xFF95A5A6)) },
+                modifier = Modifier.clickable { onReportIssue() }
+            )
+            Spacer(modifier = Modifier.height(32.dp))
         }
     }
 }

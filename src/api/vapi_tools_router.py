@@ -344,7 +344,7 @@ async def tool_check_availability(request: Request):
                 "results": [
                     {
                         "toolCallId": tool_call_id,
-                        "result": f"❌ Los lunes estamos cerrados. ¿Te viene bien otro día?",
+                        "result": f"Los lunes estamos de descanso. ¿Te interesaría mirar mesa para otro día de la semana?",
                     }
                 ]
             }
@@ -373,7 +373,7 @@ async def tool_check_availability(request: Request):
                 "results": [
                     {
                         "toolCallId": tool_call_id,
-                        "result": f"❌ Los {dia_nombre}s no abrimos para cenar. ¿Te viene bien la comida?",
+                        "result": f"Los {dia_nombre}s no abrimos por la noche. Tan solo damos servicio de comidas. ¿Te vendría bien la comida de ese día?",
                     }
                 ]
             }
@@ -394,7 +394,7 @@ async def tool_check_availability(request: Request):
             "results": [
                 {
                     "toolCallId": tool_call_id,
-                    "result": f"✅ Tenemos disponibilidad para {personas or 'X'} personas el {dia_nombre} {fecha.strftime('%d/%m')} a las {hora.strftime('%H:%M')} ({servicio}, {turno}). ¿Confirmamos la reserva? Necesito nombre y teléfono.",
+                    "result": f"¡Qué suerte, nos queda sitio libre para {personas} personas a esa hora! Para poder dejártela totalmente confirmada a tu nombre, ¿podrías darme tu nombre completo y un número de teléfono de contacto?",
                 }
             ]
         }
@@ -525,7 +525,7 @@ Responde SÍ para confirmar o NO para cancelar.
                 "results": [
                     {
                         "toolCallId": tool_call_id,
-                        "result": f"¡Perfecto, {nombre}! He reservado para {personas} personas el {fecha_formateada} a las {hora_str}. Te envío un WhatsApp de confirmación ahora mismo. ¡Nos vemos en Las Nubes!",
+                        "result": f"¡Perfecto, {nombre}! Acabo de anotarte la mesa y dejarla reservada. En unos segundos te va a llegar un mensaje por WhatsApp con los detalles de tu reserva para el {fecha_formateada}. ¡Qué ganas de veros por En Las Nubes!",
                     }
                 ]
             }

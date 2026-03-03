@@ -1,8 +1,10 @@
 package com.enlasnubes.restobar.presentation.reservations
 
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -19,7 +21,6 @@ import java.time.format.DateTimeFormatter
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ReservationsScreen(
-    userRol: String,
     viewModel: ReservationsViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -69,7 +70,7 @@ fun ReservationsScreen(
                             selectedFilter = filter
                             viewModel.setFilter(filter)
                         },
-                        label = { Text(filter.name.lowercase().capitalize()) }
+                        label = { Text(filter.name.lowercase().replaceFirstChar { it.uppercase() }) }
                     )
                 }
             }
@@ -107,6 +108,8 @@ fun ReservationsScreen(
                                 pax = reservation.pax,
                                 status = reservation.status,
                                 tableName = reservation.tableName,
+                                notes = reservation.notes,
+                                specialRequests = reservation.specialRequests,
                                 onStatusChange = { newStatus ->
                                     viewModel.updateStatus(
                                         reservation.id,
@@ -129,6 +132,8 @@ private fun ReservationCard(
     pax: Int,
     status: ReservationStatus,
     tableName: String?,
+    notes: String?,
+    specialRequests: List<String>,
     onStatusChange: (String) -> Unit
 ) {
     Card(
@@ -150,6 +155,49 @@ private fun ReservationCard(
                 }
                 if (tableName != null) {
                     Text("Mesa: $tableName", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+                }
+                
+                if (specialRequests.isNotEmpty() || !notes.isNullOrBlank()) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState())
+                    ) {
+                        specialRequests.forEach { req ->
+                            Surface(
+                                color = MaterialTheme.colorScheme.errorContainer,
+                                shape = MaterialTheme.shapes.small
+                            ) {
+                                Text(
+                                    text = req,
+                                    color = MaterialTheme.colorScheme.onErrorContainer,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                )
+                            }
+                        }
+                        if (!notes.isNullOrBlank()) {
+                            Surface(
+                                color = MaterialTheme.colorScheme.tertiaryContainer,
+                                shape = MaterialTheme.shapes.small
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                ) {
+                                    Icon(Icons.Default.Info, contentDescription = null, modifier = Modifier.size(12.dp), tint = MaterialTheme.colorScheme.onTertiaryContainer)
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        text = "Notas STAFF",
+                                        color = MaterialTheme.colorScheme.onTertiaryContainer,
+                                        style = MaterialTheme.typography.labelSmall
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
             }
 

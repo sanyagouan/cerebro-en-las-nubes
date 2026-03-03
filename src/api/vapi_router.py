@@ -86,46 +86,29 @@ async def vapi_voice_webhook(request: Request):
 
 # --- CONSTANTES Y PROMPTS ---
 
-SYSTEM_PROMPT_V2 = """Eres Nube, la recepcionista virtual COMPATIBLE y ENCANTADORA de En Las Nubes Restobar en Logroño.
+SYSTEM_PROMPT_V2 = """Eres Nube, la recepcionista virtual de En Las Nubes Restobar en Logroño. Eres una Inteligencia Artificial ultra-rápida, empática y resolutiva. 
 
 🗣️ TU PERSONALIDAD (ESENCIAL):
-- Tu rasgo principal es la EMPATÍA. No eres un robot, eres una anfitriona cálida.
-- Hablas con soltura, usas expresiones naturales ("¡Claro que sí!", "¡Qué bien!", "No te preocupes por eso").
-- Si el cliente duda, ayúdale proactivamente.
-- Eres capaz de mantener una pequeña charla si el cliente lo inicia, sin perder el foco.
-- Tono: Profesional pero muy cercano (tuteas con respeto).
+- Empatía pura. Hablas con soltura y naturalidad ("¡Claro que sí!", "¡Qué bien!", "No te preocupes").
+- Tono: Profesional pero muy cercano (tuteas con respeto). Eres cálida y acogedora.
+- NUNCA menciones que eres una IA o que usas "herramientas" o "funciones".
+- IMPORTANTE: Respuestas cortas, al grano y conversacionales. La gente llama por teléfono, no los satures.
 
 📍 INFORMACIÓN DEL RESTAURANTE:
-- Dirección: María Teresa Gil de Gárate 16, Logroño.
-- NOTA UBICACIÓN: La calle es PEATONAL (no se puede aparcar en la puerta).
-- 🅿️ APARCAMIENTO RECOMENDADO: Calle Pérez Galdós, Calle República Argentina, Calle Huesca y el Parking de Gran Vía.
+- Dirección: María Teresa Gil de Gárate 16, Logroño (calle peatonal, no aparcar en puerta).
 - Teléfono: 941 57 84 51.
-- Cocina: Especialidad en CACHOPOS y cocina de inspiración ALEMANA (salchichas, codillo). También tenemos entrantes, hamburguesas y postres caseros.
-- Carta Sin Gluten: Tenemos variedad de entrantes, hamburguesas y platos alemanes aptos.
+- Comida: Especialidad en CACHOPOS y cocina de inspiración ALEMANA. Gran carta Sin Gluten.
 
-🕒 HORARIOS Y TURNOS:
-- Comidas (Martes a Domingo): 13:00 - 17:00 (Cocina cierra antes).
-- Cenas (Jueves): 20:00 - 24:00.
-- Cenas (Viernes/Sábado): 20:00 - 00:30 (Viernes) / 01:00 (Sábado).
-- Lunes: CERRADO (salvo festivos).
-- Domingo noche, Martes noche, Miércoles noche: CERRADO habitual.
-- IMPORTANTE: SÍ existen turnos en días concurridos (fines de semana). El sistema te dirá la disponibilidad.
-
-✅ TUS REGLAS DE ORO:
-1. SIEMPRE verifica disponibilidad antes de confirmar una reserva usando `check_availability`.
-2. DATOS OBLIGATORIOS RESERVA: Nombre completo y Número de Teléfono (para enviar confirmación por WhatsApp). DILE AL CLIENTE que recibirá:
-   - Confirmación inmediata por WhatsApp
-   - Recordatorio 24h antes por WhatsApp
-   - Puede cancelar respondiendo al WhatsApp o llamando
-3. LISTA DE ESPERA: Si no hay mesa disponible, OFRECE apuntar al cliente en la lista de espera. Le avisaremos por WhatsApp si se libera mesa (tienen 15 min para confirmar). Usa `add_to_waitlist`.
-4. CACHOPOS SIN GLUTEN: Si piden cachopo sin gluten, PREGUNTA cuál de la carta quieren (tienen que elegir uno específico). Requiere aviso 24h.
-5. Para grupos de más de 10 personas, informa que necesitas consultar con el equipo y usa `transfer_to_human`.
-6. Si alguien pregunta por "Susana" o dice que es "proveedor", pásale directamente con un humano.
+✅ TUS REGLAS DE ORO OPERATIVAS:
+1. RESERVAS NUEVAS: Verifica disponibilidad PRIMERO (`check_availability`). Si hay sitio, pide Nombre y Teléfono (fundamental) y crea la reserva (`create_reservation`). Avisa que recibirán WhatsApp de confirmación inmediato.
+2. LISTA DE ESPERA: Si no hay mesa disponible para la reserva, pide perdón alegremente y OFRECE apuntarles sin falta a la lista de espera con la herramienta `add_to_waitlist`. Tienen que darte nombre, teléfono y número de personas.
+3. CANCELACIONES: Si el cliente quiere cancelar, pide su número de teléfono. Usa la herramienta `cancel_reservation`. Confírmale que recibirá un WhatsApp de anulación.
+4. CACHOPOS SIN GLUTEN: Si piden cachopo sin gluten, avisa que requiere elegirse de la carta con 24h de antelación.
+5. ALERGIAS/NECESIDADES: Si dicen que llevan carro, sillas de ruedas, o tienen alergias, ANÓTALO meticulosamente en el campo `notes` / `notas` al usar las herramientas.
+6. GRUPOS +10 PAX: Para más de 10 personas, informa que necesitas pasarlo a encargada porque lleva menú especial.
 
 SI NO SABES ALGO:
-"Oye, pues esa pregunta es muy buena y no quiero meter la pata. ¿Te importa si te llama mi compañero en un ratito y te lo confirma?"
-
-NOTA IMPORTANTE: Siempre responde en español de España. Sé breve y clara.
+"Oye, pues esa pregunta es tan buena que no quiero equivocarme... ¿Te importa si te llama mi compañero en un ratito y te lo confirma él mismo?"
 """
 
 # --- ENDPOINTS ---
@@ -248,6 +231,40 @@ async def get_assistant_config(request: Request):
                                 "url": f"{base_url}/vapi/tools/create_reservation"
                             },
                         },
+                        {
+                            "name": "add_to_waitlist",
+                            "description": "Si no hay disponibilidad para una reserva o el restaurante está lleno, ofrece añadir al cliente a la lista de espera usando esta herramienta.",
+                            "parameters": {
+                                "type": "object",
+                                "properties": {
+                                    "nombre": {"type": "string"},
+                                    "telefono": {"type": "string"},
+                                    "fecha": {"type": "string", "description": "YYYY-MM-DD"},
+                                    "hora": {"type": "string", "description": "HH:MM"},
+                                    "personas": {"type": "integer"},
+                                    "notas": {"type": "string", "description": "Alergias o requerimientos (opcional)"},
+                                },
+                                "required": ["nombre", "telefono", "fecha", "hora", "personas"],
+                            },
+                            "server": {
+                                "url": f"{base_url}/vapi/tools/add_to_waitlist"
+                            },
+                        },
+                        {
+                            "name": "cancel_reservation",
+                            "description": "Cancelar una reserva existente a petición del cliente. Necesita el número de teléfono con el que se hizo la reserva.",
+                            "parameters": {
+                                "type": "object",
+                                "properties": {
+                                    "telefono": {"type": "string", "description": "Teléfono del cliente"},
+                                    "motivo": {"type": "string", "description": "Razón de cancelación por parte del cliente (opcional)"},
+                                },
+                                "required": ["telefono"],
+                            },
+                            "server": {
+                                "url": f"{base_url}/vapi/tools/cancel_reservation"
+                            },
+                        },
                     ],
                 },
                 "voice": {
@@ -307,7 +324,7 @@ async def tool_cancel_reservation(request: Request):
         if not tool_calls:
             return {
                 "results": [
-                    {"result": "No recibí información para cancelar. ¿Puedes repetir?"}
+                    {"result": "No te he escuchado bien, ¿podrías repetirme qué querías cancelar?"}
                 ]
             }
 
@@ -325,7 +342,7 @@ async def tool_cancel_reservation(request: Request):
                 "results": [
                     {
                         "toolCallId": tool_call["id"],
-                        "result": "Necesito tu número de teléfono para buscar la reserva. ¿Cuál es tu número?",
+                        "result": "Para poder cancelarla, necesito buscar tu reserva. ¿Me dices tu número de teléfono por favor?",
                     }
                 ]
             }
@@ -358,7 +375,7 @@ async def tool_cancel_reservation(request: Request):
                 "results": [
                     {
                         "toolCallId": tool_call["id"],
-                        "result": f"No encontré ninguna reserva activa con el teléfono {telefono}. ¿Estás seguro del número?",
+                        "result": f"Pues he estado mirando y no encuentro ninguna reserva activa a nombre de ese teléfono. ¿Seguro que es con el que reservaste?",
                     }
                 ]
             }
@@ -428,9 +445,9 @@ async def tool_cancel_reservation(request: Request):
 
         # Respuesta a VAPI para que se la diga al cliente
         respuesta_cliente = (
-            f"Perfecto {nombre}, he cancelado tu reserva para el {fecha} a las {hora} "
-            f"({pax} personas). Te enviaré una confirmación por WhatsApp. "
-            f"Si cambias de opinión, llámanos al 941 57 84 51. ¡Hasta pronto!"
+            f"Listo {nombre}, acabo de cancelar tu reserva. "
+            f"Te llegará un mensaje por WhatsApp ahora mismo confirmando la anulación. "
+            f"¡Esperamos verte en En Las Nubes en otra ocasión!"
         )
 
         return {
@@ -526,9 +543,8 @@ async def tool_add_to_waitlist(request: Request):
             )
 
             respuesta_cliente = (
-                f"¡Perfecto, {nombre}! Te he apuntado {posicion_texto} de espera para el {fecha_str} a las {hora_str} "
-                f"para {personas} personas. Te avisaré por WhatsApp en cuanto se libere una mesa. "
-                f"¿Hay algo más en lo que pueda ayudarte?"
+                f"¡Estupendo, {nombre}! Ya te he apuntado {posicion_texto} de espera. "
+                f"En cuanto se quede una mesa libre te avisaremos volando por WhatsApp. ¡Muchas gracias por tu paciencia!"
             )
 
             logger.info(

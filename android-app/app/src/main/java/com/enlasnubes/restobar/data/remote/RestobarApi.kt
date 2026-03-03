@@ -6,6 +6,8 @@ import com.enlasnubes.restobar.data.model.LoginResponse
 import com.enlasnubes.restobar.data.model.Reservation
 import com.enlasnubes.restobar.data.model.Table
 import com.enlasnubes.restobar.data.model.User
+import com.enlasnubes.restobar.data.model.WaitlistCreateRequest
+import com.enlasnubes.restobar.data.model.WaitlistResponse
 import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.DELETE
@@ -75,6 +77,22 @@ interface RestobarApi {
     suspend fun getDashboardStats(
         @Query("date") date: LocalDate? = null
     ): Response<DashboardStats>
+
+    // Waitlist
+    @GET("api/mobile/waitlist")
+    suspend fun getWaitlist(
+        @Query("fecha") fecha: LocalDate? = null,
+        @Query("estado") estado: String? = null
+    ): Response<List<WaitlistResponse>>
+
+    @POST("api/mobile/waitlist")
+    suspend fun createWaitlistEntry(@Body request: WaitlistCreateRequest): Response<WaitlistResponse>
+
+    @POST("api/mobile/waitlist/{id}/notify")
+    suspend fun notifyWaitlistEntry(@Path("id") id: String): Response<WaitlistResponse>
+
+    @DELETE("api/mobile/waitlist/{id}")
+    suspend fun deleteWaitlistEntry(@Path("id") id: String): Response<Unit>
 
     // Push Notifications
     @POST("api/mobile/notifications/register")

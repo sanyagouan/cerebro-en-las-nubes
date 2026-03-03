@@ -45,7 +45,7 @@ class KitchenViewModel @Inject constructor(
     fun loadOrders() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
-            repository.getReservations(date = LocalDate.now())
+            repository.getReservations(fecha = LocalDate.now())
                 .onSuccess { reservations ->
                     val orders = reservations
                         .filter { it.status.name == "CONFIRMED" || it.status.name == "SEATED" }
