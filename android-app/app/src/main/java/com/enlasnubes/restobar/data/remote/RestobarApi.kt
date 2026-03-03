@@ -37,9 +37,11 @@ interface RestobarApi {
     // Reservations
     @GET("api/mobile/reservations")
     suspend fun getReservations(
-        @Query("date") date: LocalDate? = null,
-        @Query("status") status: String? = null
-    ): Response<List<Reservation>>
+        @Query("fecha") fecha: LocalDate? = null,
+        @Query("estado") estado: String? = null,
+        @Query("offset") offset: Int? = null,
+        @Query("limit") limit: Int? = null
+    ): Response<PaginatedReservationsResponse>
 
     @GET("api/mobile/reservations/{id}")
     suspend fun getReservation(@Path("id") id: String): Response<Reservation>
@@ -138,6 +140,14 @@ data class CreateReservationRequest(
     val pax: Int,
     val tableId: String? = null,
     val notes: String? = null
+)
+
+data class PaginatedReservationsResponse(
+    val reservations: List<Reservation>,
+    val total: Int,
+    val offset: Int,
+    val limit: Int,
+    val has_more: Boolean
 )
 
 data class CreateResponse(

@@ -14,8 +14,6 @@ import com.enlasnubes.restobar.data.remote.DeviceTokenRequest
 import com.enlasnubes.restobar.data.remote.RestobarApi
 import com.enlasnubes.restobar.data.remote.UpdateStatusRequest
 import com.enlasnubes.restobar.data.remote.UpdateUserRequest
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.flow
 import java.time.LocalDate
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -73,21 +71,26 @@ class RestobarRepository @Inject constructor(
         return try {
             val response = api.changeOwnPassword(ChangeOwnPasswordRequest(currentPassword, newPassword))
             if (response.isSuccessful) {
-                Result.success(response.body()?.message ?: "Contrasena actualizada")
+                Result.success(response.body()?.message ?: "Contraseña actualizada")
             } else {
-                Result.failure(Exception("Error al cambiar contrasena: ${response.code()}"))
+                Result.failure(Exception("Error al cambiar contraseña: ${response.code()}"))
             }
         } catch (e: Exception) {
             Result.failure(e)
         }
     }
 
-    // Reservations
-    suspend fun getReservations(date: LocalDate? = null, status: String? = null): Result<List<Reservation>> {
+    // Reservations — el backend devuelve PaginatedReservationsResponse
+    suspend fun getReservations(
+        fecha: LocalDate? = null,
+        estado: String? = null,
+        offset: Int = 0,
+        limit: Int = 100
+    ): Result<List<Reservation>> {
         return try {
-            val response = api.getReservations(date, status)
+            val response = api.getReservations(fecha, estado, offset, limit)
             if (response.isSuccessful) {
-                Result.success(response.body() ?: emptyList())
+                Result.success(response.body()?.reservations ?: emptyList())
             } else {
                 Result.failure(Exception("Failed to get reservations: ${response.code()}"))
             }
