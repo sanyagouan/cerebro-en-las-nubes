@@ -183,9 +183,10 @@ async def tool_get_info(request: Request):
         }
     except Exception as e:
         logger.error(f"Error in get_info: {e}")
+        tc_id = tool_call_id if 'tool_call_id' in locals() else "unknown"
         return {
             "results": [
-                {"toolCallId": "error", "result": "Perdóname, se me ha cortado un poco el sistema. ¿Me decías?"}
+                {"toolCallId": tc_id, "result": "Perdóname, se me ha cortado un poco el sistema. ¿Me explicabas?"}
             ]
         }
 
@@ -277,8 +278,9 @@ async def tool_get_horarios(request: Request):
 
     except Exception as e:
         logger.error(f"Error in get_horarios: {e}")
+        tc_id = tool_call_id if 'tool_call_id' in locals() else "unknown"
         return {
-            "results": [{"toolCallId": "error", "result": "Uy, perdona, mi ordenador va un ratín lento hoy. ¿Me puedes repetir qué día querías mirar?"}]
+            "results": [{"toolCallId": tc_id, "result": "Uy, perdona, mi ordenador va un ratín lento hoy. ¿Me puedes repetir qué día querías mirar?"}]
         }
 
 
@@ -409,10 +411,11 @@ async def tool_check_availability(request: Request):
 
     except Exception as e:
         logger.error(f"Error in check_availability: {e}", exc_info=True)
+        tc_id = tool_call_id if 'tool_call_id' in locals() else "unknown"
         return {
             "results": [
                 {
-                    "toolCallId": tool_call_id if "tool_call_id" in dir() else "error",
+                    "toolCallId": tc_id,
                     "result": "Perdona, se me ha quedado un poco pillado el ordenador. ¿Me puedes repetir para cuándo querías la mesa?",
                 }
             ]
@@ -551,10 +554,11 @@ Responde SÍ para confirmar o NO para cancelar.
 
     except Exception as e:
         logger.error(f"Error in create_reservation: {e}")
+        tc_id = tool_call_id if 'tool_call_id' in locals() else "unknown"
         return {
             "results": [
                 {
-                    "toolCallId": "error",
+                    "toolCallId": tc_id,
                     "result": "Madre mía, qué desastre, el sistema de agendas no me funciona bien ahora mismo. ¿Te importa llamar a mis compañeros al 941 57 84 51 y te la apuntan ellos a mano?",
                 }
             ]
