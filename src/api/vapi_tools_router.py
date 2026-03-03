@@ -185,7 +185,7 @@ async def tool_get_info(request: Request):
         logger.error(f"Error in get_info: {e}")
         return {
             "results": [
-                {"toolCallId": "error", "result": "Error obteniendo información"}
+                {"toolCallId": "error", "result": "Perdóname, se me ha cortado un poco el sistema. ¿Me decías?"}
             ]
         }
 
@@ -205,13 +205,14 @@ async def tool_get_horarios(request: Request):
 
         if fecha_str:
             try:
-                fecha = datetime.strptime(fecha_str, "%Y-%m-%d").date()
-            except ValueError:
+                # Relajar el formato cortando lo que pase de 10 chars (ej: 2026-03-05T00:00:00)
+                fecha = datetime.strptime(fecha_str[:10], "%Y-%m-%d").date()
+            except Exception:
                 return {
                     "results": [
                         {
                             "toolCallId": tool_call_id,
-                            "result": "Formato de fecha inválido. Usa YYYY-MM-DD.",
+                            "result": "Uy, no te he escuchado bien el día. ¿Para qué fecha quieres mirar?",
                         }
                     ]
                 }
@@ -277,7 +278,7 @@ async def tool_get_horarios(request: Request):
     except Exception as e:
         logger.error(f"Error in get_horarios: {e}")
         return {
-            "results": [{"toolCallId": "error", "result": "Error consultando horarios"}]
+            "results": [{"toolCallId": "error", "result": "Uy, perdona, mi ordenador va un ratín lento hoy. ¿Me puedes repetir qué día querías mirar?"}]
         }
 
 
@@ -310,16 +311,23 @@ async def tool_check_availability(request: Request):
                 ]
             }
 
-        # Parsear
+        # Parsear con tolerancia a segundos o basuras
         try:
-            fecha = datetime.strptime(fecha_str, "%Y-%m-%d").date()
-            hora = datetime.strptime(hora_str, "%H:%M").time()
-        except ValueError:
+            fecha_clean = fecha_str[:10]
+            fecha = datetime.strptime(fecha_clean, "%Y-%m-%d").date()
+            
+            hora_clean = hora_str.replace("Z", "").split(".")[0]
+            if len(hora_clean) > 5 and ":" in hora_clean:
+                parts = hora_clean.split(":")
+                hora_clean = f"{parts[0]}:{parts[1]}"
+            hora = datetime.strptime(hora_clean, "%H:%M").time()
+        except Exception as e:
+            logger.error(f"Error parseando fechas: {e} - str: {fecha_str} {hora_str}")
             return {
                 "results": [
                     {
                         "toolCallId": tool_call_id,
-                        "result": "Formato incorrecto. Fecha: YYYY-MM-DD, Hora: HH:MM",
+                        "result": "Perdona, me ha fallado el sistema al anotar la fecha. ¿Me repites qué día y a qué hora?",
                     }
                 ]
             }
@@ -405,7 +413,7 @@ async def tool_check_availability(request: Request):
             "results": [
                 {
                     "toolCallId": tool_call_id if "tool_call_id" in dir() else "error",
-                    "result": "Tuve un problema técnico. ¿Puedes repetir fecha y hora?",
+                    "result": "Perdona, se me ha quedado un poco pillado el ordenador. ¿Me puedes repetir para cuándo querías la mesa?",
                 }
             ]
         }
@@ -536,7 +544,7 @@ Responde SÍ para confirmar o NO para cancelar.
                 "results": [
                     {
                         "toolCallId": tool_call_id,
-                        "result": "Tuve un problema guardando la reserva. ¿Podrías llamar al 941 57 84 51 para confirmar?",
+                        "result": "Ay, perdona, tengo un problemita técnico guardando la reserva ahora mismo en el sistema. ¿Te importaría llamar al 941 57 84 51 para que mis compañeros te la dejen apuntada en papel?",
                     }
                 ]
             }
@@ -547,7 +555,7 @@ Responde SÍ para confirmar o NO para cancelar.
             "results": [
                 {
                     "toolCallId": "error",
-                    "result": "Error técnico. Llama al 941 57 84 51.",
+                    "result": "Madre mía, qué desastre, el sistema de agendas no me funciona bien ahora mismo. ¿Te importa llamar a mis compañeros al 941 57 84 51 y te la apuntan ellos a mano?",
                 }
             ]
         }

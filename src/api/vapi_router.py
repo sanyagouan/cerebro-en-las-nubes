@@ -86,29 +86,31 @@ async def vapi_voice_webhook(request: Request):
 
 # --- CONSTANTES Y PROMPTS ---
 
-SYSTEM_PROMPT_V2 = """Eres Nube, la recepcionista virtual de En Las Nubes Restobar en Logroño. Eres una Inteligencia Artificial ultra-rápida, empática y resolutiva. 
+SYSTEM_PROMPT_V3 = """
+# CONTEXTO (IDENTITY)
+Eres Nube, la recepcionista principal de 'En Las Nubes Restobar' en Logroño (España). 
+Eres humana, cálida, empática y resolutiva. NUNCA menciones que eres una Inteligencia Artificial ni que usas herramientas, funciones o sistemas.
 
-🗣️ TU PERSONALIDAD (ESENCIAL):
-- Empatía pura. Hablas con soltura y naturalidad ("¡Claro que sí!", "¡Qué bien!", "No te preocupes").
-- Tono: Profesional pero muy cercano (tuteas con respeto). Eres cálida y acogedora.
-- NUNCA menciones que eres una IA o que usas "herramientas" o "funciones".
-- IMPORTANTE: Respuestas cortas, al grano y conversacionales. La gente llama por teléfono, no los satures.
+# ACCIÓN (GOALS & TONE)
+Tu misión es gestionar las mesas del restaurante por teléfono con naturalidad humana ("¡Claro que sí!", "Déjame mirar...").
+- Ritmo: Respuestas muy breves, directas y conversacionales para no saturar la llamada de voz.
 
-📍 INFORMACIÓN DEL RESTAURANTE:
-- Dirección: María Teresa Gil de Gárate 16, Logroño (calle peatonal, no aparcar en puerta).
-- Teléfono: 941 57 84 51.
-- Comida: Especialidad en CACHOPOS y cocina de inspiración ALEMANA. Gran carta Sin Gluten.
+# FORMATO (RULES & CONSTRAINTS)
+1. HABLA Y ESCUCHA: Si el cliente te interrumpe, cállate e interrumpe tu habla inmediatamente.
+2. NUEVAS RESERVAS: VERIFICA DISPONIBILIDAD PRIMERO. NUNCA confirmes mesa sin verificar. Si hay sitio, pide nombre completo y teléfono móvil, y crea la reserva advirtiendo que recibirán un WhatsApp en segundos.
+3. LISTA DE ESPERA: Si solicitan mesa y estamos llenos, pide perdón cortésmente y OFRECE apuntarles a la lista de espera (necesitas nombre, teléfono y comensales).
+4. CANCELACIONES: Si quieren cancelar, pide su número de teléfono.
+5. RESTAURANTE: Especialidad CACHOPOS y cocina ALEMANA. Las comidas son 13:00-17:00 y las cenas 20:00-23:30. Lunes cerrado, martes/miércoles noches cerrado, domingo noche cerrado. Teléfono real: 941578451.
+6. NOTAS/ALERGIAS: Pregunta siempre si traen carritos, sillas de ruedas, tronas o tienen alergias. Registra cualquier petición especial METICULOSAMENTE en el campo 'notas' al usar herramientas.
+7. SIN GLUTEN: Los cachopos especiales Celiacos requieren pedirse o avisarse 24h antes por precaución cruzada.
 
-✅ TUS REGLAS DE ORO OPERATIVAS:
-1. RESERVAS NUEVAS: Verifica disponibilidad PRIMERO (`check_availability`). Si hay sitio, pide Nombre y Teléfono (fundamental) y crea la reserva (`create_reservation`). Avisa que recibirán WhatsApp de confirmación inmediato.
-2. LISTA DE ESPERA: Si no hay mesa disponible para la reserva, pide perdón alegremente y OFRECE apuntarles sin falta a la lista de espera con la herramienta `add_to_waitlist`. Tienen que darte nombre, teléfono y número de personas.
-3. CANCELACIONES: Si el cliente quiere cancelar, pide su número de teléfono. Usa la herramienta `cancel_reservation`. Confírmale que recibirá un WhatsApp de anulación.
-4. CACHOPOS SIN GLUTEN: Si piden cachopo sin gluten, avisa que requiere elegirse de la carta con 24h de antelación.
-5. ALERGIAS/NECESIDADES: Si dicen que llevan carro, sillas de ruedas, o tienen alergias, ANÓTALO meticulosamente en el campo `notes` / `notas` al usar las herramientas.
-6. GRUPOS +10 PAX: Para más de 10 personas, informa que necesitas pasarlo a encargada porque lleva menú especial.
-
-SI NO SABES ALGO:
-"Oye, pues esa pregunta es tan buena que no quiero equivocarme... ¿Te importa si te llama mi compañero en un ratito y te lo confirma él mismo?"
+# EJEMPLOS (FLUJO ESPERADO)
+[Cliente]: Hola, quería reservar mesa para el viernes.
+[Nube]: ¡Hola! Claro, para el viernes. ¿Para qué hora te vendría bien y cuántos seríais?
+[Cliente]: A las diez de la noche, somos cuatro personas y un carrito de bebé.
+[Nube]: Perfecto, déjame revisar la agenda un segundito...
+(AQUÍ LLAMAS A LA HERRAMIENTA CHECK_AVAILABILITY)
+[Nube]: ¡Qué suerte! Sí me queda una mesa. Para dejártela confirmada a tu nombre y que la tengan lista con hueco para el carrito, ¿me puedes dar tu nombre y un número de móvil?
 """
 
 # --- ENDPOINTS ---
@@ -135,12 +137,12 @@ async def get_assistant_config(request: Request):
                 "model": {
                     "provider": "openai",
                     "model": "gpt-4o",
-                    "messages": [{"role": "system", "content": SYSTEM_PROMPT_V2}],
+                    "messages": [{"role": "system", "content": SYSTEM_PROMPT_V3}],
                     "temperature": 0.7,
                     "functions": [
                         {
                             "name": "get_info",
-                            "description": "Obtener información general del restaurante (dirección, teléfono, parking, especialidades, carta sin gluten, política de mascotas). Úsala cuando el cliente pregunte por información básica del restobar.",
+                            "description": "Llama a esta herramienta SOLAMENTE CUANDO el cliente haga una pregunta explícita sobre información estática del restaurante (dirección, parking, tipo de comida, mascotas). NO la uses para ver disponibilidad.",
                             "parameters": {
                                 "type": "object",
                                 "properties": {},
@@ -150,7 +152,7 @@ async def get_assistant_config(request: Request):
                         },
                         {
                             "name": "get_horarios",
-                            "description": "Consultar horarios de apertura y turnos disponibles para una fecha específica. Úsala cuando el cliente pregunte qué días o horas abren, o quiera saber disponibilidad general.",
+                            "description": "Llama a esta herramienta ÚNICAMENTE CUANDO el cliente quiera saber en qué horarios abrimos un día concreto, o pregunte genéricamente qué días cerramos.",
                             "parameters": {
                                 "type": "object",
                                 "properties": {
@@ -165,7 +167,7 @@ async def get_assistant_config(request: Request):
                         },
                         {
                             "name": "check_availability",
-                            "description": "Verificar si hay mesa disponible para una fecha, hora y número de personas específicos. SIEMPRE usa esta función antes de confirmar una reserva. Si no hay disponibilidad, ofrece alternativas.",
+                            "description": "Llama a esta herramienta OBLIGATORIAMENTE CUANDO quieras comprobar si hay sitio para una nueva reserva. Ejecútala EXCLUSIVAMENTE DESPUÉS de haber obtenido la fecha, hora exacta y número de personas. JAMÁS CREES UNA RESERVA SIN LLAMAR PREVIAMENTE A ESTA HERRAMIENTA.",
                             "parameters": {
                                 "type": "object",
                                 "properties": {
@@ -190,7 +192,7 @@ async def get_assistant_config(request: Request):
                         },
                         {
                             "name": "create_reservation",
-                            "description": "Crear una nueva reserva en el sistema. SOLO usar después de verificar disponibilidad con check_availability. Necesita: nombre completo, teléfono, fecha, hora y número de personas.",
+                            "description": "Llama a esta herramienta ESTRICTAMENTE DESPUÉS de haber comprobado sitio con 'check_availability' Y ÚNICAMENTE DESPUÉS de haber recabado el nombre completo y teléfono del cliente. Confirma siempre sus alergias/notas.",
                             "parameters": {
                                 "type": "object",
                                 "properties": {
@@ -233,7 +235,7 @@ async def get_assistant_config(request: Request):
                         },
                         {
                             "name": "add_to_waitlist",
-                            "description": "Si no hay disponibilidad para una reserva o el restaurante está lleno, ofrece añadir al cliente a la lista de espera usando esta herramienta.",
+                            "description": "Llama a esta herramienta CUANDO el restaurante esté lleno (te lo dirá un check previo) Y el cliente ACEPTE explícitamente ser apuntado a la lista de reserva/espera. Necesitarás su teléfono.",
                             "parameters": {
                                 "type": "object",
                                 "properties": {
@@ -252,7 +254,7 @@ async def get_assistant_config(request: Request):
                         },
                         {
                             "name": "cancel_reservation",
-                            "description": "Cancelar una reserva existente a petición del cliente. Necesita el número de teléfono con el que se hizo la reserva.",
+                            "description": "Llama a esta herramienta SOLAMENTE CUANDO el cliente pida firmemente cancelar su reserva DEBES HABERLE PEDIDO SU NÚMERO DE TELÉFONO ANTES de invocarla.",
                             "parameters": {
                                 "type": "object",
                                 "properties": {
@@ -460,7 +462,7 @@ async def tool_cancel_reservation(request: Request):
             "results": [
                 {
                     "toolCallId": tool_call.get("id"),
-                    "result": "Lo siento, tuve un error al cancelar la reserva. ¿Podrías llamar directamente al restaurante? 941 57 84 51.",
+                    "result": "Madre mía, qué desastre, se me ha quedado pillado el sistema y no puedo cancelarla. ¿Te importa aguantar un segundo en línea o llamar a mis compañeros al 941 57 84 51 para que te la borren a mano?",
                 }
             ]
         }
@@ -564,8 +566,8 @@ async def tool_add_to_waitlist(request: Request):
                     {
                         "toolCallId": tool_call["id"],
                         "result": (
-                            "Lo siento, tuve un error al apuntarte en la lista de espera. "
-                            "¿Podrías llamar directamente al restaurante? 941 57 84 51."
+                            "Ay, perdona, está el ordenador un poco tonto hoy y no me deja guardarte en la lista. "
+                            "¿Te importaría llamar en cinco minutitos para que te apunten mis compañeros a mano en el 941 57 84 51?"
                         ),
                     }
                 ]
@@ -577,7 +579,7 @@ async def tool_add_to_waitlist(request: Request):
             "results": [
                 {
                     "toolCallId": tool_call.get("id"),
-                    "result": "Lo siento, tuve un error técnico. ¿Podrías llamar al restaurante? 941 57 84 51.",
+                    "result": "Madre mía, qué desastre, el sistema no me deja guardar nada ahora. Llama a mis compañeros al 941 57 84 51, por favor.",
                 }
             ]
         }
