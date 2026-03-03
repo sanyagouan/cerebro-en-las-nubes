@@ -2,8 +2,6 @@ import { useState } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
   LayoutDashboard,
-  Calendar,
-  Table,
   Settings,
   Users,
   LogOut,
@@ -19,8 +17,6 @@ import {
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Login from './components/Login';
 import Dashboard from './components/Dashboard';
-import Reservas from './components/Reservas';
-import Mesas from './components/Mesas';
 import Clientes from './components/Clientes';
 import Configuracion from './components/Configuracion';
 import Analytics from './components/Analytics';
@@ -39,7 +35,7 @@ const queryClient = new QueryClient({
   },
 });
 
-type Vista = 'dashboard' | 'reservas' | 'mesas' | 'clientes' | 'analytics' | 'vapi' | 'whatsapp' | 'health' | 'config';
+type Vista = 'dashboard' | 'clientes' | 'analytics' | 'vapi' | 'whatsapp' | 'health' | 'config';
 
 function AppContent() {
   const { isAuthenticated, login, logout } = useAuth();
@@ -52,8 +48,6 @@ function AppContent() {
 
   const menuItems = [
     { id: 'dashboard' as Vista, label: 'Dashboard', icon: LayoutDashboard, description: 'Vista general' },
-    { id: 'reservas' as Vista, label: 'Reservas', icon: Calendar, description: 'Gestionar reservas' },
-    { id: 'mesas' as Vista, label: 'Mesas', icon: Table, description: 'Estado de mesas' },
     { id: 'clientes' as Vista, label: 'Clientes', icon: Users, description: 'Base de datos' },
     { id: 'analytics' as Vista, label: 'Analiticas IA', icon: TrendingUp, description: 'Metricas y reportes' },
     { id: 'vapi' as Vista, label: 'Llamadas VAPI', icon: Mic, description: 'Registro de voz' },
@@ -66,10 +60,6 @@ function AppContent() {
     switch (vistaActual) {
       case 'dashboard':
         return <Dashboard />;
-      case 'reservas':
-        return <Reservas />;
-      case 'mesas':
-        return <Mesas />;
       case 'clientes':
         return <Clientes />;
       case 'analytics':
