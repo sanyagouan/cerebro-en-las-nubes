@@ -33,7 +33,8 @@ async def verify_websocket_token(websocket: WebSocket) -> dict:
         )
         
         user_id = payload.get("sub")
-        role = payload.get("role")
+        # El JWT usa 'rol' (en español) como key del sistema
+        role = payload.get("rol") or payload.get("role")
         
         if not user_id or not role:
             await websocket.close(code=4002, reason="Invalid token payload")
@@ -129,14 +130,15 @@ async def handle_status_update(websocket: WebSocket, role: str, message: dict):
     entity_id = message.get("entity_id")
     new_status = message.get("status")
     
-    # Validar permisos según rol
+    # Validar permisos según rol (acepta aliases en español e inglés)
     allowed_updates = {
         "waiter": ["seated", "paying", "free"],
         "camarero": ["seated", "paying", "free"],
         "cook": ["ready", "preparing"],
-        "cocinero": ["ready", "preparing"],
+        "cocina": ["ready", "preparing"],
         "manager": ["seated", "paying", "free", "cancelled", "confirmed"],
         "encargada": ["seated", "paying", "free", "cancelled", "confirmed"],
+        "administradora": ["seated", "paying", "free", "cancelled", "confirmed", "no_show"],
         "admin": ["seated", "paying", "free", "cancelled", "confirmed", "no_show"]
     }
     
