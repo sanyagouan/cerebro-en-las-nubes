@@ -41,6 +41,13 @@ async def vapi_voice_webhook(request: Request):
     Devuelve TwiML para conectar la llamada con VAPI.
     """
     try:
+        content_type = request.headers.get("Content-Type", "")
+        if "application/json" in content_type:
+            data = await request.json()
+            message = data.get("message", {})
+            logger.info(f"Recibido evento JSON en webhook (VAPI). Tipo: {message.get('type')}")
+            return {"status": "ok"}
+            
         form_data = await request.form()
         from_number = form_data.get("From", "unknown")
         to_number = form_data.get("To", "unknown")

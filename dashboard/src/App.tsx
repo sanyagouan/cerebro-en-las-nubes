@@ -1,16 +1,20 @@
 import { useState } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { 
-  LayoutDashboard, 
-  Calendar, 
-  Table, 
-  Settings, 
-  Users, 
+import {
+  LayoutDashboard,
+  Calendar,
+  Table,
+  Settings,
+  Users,
   LogOut,
   Menu,
   X,
   Bell,
-  Cloud
+  Cloud,
+  TrendingUp,
+  Mic,
+  MessageSquare,
+  Activity
 } from 'lucide-react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Login from './components/Login';
@@ -19,6 +23,10 @@ import Reservas from './components/Reservas';
 import Mesas from './components/Mesas';
 import Clientes from './components/Clientes';
 import Configuracion from './components/Configuracion';
+import Analytics from './components/Analytics';
+import VAPILogs from './components/VAPILogs';
+import WhatsAppLogs from './components/WhatsAppLogs';
+import SystemHealth from './components/SystemHealth';
 
 // Create a client
 const queryClient = new QueryClient({
@@ -31,7 +39,7 @@ const queryClient = new QueryClient({
   },
 });
 
-type Vista = 'dashboard' | 'reservas' | 'mesas' | 'clientes' | 'config';
+type Vista = 'dashboard' | 'reservas' | 'mesas' | 'clientes' | 'analytics' | 'vapi' | 'whatsapp' | 'health' | 'config';
 
 function AppContent() {
   const { isAuthenticated, login, logout } = useAuth();
@@ -47,6 +55,10 @@ function AppContent() {
     { id: 'reservas' as Vista, label: 'Reservas', icon: Calendar, description: 'Gestionar reservas' },
     { id: 'mesas' as Vista, label: 'Mesas', icon: Table, description: 'Estado de mesas' },
     { id: 'clientes' as Vista, label: 'Clientes', icon: Users, description: 'Base de datos' },
+    { id: 'analytics' as Vista, label: 'Analiticas IA', icon: TrendingUp, description: 'Metricas y reportes' },
+    { id: 'vapi' as Vista, label: 'Llamadas VAPI', icon: Mic, description: 'Registro de voz' },
+    { id: 'whatsapp' as Vista, label: 'WhatsApp', icon: MessageSquare, description: 'Comunicaciones' },
+    { id: 'health' as Vista, label: 'Estado del Sistema', icon: Activity, description: 'Monitorizacion' },
     { id: 'config' as Vista, label: 'Configuracion', icon: Settings, description: 'Ajustes' },
   ];
 
@@ -60,6 +72,14 @@ function AppContent() {
         return <Mesas />;
       case 'clientes':
         return <Clientes />;
+      case 'analytics':
+        return <Analytics />;
+      case 'vapi':
+        return <VAPILogs />;
+      case 'whatsapp':
+        return <WhatsAppLogs />;
+      case 'health':
+        return <SystemHealth />;
       case 'config':
         return <Configuracion />;
       default:
@@ -71,7 +91,7 @@ function AppContent() {
     <div className="flex h-screen bg-secondary-50">
       {/* Mobile Sidebar Overlay */}
       {sidebarOpen && (
-        <div 
+        <div
           className="fixed inset-0 bg-black/50 z-40 lg:hidden"
           onClick={() => setSidebarOpen(false)}
         />
@@ -113,8 +133,8 @@ function AppContent() {
                 className={`
                   w-full flex items-center gap-3 px-4 py-3.5 rounded-xl font-medium
                   transition-all duration-200 group
-                  ${isActive 
-                    ? 'bg-primary-600 text-white shadow-glow' 
+                  ${isActive
+                    ? 'bg-primary-600 text-white shadow-glow'
                     : 'text-secondary-300 hover:bg-secondary-800 hover:text-white'
                   }
                 `}
@@ -171,11 +191,11 @@ function AppContent() {
                   {menuItems.find(item => item.id === vistaActual)?.label}
                 </h2>
                 <p className="text-sm text-secondary-500">
-                  {new Date().toLocaleDateString('es-ES', { 
-                    weekday: 'long', 
-                    year: 'numeric', 
-                    month: 'long', 
-                    day: 'numeric' 
+                  {new Date().toLocaleDateString('es-ES', {
+                    weekday: 'long',
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
                   })}
                 </p>
               </div>

@@ -12,7 +12,7 @@ def update_vapi_urls(new_base_url: str):
     assistant_id = os.getenv("VAPI_ASSISTANT_ID", "9a1f2df2-1c2d-4061-b11c-bdde7568c85d")
     
     if not api_key:
-        print("❌ Error: VAPI_API_KEY no encontrada en el .env")
+        print("Error: VAPI_API_KEY no encontrada en el .env")
         sys.exit(1)
         
     url = f"https://api.vapi.ai/assistant/{assistant_id}"
@@ -29,14 +29,14 @@ def update_vapi_urls(new_base_url: str):
         }
     }
     
-    print(f"🔄 Actualizando Asistente VAPI ({assistant_id}) a la URL: {new_base_url}")
+    print(f"Actualizando Asistente VAPI ({assistant_id}) a la URL: {new_base_url}")
     
     try:
         response = requests.patch(url, headers=headers, json=payload)
         response.raise_for_status()
-        print("✅ Configuración de VAPI actualizada correctamente en la nube.")
+        print("Configuracion de VAPI actualizada correctamente en la nube.")
     except Exception as e:
-        print(f"❌ Error actualizando VAPI:")
+        print(f"Error actualizando VAPI:")
         if hasattr(e, 'response') and e.response is not None:
             print(e.response.text)
         else:
