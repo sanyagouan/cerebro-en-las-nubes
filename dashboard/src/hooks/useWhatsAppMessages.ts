@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { API_BASE_URL } from '../config/api';
+import { api } from '../config/api';
 
 export interface WhatsAppMessage {
   id: string;
@@ -59,13 +59,14 @@ interface WhatsAppMessagesResponse {
   stats?: WhatsAppStats;
 }
 
+// ============ API FUNCTIONS — Axios con JWT automático ============
+
 async function fetchWhatsAppMessages(
   limit: number = 100,
   status?: string,
   type?: string,
   desde?: string,
-  hasta?: string,
-  token?: string
+  hasta?: string
 ): Promise<WhatsAppMessagesResponse> {
   const params = new URLSearchParams();
   params.append('limit', limit.toString());
@@ -74,81 +75,36 @@ async function fetchWhatsAppMessages(
   if (desde) params.append('desde', desde);
   if (hasta) params.append('hasta', hasta);
 
-  const response = await fetch(`${API_BASE_URL}/api/whatsapp/messages?${params}`, {
-    headers: {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-  });
-
-  if (!response.ok) {
-    throw new Error('Error al cargar mensajes de WhatsApp');
-  }
-
-  return response.json();
+  // Endpoint existente en ai_metrics_api.py — retorna {messages:[], total:N}
+  const response = await api.get(`/api/whatsapp/logs?${params.toString()}`);
+  return response.data;
 }
 
 async function fetchWhatsAppStats(
   desde?: string,
-  hasta?: string,
-  token?: string
+  hasta?: string
 ): Promise<WhatsAppStats> {
   const params = new URLSearchParams();
   if (desde) params.append('desde', desde);
   if (hasta) params.append('hasta', hasta);
 
-  const response = await fetch(`${API_BASE_URL}/api/whatsapp/stats?${params}`, {
-    headers: {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-  });
-
-  if (!response.ok) {
-    throw new Error('Error al cargar estadísticas de WhatsApp');
-  }
-
-  return response.json();
+  // Endpoint existente en ai_metrics_api.py
+  const response = await api.get(`/api/whatsapp/analytics?${params.toString()}`);
+  return response.data;
 }
 
-async function resendWhatsAppMessage(
-  messageId: string,
-  token?: string
-): Promise<WhatsAppMessage> {
-  const response = await fetch(`${API_BASE_URL}/api/whatsapp/messages/${messageId}/resend`, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-  });
-
-  if (!response.ok) {
-    throw new Error('Error al reenviar mensaje');
-  }
-
-  return response.json();
+async function resendWhatsAppMessage(messageId: string): Promise<void> {
+  await api.post(`/api/whatsapp/messages/${messageId}/resend`);
 }
 
 async function sendCustomWhatsAppMessage(
-  data: { to: string; body: string; reserva_id?: string },
-  token?: string
-): Promise<WhatsAppMessage> {
-  const response = await fetch(`${API_BASE_URL}/api/whatsapp/messages/send`, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(data),
-  });
-
-  if (!response.ok) {
-    throw new Error('Error al enviar mensaje personalizado');
-  }
-
-  return response.json();
+  data: { to: string; body: string; reserva_id?: string }
+): Promise<{ id: string; status: string }> {
+  const response = await api.post('/api/whatsapp/send', data);
+  return response.data;
 }
+
+// ============ HOOKS ============
 
 export function useWhatsAppMessages(
   limit: number = 100,
@@ -156,24 +112,24 @@ export function useWhatsAppMessages(
   type?: string,
   desde?: string,
   hasta?: string,
-  token?: string
+  _token?: string // Mantenido por compatibilidad — JWT es automático via axios
 ) {
   return useQuery({
     queryKey: ['whatsapp-messages', limit, status, type, desde, hasta],
-    queryFn: () => fetchWhatsAppMessages(limit, status, type, desde, hasta, token),
-    refetchInterval: 15000, // Refetch every 15 seconds
+    queryFn: () => fetchWhatsAppMessages(limit, status, type, desde, hasta),
+    refetchInterval: 15000,
   });
 }
 
 export function useWhatsAppStats(
   desde?: string,
   hasta?: string,
-  token?: string
+  _token?: string // Mantenido por compatibilidad — JWT es automático via axios
 ) {
   return useQuery({
     queryKey: ['whatsapp-stats', desde, hasta],
-    queryFn: () => fetchWhatsAppStats(desde, hasta, token),
-    refetchInterval: 30000, // Refetch every 30 seconds
+    queryFn: () => fetchWhatsAppStats(desde, hasta),
+    refetchInterval: 30000,
   });
 }
 
@@ -181,8 +137,8 @@ export function useResendWhatsAppMessage() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ messageId, token }: { messageId: string; token?: string }) =>
-      resendWhatsAppMessage(messageId, token),
+    mutationFn: ({ messageId }: { messageId: string; token?: string }) =>
+      resendWhatsAppMessage(messageId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['whatsapp-messages'] });
       queryClient.invalidateQueries({ queryKey: ['whatsapp-stats'] });
@@ -194,8 +150,8 @@ export function useSendCustomWhatsAppMessage() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ data, token }: { data: { to: string; body: string; reserva_id?: string }; token?: string }) =>
-      sendCustomWhatsAppMessage(data, token),
+    mutationFn: ({ data }: { data: { to: string; body: string; reserva_id?: string }; token?: string }) =>
+      sendCustomWhatsAppMessage(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['whatsapp-messages'] });
       queryClient.invalidateQueries({ queryKey: ['whatsapp-stats'] });

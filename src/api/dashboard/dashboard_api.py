@@ -153,6 +153,7 @@ async def get_current_user(request: Request):
 
     return {
         "id": payload["sub"],
-        "email": payload["email"],
-        "role": payload["role"],
+        "email": payload.get("usuario", ""),
+        "name": payload.get("nombre", ""),
+        "role": payload.get("rol", ""),
     }
