@@ -1,11 +1,12 @@
 import { useState } from 'react';
+import { api } from '../config/api';
 
 interface LoginProps {
   onLogin: (token: string) => void;
 }
 
 export default function Login({ onLogin }: LoginProps) {
-  const [email, setEmail] = useState('');
+  const [usuario, setUsuario] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -16,28 +17,18 @@ export default function Login({ onLogin }: LoginProps) {
     setLoading(true);
 
     try {
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, password }),
-      });
+      // Usar la instancia axios `api` que ya apunta al backend correcto con JWT interceptor
+      const response = await api.post('/api/auth/login', { usuario, password });
+      const data = response.data;
 
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.detail || 'Error al iniciar sesión');
-      }
-
-      const data = await response.json();
-      
       // Guardar token en localStorage
       localStorage.setItem('token', data.access_token);
-      
-      // Llamar callback con token (esto actualiza AuthContext y muestra el dashboard)
+
+      // Llamar callback con token (actualiza AuthContext y muestra el dashboard)
       onLogin(data.access_token);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error desconocido');
+    } catch (err: any) {
+      const msg = err?.response?.data?.detail || err?.message || 'Error al iniciar sesión';
+      setError(msg);
     } finally {
       setLoading(false);
     }
@@ -66,17 +57,18 @@ export default function Login({ onLogin }: LoginProps) {
           )}
 
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-slate-700 mb-2">
-              Email
+            <label htmlFor="usuario" className="block text-sm font-medium text-slate-700 mb-2">
+              Usuario
             </label>
             <input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              id="usuario"
+              type="text"
+              value={usuario}
+              onChange={(e) => setUsuario(e.target.value)}
               required
+              autoComplete="username"
               className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all"
-              placeholder="tu@email.com"
+              placeholder="administradora"
               disabled={loading}
             />
           </div>
@@ -91,6 +83,7 @@ export default function Login({ onLogin }: LoginProps) {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
+              autoComplete="current-password"
               className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all"
               placeholder="••••••••"
               disabled={loading}
@@ -116,10 +109,10 @@ export default function Login({ onLogin }: LoginProps) {
           </button>
         </form>
 
-        {/* Demo credentials hint */}
+        {/* Info de acceso */}
         <div className="mt-6 p-4 bg-slate-50 rounded-lg border border-slate-200">
           <p className="text-xs text-slate-600 text-center">
-            <span className="font-semibold">Demo:</span> admin@enlasnubes.com / admin123
+            <span className="font-semibold">Usuarios:</span> administradora · encargada · camarero · cocina
           </p>
         </div>
       </div>

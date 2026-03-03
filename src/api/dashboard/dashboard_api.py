@@ -4,7 +4,7 @@ Este router maneja autenticación y operaciones del dashboard sin el prefijo 'mo
 """
 
 from fastapi import APIRouter, HTTPException, status, Request
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel
 from loguru import logger
 
 from src.application.services.auth_service import auth_service
@@ -17,11 +17,17 @@ router = APIRouter(prefix="/api", tags=["dashboard"])
 
 
 class LoginRequest(BaseModel):
-    """Request body para login"""
+    """Request body para login — acepta 'usuario' o 'email' para compatibilidad"""
 
-    email: EmailStr
+    # El sistema usa nombres de usuario (administradora, encargada, etc.), no emails
+    usuario: str | None = None  # Campo principal (Airtable)
+    email: str | None = None    # Alias para retrocompatibilidad
     password: str
     device_token: str | None = None  # Opcional para web
+
+    def get_usuario(self) -> str:
+        """Devuelve el usuario independientemente del campo enviado."""
+        return self.usuario or self.email or ""
 
 
 class LoginResponse(BaseModel):
@@ -59,13 +65,19 @@ async def dashboard_login(request: Request, login_data: LoginRequest):
     - manager@enlasnubes.com / manager123 (encargado)
     - waiter@enlasnubes.com / waiter123 (camarero)
     """
-    # Autenticar usuario
-    user = await auth_service.authenticate_user(login_data.email, login_data.password)
+    # Autenticar usuario (acepta nombre de usuario o email)
+    identifier = login_data.get_usuario()
+    if not identifier:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Debes proporcionar el campo 'usuario' o 'email'",
+        )
+    user = await auth_service.authenticate_user(identifier, login_data.password)
 
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Email o contraseña incorrectos",
+            detail="Usuario o contraseña incorrectos",
         )
 
     # Generar tokens JWT
