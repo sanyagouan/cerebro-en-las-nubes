@@ -87,6 +87,31 @@ class AirtableService:
             logger.error(f"Error getting record from Airtable: {e}")
             return None
 
+    async def update_record(
+        self, record_id: str, fields: Dict[str, Any], table_name: Optional[str] = None
+    ) -> Optional[Dict]:
+        sanitized_fields = sanitize_reservation_data(fields)
+        if not self.api or not self.base_id:
+            logger.warning(f"Mocking Airtable update record '{record_id}': {sanitized_fields}")
+            return {"id": record_id, "fields": sanitized_fields}
+
+        target_table = table_name or self.table_name
+        try:
+            table = self.api.table(self.base_id, target_table)
+            record = table.update(record_id, sanitized_fields)
+
+            # Invalidate caches
+            cache_key = f"airtable:{target_table}:{record_id}"
+            self.cache.delete(cache_key)
+            self.cache.delete_pattern(f"airtable:{target_table}:all")
+            self.cache.delete_pattern(f"airtable:{target_table}:list:*")
+            
+            logger.info(f"Updated record '{record_id}' in table '{target_table}' and invalidated caches")
+            return record
+        except Exception as e:
+            logger.error(f"Error updating record in Airtable: {e}")
+            return None
+
     async def get_all_records(
         self, table_name: Optional[str] = None, max_records: int = 100
     ) -> List[Dict]:
@@ -115,6 +140,23 @@ class AirtableService:
             return records
         except Exception as e:
             logger.error(f"Error getting all records from Airtable: {e}")
+            return []
+
+    async def get_records_by_formula(
+        self, formula: str, table_name: Optional[str] = None, max_records: int = 50, sort: Optional[List[str]] = None
+    ) -> List[Dict]:
+        if not self.api or not self.base_id:
+            logger.warning(f"Mocking Airtable get by formula: {formula}")
+            return []
+
+        target_table = table_name or self.table_name
+        
+        try:
+            table = self.api.table(self.base_id, target_table)
+            records = table.all(formula=formula, max_records=max_records, sort=sort)
+            return records
+        except Exception as e:
+            logger.error(f"Error getting records by formula from Airtable: {e}")
             return []
 
     def get_cache_stats(self) -> Dict[str, Any]:

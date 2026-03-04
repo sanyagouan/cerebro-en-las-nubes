@@ -63,6 +63,53 @@ class TwilioService:
             logger.info(f"Intentando enviar SMS tradicional de contingencia a {to_number}...")
             return self._send_sms_fallback(to_number, message_body)
 
+    def send_whatsapp_template(
+        self, to_number: str, content_sid: str, content_variables: dict
+    ) -> Optional[str]:
+        """
+        Envía una plantilla de WhatsApp a través de Twilio Content API.
+        Supera la restricción de la ventana de 24 horas de Meta.
+        """
+        if not self.client:
+            logger.warning(f"Mocking WhatsApp Template to {to_number}: params={content_variables}")
+            return "MOCK_WHATSAPP_TEMPLATE_SID_12345"
+
+        if not self.whatsapp_from:
+            logger.error("TWILIO_WHATSAPP_NUMBER no está configurado")
+            return None
+
+        import json
+
+        try:
+            from_whatsapp = (
+                self.whatsapp_from
+                if self.whatsapp_from.startswith("whatsapp:")
+                else f"whatsapp:{self.whatsapp_from}"
+            )
+            to_whatsapp = (
+                to_number
+                if to_number.startswith("whatsapp:")
+                else f"whatsapp:{to_number}"
+            )
+
+            message = self.client.messages.create(
+                content_sid=content_sid,
+                to=to_whatsapp,
+                from_=from_whatsapp,
+                content_variables=json.dumps(content_variables)
+            )
+            logger.info(f"WhatsApp Template enviado a {to_number}: SID {message.sid}")
+            return message.sid
+        except Exception as e:
+            logger.error(f"Error enviando WhatsApp Template via Twilio API: {e}")
+            logger.info(f"Intentando enviar SMS tradicional de contingencia a {to_number}...")
+            
+            # Construir texto amigable para SMS usando las mismas variables
+            _fecha = content_variables.get("2", "")
+            _hora = content_variables.get("3", "")
+            fallback_message = f"Tu reserva en En Las Nubes el {_fecha} a las {_hora} está confirmada. Mapa: https://maps.app.goo.gl/QzCwv2ZfKjG6LpZc8"
+            return self._send_sms_fallback(to_number, fallback_message)
+
     def _send_sms_fallback(self, to_number: str, message_body: str) -> Optional[str]:
         """
         Envía un SMS tradicional si WhatsApp falla. Usa TWILIO_FROM_NUMBER.

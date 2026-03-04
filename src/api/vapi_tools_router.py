@@ -510,26 +510,17 @@ async def tool_create_reservation(request: Request):
                 except:
                     pass
 
-                whatsapp_message = f"""¡Hola {nombre}! 🎉
+                content_variables = {
+                    "1": nombre,
+                    "2": fecha_formateada,
+                    "3": hora_str
+                }
 
-Tu reserva en EN LAS NUBES RESTOBAR está confirmada:
-
-📅 {fecha_formateada}
-🕐 {hora_str}
-👥 {personas} personas
-
-📍 María Teresa Gil de Gárate 16, Logroño
-📞 941 57 84 51
-
-Responde SÍ para confirmar o NO para cancelar.
-
-¡Nos vemos! ☁️"""
-
-                sid = twilio.send_whatsapp(telefono, whatsapp_message)
-                logger.info(f"WhatsApp enviado: {sid}")
+                sid = twilio.send_whatsapp_template(telefono, "HXdb0dca8764f0021f9ff2fd197ba22497", content_variables)
+                logger.info(f"WhatsApp Template enviado con SID: {sid}")
 
             except Exception as e:
-                logger.error(f"Error enviando WhatsApp: {e}")
+                logger.error(f"Error enviando WhatsApp Template: {e}")
                 # No fallar la reserva si el WhatsApp falla
 
             return {

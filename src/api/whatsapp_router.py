@@ -43,6 +43,51 @@ async def whatsapp_webhook(
 
         logger.info(f"💬 WhatsApp from {name} ({phone}): {message}")
 
+        # --- Lógica de Confirmación Bidireccional SÍ/NO ---
+        msg_upper = message.upper()
+        if msg_upper in ["SÍ", "SI", "NO"]:
+            try:
+                from src.infrastructure.external.airtable_service import AirtableService
+                airtable_service = AirtableService()
+                
+                # Fetch recent reservations for this phone
+                lista_reservas = await airtable_service.get_records_by_formula(
+                    formula=f"{{Teléfono}} = '{phone}'",
+                    table_name="Reservas",
+                    sort=["-createdTime"]
+                )
+                
+                if lista_reservas:
+                    # Buscar la más reciente que esté Pendiente
+                    pendientes = [r for r in lista_reservas if r.get("fields", {}).get("Estado de Reserva") == "Pendiente"]
+                    if pendientes:
+                        reserva = pendientes[0]  # La primera al estar ordenado descendente
+                        reserva_id = reserva.get("id")
+                        
+                        nuevo_estado = "Confirmada" if msg_upper in ["SÍ", "SI"] else "Cancelada"
+                        
+                        await airtable_service.update_record(
+                            record_id=reserva_id,
+                            fields={"Estado de Reserva": nuevo_estado},
+                            table_name="Reservas"
+                        )
+                        
+                        logger.info(f"Reserva {reserva_id} actualizada a {nuevo_estado} vía WhatsApp interactivo.")
+                        
+                        resp_text = (
+                            "¡Genial! Hemos confirmado tu reserva. ¡Nos vemos pronto en En Las Nubes!" 
+                            if nuevo_estado == "Confirmada" 
+                            else "Entendido, hemos cancelado tu reserva. ¡Esperamos verte en otra ocasión!"
+                        )
+                        
+                        twiml = f"""<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+    <Message>{resp_text}</Message>
+</Response>"""
+                        return Response(content=twiml, media_type="application/xml")
+            except Exception as e:
+                logger.error(f"Error procesando confirmación rápida: {e}")
+
         # Process through orchestrator
         orchestrator = get_orchestrator()
         result = await orchestrator.process_message(
