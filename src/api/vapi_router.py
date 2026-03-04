@@ -132,12 +132,31 @@ async def get_assistant_config(request: Request):
         base_url = os.getenv("PUBLIC_URL", "https://api.cerebro.enlasnubes.restobar").rstrip("/")
 
         # VAPI espera la configuración DENTRO de la clave "assistant"
+        try:
+            from datetime import datetime
+            import pytz
+            madrid_tz = pytz.timezone('Europe/Madrid')
+            now_dt = datetime.now(madrid_tz)
+        except:
+            from datetime import datetime
+            now_dt = datetime.now()
+            
+        dias = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
+        meses = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
+        
+        dia_semana = dias[now_dt.weekday()]
+        mes = meses[now_dt.month - 1]
+        fecha_str = f"{dia_semana}, {now_dt.day} de {mes} de {now_dt.year}"
+        hora_str = now_dt.strftime("%H:%M")
+        
+        dynamic_system_prompt = f"[INFORMACIÓN DEL SISTEMA]\nLa fecha actual exacta es: {fecha_str}. La hora actual es: {hora_str}.\nUsa esta fecha como referencia MANDATORIA para calcular 'hoy', 'mañana' o los días de la semana de las reservas.\nBajo ningún concepto inventes fechas pasadas ni uses el año 2023, estamos en {now_dt.year}.\n\n" + SYSTEM_PROMPT_V3
+
         return {
             "assistant": {
                 "model": {
                     "provider": "openai",
                     "model": "gpt-4o",
-                    "messages": [{"role": "system", "content": SYSTEM_PROMPT_V3}],
+                    "messages": [{"role": "system", "content": dynamic_system_prompt}],
                     "temperature": 0.7,
                     "functions": [
                         {
