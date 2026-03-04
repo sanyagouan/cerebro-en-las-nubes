@@ -299,6 +299,12 @@ async def get_assistant_config(request: Request):
                     "model": "nova-2",
                     "language": "es-ES",
                 },
+                "silenceTimeoutSeconds": 30,
+                "maxDurationSeconds": 600,
+                "voicemailDetection": {
+                    "provider": "twilio",
+                },
+                "backgroundSound": "office"
             }
         }
     except Exception as e:
