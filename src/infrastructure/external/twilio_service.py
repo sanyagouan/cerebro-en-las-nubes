@@ -60,6 +60,29 @@ class TwilioService:
             return message.sid
         except Exception as e:
             logger.error(f"Error enviando WhatsApp via Twilio: {e}")
+            logger.info(f"Intentando enviar SMS tradicional de contingencia a {to_number}...")
+            return self._send_sms_fallback(to_number, message_body)
+
+    def _send_sms_fallback(self, to_number: str, message_body: str) -> Optional[str]:
+        """
+        Envía un SMS tradicional si WhatsApp falla. Usa TWILIO_FROM_NUMBER.
+        """
+        if not self.client:
+            return None
+        
+        fallback_from = os.getenv("TWILIO_FROM_NUMBER")
+        if not fallback_from:
+            logger.error("TWILIO_FROM_NUMBER no está configurado para SMS.")
+            return None
+
+        try:
+            message = self.client.messages.create(
+                body=message_body, from_=fallback_from, to=to_number
+            )
+            logger.info(f"SMS enviado a {to_number}: SID {message.sid}")
+            return message.sid
+        except Exception as ex:
+            logger.error(f"Error enviando SMS de contingencia: {ex}")
             return None
 
     def send_sms(self, to_number: str, message_body: str) -> Optional[str]:
