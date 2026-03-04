@@ -21,26 +21,8 @@ RUN npm run build
 # Stage 2: Producción con nginx
 FROM nginx:alpine
 
-# Copiar configuración nginx
-RUN echo 'server { \
-    listen 80; \
-    server_name localhost; \
-    root /usr/share/nginx/html; \
-    index index.html; \
-    location / { \
-        try_files $uri $uri/ /index.html; \
-    } \
-    location /api { \
-        proxy_pass https://go84sgscs4ckcs08wog84o0o.app.generaia.site; \
-        proxy_http_version 1.1; \
-        proxy_set_header Upgrade $http_upgrade; \
-        proxy_set_header Connection "upgrade"; \
-        proxy_set_header Host $host; \
-        proxy_set_header X-Real-IP $remote_addr; \
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for; \
-        proxy_set_header X-Forwarded-Proto $scheme; \
-    } \
-}' > /etc/nginx/conf.d/default.conf
+# Copiar la configuración nginx externa (incluye cabecera anti-QUIC Alt-Svc: clear)
+COPY nginx.conf /etc/nginx/conf.d/default.conf
 
 # Copiar build desde stage anterior
 COPY --from=builder /app/dist /usr/share/nginx/html
