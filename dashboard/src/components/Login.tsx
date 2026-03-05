@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { api } from '../config/api';
 
 interface LoginProps {
-  onLogin: (token: string) => void;
+  onLogin: (token: string, user: any) => void;
 }
 
 export default function Login({ onLogin }: LoginProps) {
@@ -23,10 +23,12 @@ export default function Login({ onLogin }: LoginProps) {
 
       // Guardar token en localStorage
       localStorage.setItem('token', data.access_token);
+      localStorage.setItem('user', JSON.stringify(data.user));
 
-      // Llamar callback con token (actualiza AuthContext y muestra el dashboard)
-      onLogin(data.access_token);
+      // Llamar callback con token y user (actualiza AuthContext y muestra el dashboard)
+      onLogin(data.access_token, data.user);
     } catch (err: any) {
+
       const msg = err?.response?.data?.detail || err?.message || 'Error al iniciar sesión';
       setError(msg);
     } finally {

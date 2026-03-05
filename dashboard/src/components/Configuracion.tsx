@@ -64,10 +64,11 @@ interface UserFormData {
   name: string;
   email: string;
   phone: string;
-  role: 'Waiter' | 'Cook' | 'Manager' | 'Admin' | 'Technician';
+  role: 'administradora' | 'encargada' | 'camarero' | 'cocina' | 'tecnico';
   is_active: boolean;
   password?: string;
 }
+
 
 // ==================== UTILS ====================
 
@@ -866,7 +867,8 @@ interface UsuariosSectionProps {
 
 function UsuariosSection({ onEdit, onDelete, onCreateNew }: UsuariosSectionProps) {
   const { data, isLoading } = useUsers();
-  const [roleFilter, setRoleFilter] = useState<'all' | 'Waiter' | 'Cook' | 'Manager' | 'Admin' | 'Technician'>('all');
+  const [roleFilter, setRoleFilter] = useState<'all' | 'administradora' | 'encargada' | 'camarero' | 'cocina' | 'tecnico'>('all');
+
 
   const filteredUsers = useMemo(() => {
     if (!data?.users) return [];
@@ -895,11 +897,12 @@ function UsuariosSection({ onEdit, onDelete, onCreateNew }: UsuariosSectionProps
             className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
           >
             <option value="all">Todos los Roles</option>
-            <option value="Waiter">Camareros</option>
-            <option value="Cook">Cocineros</option>
-            <option value="Manager">Encargados</option>
-            <option value="Admin">Administradores</option>
-            <option value="Technician">Técnicos</option>
+            <option value="camarero">Camareros</option>
+            <option value="cocina">Cocineros</option>
+            <option value="encargada">Encargados</option>
+            <option value="administradora">Administradores</option>
+            <option value="tecnico">Técnicos</option>
+
           </select>
           <button
             onClick={onCreateNew}
@@ -937,19 +940,20 @@ function UsuariosSection({ onEdit, onDelete, onCreateNew }: UsuariosSectionProps
                   <td className="px-4 py-3 text-sm text-gray-600">{user.phone}</td>
                   <td className="px-4 py-3">
                     <span
-                      className={`px-2 py-1 rounded-full text-xs font-medium ${user.role === 'Admin'
+                      className={`px-2 py-1 rounded-full text-xs font-medium ${user.role === 'administradora'
                         ? 'bg-purple-100 text-purple-700'
-                        : user.role === 'Technician'
+                        : user.role === 'tecnico'
                           ? 'bg-indigo-100 text-indigo-700'
-                          : user.role === 'Manager'
+                          : user.role === 'encargada'
                             ? 'bg-blue-100 text-blue-700'
-                            : user.role === 'Waiter'
+                            : user.role === 'camarero'
                               ? 'bg-green-100 text-green-700'
                               : 'bg-orange-100 text-orange-700'
                         }`}
                     >
                       {user.role}
                     </span>
+
                   </td>
                   <td className="px-4 py-3">
                     <span
@@ -1135,10 +1139,11 @@ function UserFormModal({ user, onClose, onSuccess, onError }: UserFormModalProps
         name: '',
         email: '',
         phone: '',
-        role: 'Waiter',
+        role: 'camarero',
         is_active: true,
         password: '',
       }
+
   );
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -1238,12 +1243,13 @@ function UserFormModal({ user, onClose, onSuccess, onError }: UserFormModalProps
               onChange={(e) => setFormData({ ...formData, role: e.target.value as any })}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
             >
-              <option value="Waiter">Camarero</option>
-              <option value="Cook">Cocinero</option>
-              <option value="Manager">Encargado</option>
-              <option value="Admin">Administrador</option>
-              <option value="Technician">Técnico</option>
+              <option value="camarero">Camarero</option>
+              <option value="cocina">Cocinero</option>
+              <option value="encargada">Encargado</option>
+              <option value="administradora">Administrador</option>
+              <option value="tecnico">Técnico</option>
             </select>
+
           </div>
 
           <div>

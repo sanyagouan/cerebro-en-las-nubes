@@ -52,11 +52,12 @@ export interface StaffUser {
   name: string;
   email: string;
   phone: string;
-  role: 'Waiter' | 'Cook' | 'Manager' | 'Admin' | 'Technician';
+  role: 'administradora' | 'encargada' | 'camarero' | 'cocina' | 'tecnico';
   is_active: boolean;
   created_at: string;
   last_login?: string;
 }
+
 
 // ==================== HOOKS — Axios con JWT automático ====================
 

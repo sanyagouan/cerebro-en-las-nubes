@@ -38,8 +38,9 @@ const queryClient = new QueryClient({
 type Vista = 'dashboard' | 'clientes' | 'analytics' | 'vapi' | 'whatsapp' | 'health' | 'config';
 
 function AppContent() {
-  const { isAuthenticated, login, logout } = useAuth();
+  const { isAuthenticated, login, logout, user } = useAuth();
   const [vistaActual, setVistaActual] = useState<Vista>('dashboard');
+
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   if (!isAuthenticated) {
@@ -145,11 +146,11 @@ function AppContent() {
         <div className="p-4 border-t border-secondary-800">
           <div className="flex items-center gap-3 px-3 py-2 mb-3">
             <div className="w-9 h-9 rounded-full bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center text-white font-semibold text-sm">
-              A
+              {user?.name?.charAt(0).toUpperCase() || 'U'}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-white truncate">Administrador</p>
-              <p className="text-xs text-secondary-400">admin@enlasnubes.com</p>
+              <p className="text-sm font-medium text-white truncate">{user?.name || 'Usuario'}</p>
+              <p className="text-xs text-secondary-400 truncate">{user?.email || 'sin-usuario'}</p>
             </div>
           </div>
           <button
@@ -160,6 +161,7 @@ function AppContent() {
             <span className="font-medium">Cerrar Sesion</span>
           </button>
         </div>
+
       </aside>
 
       {/* Main Content */}
