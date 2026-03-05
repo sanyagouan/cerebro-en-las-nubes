@@ -30,13 +30,6 @@ ROLE_MAP_DB_TO_UI = {v: k for k, v in ROLE_MAP_UI_TO_DB.items()}
 async def get_schedule(user: TokenData = Depends(require_role(READ_ROLES))):
     """Horario semanal basado en la configuración real de Airtable."""
     schedule = await config_repository.get_param("schedule", default=[])
-    if not schedule:
-        # Fallback inicial si la tabla está vacía
-        days = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"]
-        schedule = [
-            {"day": d, "is_open": d != "lunes", "lunch_start": "13:30", "lunch_end": "16:00", 
-             "dinner_start": "20:30", "dinner_end": "23:30"} for d in days
-        ]
     return {"schedule": schedule}
 
 @router.put("/schedule")
@@ -84,12 +77,7 @@ async def update_shift(shift_id: str, data: dict, user: TokenData = Depends(requ
 @router.get("/capacity")
 async def get_capacity(user: TokenData = Depends(require_role(READ_ROLES))):
     """Configuración de capacidad persistente en Airtable."""
-    capacity = await config_repository.get_param("capacity", default={
-        "max_simultaneous_reservations": 20,
-        "max_party_size": 12,
-        "min_party_size": 1,
-        "overbooking_percentage": 0,
-    })
+    capacity = await config_repository.get_param("capacity", default={})
     return capacity
 
 @router.put("/capacity")
@@ -101,12 +89,7 @@ async def update_capacity(data: dict, user: TokenData = Depends(require_role(WRI
 @router.get("/timings")
 async def get_timings(user: TokenData = Depends(require_role(READ_ROLES))):
     """Tiempos de ocupación de mesa persistentes en Airtable."""
-    timings = await config_repository.get_param("timings", default=[
-        {"party_size_min": 1, "party_size_max": 2, "duration_minutes": 90},
-        {"party_size_min": 3, "party_size_max": 4, "duration_minutes": 105},
-        {"party_size_min": 5, "party_size_max": 6, "duration_minutes": 120},
-        {"party_size_min": 7, "party_size_max": 12, "duration_minutes": 150},
-    ])
+    timings = await config_repository.get_param("timings", default=[])
     return {"timings": timings}
 
 @router.put("/timings")

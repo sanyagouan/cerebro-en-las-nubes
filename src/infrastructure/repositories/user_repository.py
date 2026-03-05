@@ -42,6 +42,8 @@ class UserRepository:
         """
         try:
             formula = f"{{{FIELD_MAP['usuario']}}} = '{usuario}'"
+            logger.debug(f"Buscando usuario en Airtable con fórmula: {formula}")
+            
             result = await airtable_client.list_records(
                 base_id=BASE_ID,
                 table_name=TABLE_NAME,
@@ -50,6 +52,8 @@ class UserRepository:
             )
 
             records = result.get("records", [])
+            logger.debug(f"Registros encontrados para '{usuario}': {len(records)}")
+            
             if records:
                 return User.from_airtable(records[0])
             return None

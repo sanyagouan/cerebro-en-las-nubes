@@ -1,0 +1,127 @@
+[
+  {
+    "id": "7d7ddadf-759d-4414-a4d0-7f8191d183a2",
+    "createdAt": "2026-02-18T15:20:45.182Z",
+    "updatedAt": "2026-02-18T16:01:51.548Z",
+    "type": "function",
+    "function": {
+      "name": "get_info",
+      "description": "Obtiene información del restaurante: dirección, teléfono, parking, especialidad.",
+      "parameters": {
+        "type": "object",
+        "properties": {}
+      }
+    },
+    "orgId": "b5b7310a-c483-4b48-b04f-0f520e262f95",
+    "server": {
+      "url": "https://go84sgscs4ckcs08wog84o0o.app.generaia.site/vapi/tools/get_info"
+    }
+  },
+  {
+    "id": "7cf36f29-2f03-4173-903e-dae1e1b416fa",
+    "createdAt": "2026-02-18T15:15:18.893Z",
+    "updatedAt": "2026-02-18T16:00:18.598Z",
+    "type": "function",
+    "function": {
+      "name": "get_horarios",
+      "description": "Obtiene los horarios y turnos disponibles para una fecha específica. CONSULTA SIEMPRE esta tool antes de decir si está abierto o cerrado.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "fecha": {
+            "description": "Fecha a consultar en formato YYYY-MM-DD. Si no se proporciona, usa hoy.",
+            "type": "string"
+          }
+        }
+      }
+    },
+    "orgId": "b5b7310a-c483-4b48-b04f-0f520e262f95",
+    "server": {
+      "url": "https://go84sgscs4ckcs08wog84o0o.app.generaia.site/vapi/tools/get_horarios"
+    }
+  },
+  {
+    "id": "836b5649-4087-40dd-83c8-7f0c640a3a3e",
+    "createdAt": "2025-12-08T02:11:26.683Z",
+    "updatedAt": "2026-02-19T10:52:43.588Z",
+    "type": "function",
+    "function": {
+      "name": "create_reservation",
+      "description": "Crea una reserva en el sistema. Requiere nombre, teléfono, fecha, hora y personas.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "pax": {
+            "description": "Número de personas",
+            "type": "integer"
+          },
+          "date": {
+            "description": "Fecha (YYYY-MM-DD)",
+            "type": "string"
+          },
+          "time": {
+            "description": "Hora (HH:MM)",
+            "type": "string"
+          },
+          "phone": {
+            "description": "Teléfono del cliente",
+            "type": "string"
+          },
+          "customer_name": {
+            "description": "Nombre del cliente",
+            "type": "string"
+          }
+        },
+        "required": [
+          "date",
+          "time",
+          "pax",
+          "customer_name"
+        ]
+      }
+    },
+    "messages": [],
+    "orgId": "b5b7310a-c483-4b48-b04f-0f520e262f95",
+    "server": {
+      "url": "https://go84sgscs4ckcs08wog84o0o.app.generaia.site/vapi/tools/create_reservation",
+      "timeoutSeconds": 20
+    }
+  },
+  {
+    "id": "6e6b8cca-99cd-4ce0-84b2-4cc9b423be9e",
+    "createdAt": "2025-12-08T02:02:51.973Z",
+    "updatedAt": "2026-02-19T10:52:43.217Z",
+    "type": "function",
+    "function": {
+      "name": "check_availability",
+      "description": "Verifica disponibilidad de mesas para una fecha y hora. USA ESTA TOOL para saber si hay mesa.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "pax": {
+            "description": "Número de personas",
+            "type": "integer"
+          },
+          "date": {
+            "description": "Fecha (YYYY-MM-DD)",
+            "type": "string"
+          },
+          "time": {
+            "description": "Hora (HH:MM)",
+            "type": "string"
+          }
+        },
+        "required": [
+          "date",
+          "time"
+        ]
+      }
+    },
+    "messages": [],
+    "orgId": "b5b7310a-c483-4b48-b04f-0f520e262f95",
+    "server": {
+      "url": "https://go84sgscs4ckcs08wog84o0o.app.generaia.site/vapi/tools/check_availability",
+      "timeoutSeconds": 20
+    }
+  }
+]

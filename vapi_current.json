@@ -1,0 +1,37 @@
+{
+  "id": "9a1f2df2-1c2d-4061-b11c-bdde7568c85d",
+  "orgId": "b5b7310a-c483-4b48-b04f-0f520e262f95",
+  "name": "Nube - En Las Nubes",
+  "voice": {
+    "model": "eleven_multilingual_v2",
+    "voiceId": "cgSgspJ2msm6clMCkdW9",
+    "provider": "11labs",
+    "stability": 0.5,
+    "similarityBoost": 0.75
+  },
+  "createdAt": "2026-01-24T16:04:44.735Z",
+  "updatedAt": "2026-03-03T23:01:42.701Z",
+  "model": {
+    "model": "gpt-4o",
+    "toolIds": [
+      "7d7ddadf-759d-4414-a4d0-7f8191d183a2",
+      "7cf36f29-2f03-4173-903e-dae1e1b416fa",
+      "6e6b8cca-99cd-4ce0-84b2-4cc9b423be9e",
+      "836b5649-4087-40dd-83c8-7f0c640a3a3e"
+    ],
+    "provider": "openai"
+  },
+  "firstMessage": "¡Hola! Soy Nube, la recepcionista del restobar En Las Nubes. ¿En qué te puedo ayudar hoy? ¿Deseas hacer una reserva?",
+  "transcriber": {
+    "model": "nova-2",
+    "language": "es",
+    "provider": "deepgram"
+  },
+  "serverUrl": "https://go84sgscs4ckcs08wog84o0o.app.generaia.site/vapi/webhook",
+  "backgroundSound": "off",
+  "firstMessageMode": "assistant-speaks-first",
+  "server": {
+    "url": "https://go84sgscs4ckcs08wog84o0o.app.generaia.site/vapi/assistant"
+  },
+  "isServerUrlSecretSet": false
+}

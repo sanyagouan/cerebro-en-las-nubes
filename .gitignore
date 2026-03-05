@@ -149,3 +149,8 @@ $RECYCLE.BIN/
 # ========================================
 workflows/
 *.bat
+calls.json
+coolify_logs.txt
+
+*.txt
+*.log

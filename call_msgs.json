@@ -1,0 +1,43 @@
+[
+  {
+    "role": "system",
+    "time": 1772575795047,
+    "message": "You are an assistant.",
+    "secondsFromStart": 0
+  },
+  {
+    "role": "bot",
+    "time": 1772575812338,
+    "source": "",
+    "endTime": 1772575815618,
+    "message": "It seems like your message got cut off. Could you please provide more",
+    "duration": 3280,
+    "secondsFromStart": 17.094
+  },
+  {
+    "role": "user",
+    "time": 1772575815037.999,
+    "endTime": 1772575815818,
+    "message": "No, ma'am.",
+    "duration": 780.0009765625,
+    "metadata": {
+      "wordLevelConfidence": [
+        {
+          "end": 20.18,
+          "word": "no",
+          "start": 19.779999,
+          "confidence": 0.43859863,
+          "punctuated_word": "No,"
+        },
+        {
+          "end": 20.56,
+          "word": "ma'am",
+          "start": 20.18,
+          "confidence": 0.85723877,
+          "punctuated_word": "ma'am."
+        }
+      ]
+    },
+    "secondsFromStart": 19.7799990234375
+  }
+]

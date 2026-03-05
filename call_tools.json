@@ -1,0 +1,74 @@
+[
+  {
+    "role": "tool_calls",
+    "time": 1772611993810,
+    "message": "",
+    "toolCalls": [
+      {
+        "id": "call_fEsPgj4cWlnw7HQmLxsxwTAZ",
+        "type": "function",
+        "function": {
+          "name": "get_horarios",
+          "arguments": "{\"fecha\": \"2023-10-08\"}"
+        }
+      },
+      {
+        "id": "call_AfQTVuvF893SUjryEQhGk6NE",
+        "type": "function",
+        "function": {
+          "name": "check_availability",
+          "arguments": "{\"pax\": 4, \"date\": \"2023-10-08\", \"time\": \"11:30\"}"
+        }
+      }
+    ],
+    "secondsFromStart": 16.994
+  },
+  {
+    "role": "tool_calls",
+    "time": 1772612017289,
+    "message": "",
+    "toolCalls": [
+      {
+        "id": "call_c5fvxvp52N2LHn1GTvNF4OnU",
+        "type": "function",
+        "function": {
+          "name": "check_availability",
+          "arguments": "{\"pax\": 6, \"date\": \"2023-10-08\", \"time\": \"13:00\"}"
+        }
+      }
+    ],
+    "secondsFromStart": 40.473
+  },
+  {
+    "role": "tool_calls",
+    "time": 1772612030292,
+    "message": "",
+    "toolCalls": [
+      {
+        "id": "call_NcpI1GNWCL5dHK57douOYdIu",
+        "type": "function",
+        "function": {
+          "name": "check_availability",
+          "arguments": "{\"pax\": 6, \"date\": \"2023-10-08\", \"time\": \"14:30\"}"
+        }
+      }
+    ],
+    "secondsFromStart": 53.476
+  },
+  {
+    "role": "tool_calls",
+    "time": 1772612079085,
+    "message": "",
+    "toolCalls": [
+      {
+        "id": "call_S4GNp7cyQTgklOiDSzEvC3FY",
+        "type": "function",
+        "function": {
+          "name": "create_reservation",
+          "arguments": "{\n  \"pax\": 6,\n  \"date\": \"2023-10-08\",\n  \"time\": \"14:30\",\n  \"phone\": \"630217868\",\n  \"customer_name\": \"Santiago Iturbe\"\n}"
+        }
+      }
+    ],
+    "secondsFromStart": 102.269
+  }
+]
