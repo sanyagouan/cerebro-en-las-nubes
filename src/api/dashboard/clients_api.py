@@ -26,7 +26,7 @@ RESERVATION_FIELDS = {
     "nombre": "Nombre",         # Nombre del cliente
     "telefono": "Teléfono",     # Teléfono del cliente
     "email": "Email",
-    "fecha": "Fecha",
+    "fecha": "Fecha de Reserva",
     "hora": "Hora",
     "pax": "Pax",
     "estado": "Estado",
@@ -62,7 +62,7 @@ def _build_client_from_reservations(phone: str, reservations: list) -> dict:
         tier = "Regular"
 
     # Fechas primera y última reserva
-    fechas = [r.get("fields", {}).get("Fecha", "") for r in reservations if r.get("fields", {}).get("Fecha")]
+    fechas = [r.get("fields", {}).get("Fecha de Reserva", "") for r in reservations if r.get("fields", {}).get("Fecha de Reserva")]
     fechas_sorted = sorted([f for f in fechas if f])
 
     return {
@@ -95,7 +95,7 @@ async def _get_all_reservations(filter_formula: Optional[str] = None, max_record
             table_name=RESERVATIONS_TABLE,
             max_records=max_records,
             filterByFormula=filter_formula,
-            sort=[{"field": "Fecha", "direction": "desc"}],
+            sort=[{"field": "Fecha de Reserva", "direction": "desc"}],
         )
         return response.get("records", [])
     except Exception as e:

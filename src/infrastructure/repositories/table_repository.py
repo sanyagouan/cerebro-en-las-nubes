@@ -6,7 +6,7 @@ from typing import List, Optional, Dict, Any
 from datetime import datetime
 import logging
 
-from src.core.entities.table import Table, TableZone, TableStatus
+from src.core.entities.table import Table, TableZone, TableStatus, normalize_zone
 from src.infrastructure.mcp.airtable_client import airtable_client
 
 logger = logging.getLogger(__name__)
@@ -94,7 +94,7 @@ class TableRepository:
         return Table(
             id=table_id,
             nombre=nombre,
-            zona=TableZone(zona_str),
+            zona=TableZone(normalize_zone(zona_str)),
             capacidad_min=capacidad_min,
             capacidad_max=capacidad_max,
             ampliable=ampliable,
