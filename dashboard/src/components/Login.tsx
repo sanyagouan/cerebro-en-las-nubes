@@ -68,7 +68,7 @@ export default function Login({ onLogin }: LoginProps) {
               required
               autoComplete="username"
               className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all"
-              placeholder="administradora"
+              placeholder="correo@ejemplo.com"
               disabled={loading}
             />
           </div>
@@ -108,13 +108,6 @@ export default function Login({ onLogin }: LoginProps) {
             )}
           </button>
         </form>
-
-        {/* Info de acceso */}
-        <div className="mt-6 p-4 bg-slate-50 rounded-lg border border-slate-200">
-          <p className="text-xs text-slate-600 text-center">
-            <span className="font-semibold">Usuarios:</span> administradora · encargada · camarero · cocina
-          </p>
-        </div>
       </div>
     </div>
   );

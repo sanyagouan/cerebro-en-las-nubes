@@ -143,43 +143,79 @@ async def update_timings(data: dict, user: TokenData = Depends(require_role(["ad
     return {"timings": data.get("timings", []), "updated": True}
 
 
+from src.infrastructure.repositories.user_repository import user_repository
+from src.application.services.auth_service import auth_service
+
 @router.get("/users")
 async def get_users(user: TokenData = Depends(require_role(["administradora"]))):
-    """Usuarios del sistema."""
-    return {
-        "users": [
-            {
-                "id": "usr-1",
-                "name": "Administrador",
-                "email": "admin@enlasnubes.com",
-                "phone": "+34600000001",
-                "role": "administradora",
-                "is_active": True,
-                "created_at": (datetime.now() - timedelta(days=365)).isoformat(),
-            },
-            {
-                "id": "usr-2",
-                "name": "Encargada",
-                "email": "encargada@enlasnubes.com",
-                "phone": "+34600000002",
-                "role": "encargada",
-                "is_active": True,
-                "created_at": (datetime.now() - timedelta(days=180)).isoformat(),
-            },
-        ]
-    }
+    """Usuarios reales del sistema desde Airtable."""
+    db_users = await user_repository.list_all()
+    # Mapeo a frontend: usuario -> email, nombre -> name, etc.
+    users_mapped = []
+    for u in db_users:
+        users_mapped.append({
+            "id": u.id,
+            "name": u.nombre,
+            "email": u.usuario,
+            "phone": u.telefono or "",
+            "role": u.rol.value,
+            "is_active": u.activo,
+            "created_at": "2026-01-01T00:00:00"  # Opcional, db no lo expone siempre
+        })
+    return {"users": users_mapped}
 
 
 @router.post("/users")
 async def create_user(data: dict, user: TokenData = Depends(require_role(["administradora"]))):
-    return {"id": f"usr-{datetime.now().timestamp()}", **data, "created_at": datetime.now().isoformat()}
+    # Generar hash de la contraseña (si viene vacía, por defecto 'admin123')
+    raw_password = data.get("password") or "admin123"
+    password_hash = await auth_service.hash_password(raw_password)
+    
+    nuevo = await user_repository.create(
+        usuario=data.get("email"),
+        nombre=data.get("name"),
+        password_hash=password_hash,
+        rol=data.get("role", "camarero").lower(),
+        telefono=data.get("phone")
+    )
+    if data.get("is_active") is False:
+        await user_repository.deactivate(nuevo.id)
+    
+    return {
+        "id": nuevo.id,
+        "name": nuevo.nombre,
+        "email": nuevo.usuario,
+        "phone": nuevo.telefono,
+        "role": nuevo.rol.value,
+        "is_active": data.get("is_active", True)
+    }
 
 
 @router.put("/users/{user_id}")
 async def update_user(user_id: str, data: dict, user: TokenData = Depends(require_role(["administradora"]))):
-    return {"id": user_id, **data, "updated": True}
+    updates = {
+        "usuario": data.get("email"),
+        "nombre": data.get("name"),
+        "rol": data.get("role", "").lower(),
+        "telefono": data.get("phone"),
+        "activo": data.get("is_active")
+    }
+    # Filtrar None values
+    updates = {k: v for k, v in updates.items() if v is not None}
+    
+    updated_user = await user_repository.update(user_id, **updates)
+    
+    # Si viene password e input no esta vacio, actualizamos hash
+    pwd = data.get("password")
+    if pwd and pwd.strip():
+        new_hash = await auth_service.hash_password(pwd.strip())
+        await user_repository.update_password(user_id, new_hash)
+
+    return {"id": user_id, "updated": True}
 
 
 @router.delete("/users/{user_id}")
 async def delete_user(user_id: str, user: TokenData = Depends(require_role(["administradora"]))):
+    # En Airtable lo marcamos como inactivo (soft delete)
+    await user_repository.deactivate(user_id)
     return {"deleted": True}

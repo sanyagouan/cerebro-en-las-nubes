@@ -66,6 +66,7 @@ interface UserFormData {
   phone: string;
   role: 'Waiter' | 'Cook' | 'Manager' | 'Admin';
   is_active: boolean;
+  password?: string;
 }
 
 // ==================== UTILS ====================
@@ -1125,6 +1126,7 @@ function UserFormModal({ user, onClose, onSuccess, onError }: UserFormModalProps
         phone: user.phone,
         role: user.role,
         is_active: user.is_active,
+        password: '',
       }
       : {
         name: '',
@@ -1132,6 +1134,7 @@ function UserFormModal({ user, onClose, onSuccess, onError }: UserFormModalProps
         phone: '',
         role: 'Waiter',
         is_active: true,
+        password: '',
       }
   );
 
@@ -1210,6 +1213,18 @@ function UserFormModal({ user, onClose, onSuccess, onError }: UserFormModalProps
               onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
               placeholder="612345678"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Contraseña {user && '(dejar en blanco para mantener actual)'}</label>
+            <input
+              type="text"
+              value={formData.password}
+              onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+              placeholder={user ? "••••••••" : "Nueva contraseña"}
+              required={!user}
             />
           </div>
 
