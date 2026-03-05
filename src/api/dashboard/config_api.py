@@ -1,211 +1,168 @@
-"""
-API endpoints para Configuración del Dashboard.
-Provee datos mock del horario, turnos, festivos y usuarios del restaurante.
-"""
-from datetime import datetime, timedelta
-from fastapi import APIRouter, Depends
+from datetime import datetime
+from fastapi import APIRouter, Depends, HTTPException
 from src.application.services.auth_service import TokenData, require_role
+from src.infrastructure.repositories.user_repository import user_repository
+from src.infrastructure.repositories.shift_repository import shift_repository
+from src.infrastructure.repositories.holiday_repository import holiday_repository
+from src.infrastructure.repositories.config_repository import config_repository
+from src.application.services.auth_service import auth_service
 
 router = APIRouter(prefix="/api/config", tags=["config"])
 
+# Roles permitidos para lectura general
+READ_ROLES = ["administradora", "encargada", "tecnico"]
+# Roles permitidos para escritura
+WRITE_ROLES = ["administradora", "tecnico"]
+
+# Mapeo de roles Dashboard UI -> Airtable DB
+ROLE_MAP_UI_TO_DB = {
+    "Admin": "administradora",
+    "Manager": "encargada",
+    "Waiter": "camarero",
+    "Cook": "cocina",
+    "Technician": "tecnico"
+}
+
+# Mapeo de roles Airtable DB -> Dashboard UI
+ROLE_MAP_DB_TO_UI = {v: k for k, v in ROLE_MAP_UI_TO_DB.items()}
 
 @router.get("/schedule")
-async def get_schedule(user: TokenData = Depends(require_role(["administradora", "encargada"]))):
-    """Horario semanal del restaurante."""
-    days = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"]
-    return {
-        "schedule": [
-            {
-                "day": day,
-                "is_open": day not in ["lunes"],
-                "lunch_start": "13:30",
-                "lunch_end": "16:00",
-                "dinner_start": "20:30",
-                "dinner_end": "23:30",
-            }
-            for day in days
+async def get_schedule(user: TokenData = Depends(require_role(READ_ROLES))):
+    """Horario semanal basado en la configuración real de Airtable."""
+    schedule = await config_repository.get_param("schedule", default=[])
+    if not schedule:
+        # Fallback inicial si la tabla está vacía
+        days = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"]
+        schedule = [
+            {"day": d, "is_open": d != "lunes", "lunch_start": "13:30", "lunch_end": "16:00", 
+             "dinner_start": "20:30", "dinner_end": "23:30"} for d in days
         ]
-    }
-
+    return {"schedule": schedule}
 
 @router.put("/schedule")
-async def update_schedule(data: dict, user: TokenData = Depends(require_role(["administradora"]))):
-    return {"updated": True, "schedule": data.get("schedule", [])}
-
+async def update_schedule(data: dict, user: TokenData = Depends(require_role(WRITE_ROLES))):
+    """Actualiza el horario semanal en Airtable."""
+    success = await config_repository.set_param("schedule", data.get("schedule", []), "JSON")
+    return {"updated": success}
 
 @router.get("/holidays")
-async def get_holidays(user: TokenData = Depends(require_role(["administradora", "encargada"]))):
-    """Festivos y días especiales."""
-    return {
-        "holidays": [
-            {
-                "id": "hol-1",
-                "date": f"{datetime.now().year}-12-25",
-                "name": "Navidad",
-                "is_closed": True,
-            },
-            {
-                "id": "hol-2",
-                "date": f"{datetime.now().year}-01-01",
-                "name": "Año Nuevo",
-                "is_closed": True,
-            },
-            {
-                "id": "hol-3",
-                "date": f"{datetime.now().year}-08-15",
-                "name": "Asunción",
-                "is_closed": False,
-                "special_hours": {
-                    "dinner_start": "21:00",
-                    "dinner_end": "23:00",
-                },
-            },
-        ]
-    }
-
+async def get_holidays(user: TokenData = Depends(require_role(READ_ROLES))):
+    """Festivos reales desde la tabla 'Días Especiales' de Airtable."""
+    holidays = await holiday_repository.list_all()
+    return {"holidays": holidays}
 
 @router.post("/holidays")
-async def create_holiday(data: dict, user: TokenData = Depends(require_role(["administradora"]))):
-    return {"id": f"hol-{datetime.now().timestamp()}", **data}
-
+async def create_holiday(data: dict, user: TokenData = Depends(require_role(WRITE_ROLES))):
+    """Crea un nuevo festivo en Airtable."""
+    new_id = await holiday_repository.create(data)
+    return {"id": new_id, **data}
 
 @router.put("/holidays/{holiday_id}")
-async def update_holiday(holiday_id: str, data: dict, user: TokenData = Depends(require_role(["administradora"]))):
-    return {"id": holiday_id, **data, "updated": True}
-
+async def update_holiday(holiday_id: str, data: dict, user: TokenData = Depends(require_role(WRITE_ROLES))):
+    """Actualiza un festivo existente."""
+    success = await holiday_repository.update(holiday_id, data)
+    return {"id": holiday_id, "updated": success}
 
 @router.delete("/holidays/{holiday_id}")
-async def delete_holiday(holiday_id: str, user: TokenData = Depends(require_role(["administradora"]))):
-    return {"deleted": True}
-
+async def delete_holiday(holiday_id: str, user: TokenData = Depends(require_role(WRITE_ROLES))):
+    """Elimina un festivo de Airtable."""
+    success = await holiday_repository.delete(holiday_id)
+    return {"deleted": success}
 
 @router.get("/shifts")
-async def get_shifts(user: TokenData = Depends(require_role(["administradora", "encargada"]))):
-    """Turnos del restaurante."""
-    return {
-        "shifts": [
-            {
-                "id": "shift-almuerzo",
-                "name": "almuerzo",
-                "default_start": "13:30",
-                "default_end": "16:00",
-                "max_capacity": 60,
-                "is_active": True,
-            },
-            {
-                "id": "shift-cena",
-                "name": "cena",
-                "default_start": "20:30",
-                "default_end": "23:30",
-                "max_capacity": 80,
-                "is_active": True,
-            },
-        ]
-    }
-
+async def get_shifts(user: TokenData = Depends(require_role(READ_ROLES))):
+    """Turnos reales desde la tabla 'Turnos' de Airtable."""
+    shifts = await shift_repository.list_all()
+    return {"shifts": shifts}
 
 @router.put("/shifts/{shift_id}")
-async def update_shift(shift_id: str, data: dict, user: TokenData = Depends(require_role(["administradora"]))):
-    return {"id": shift_id, **data, "updated": True}
-
+async def update_shift(shift_id: str, data: dict, user: TokenData = Depends(require_role(WRITE_ROLES))):
+    """Actualiza la configuración de un turno en Airtable."""
+    success = await shift_repository.update(shift_id, data)
+    return {"id": shift_id, "updated": success}
 
 @router.get("/capacity")
-async def get_capacity(user: TokenData = Depends(require_role(["administradora", "encargada"]))):
-    """Configuración de capacidad."""
-    return {
+async def get_capacity(user: TokenData = Depends(require_role(READ_ROLES))):
+    """Configuración de capacidad persistente en Airtable."""
+    capacity = await config_repository.get_param("capacity", default={
         "max_simultaneous_reservations": 20,
         "max_party_size": 12,
         "min_party_size": 1,
         "overbooking_percentage": 0,
-    }
-
+    })
+    return capacity
 
 @router.put("/capacity")
-async def update_capacity(data: dict, user: TokenData = Depends(require_role(["administradora"]))):
-    return {**data, "updated": True}
-
+async def update_capacity(data: dict, user: TokenData = Depends(require_role(WRITE_ROLES))):
+    """Actualiza los límites de capacidad en Airtable."""
+    success = await config_repository.set_param("capacity", data, "JSON")
+    return {**data, "updated": success}
 
 @router.get("/timings")
-async def get_timings(user: TokenData = Depends(require_role(["administradora", "encargada"]))):
-    """Tiempos de ocupación de mesa por tamaño de grupo."""
-    return {
-        "timings": [
-            {"party_size_min": 1, "party_size_max": 2, "duration_minutes": 90},
-            {"party_size_min": 3, "party_size_max": 4, "duration_minutes": 105},
-            {"party_size_min": 5, "party_size_max": 6, "duration_minutes": 120},
-            {"party_size_min": 7, "party_size_max": 12, "duration_minutes": 150},
-        ]
-    }
-
+async def get_timings(user: TokenData = Depends(require_role(READ_ROLES))):
+    """Tiempos de ocupación de mesa persistentes en Airtable."""
+    timings = await config_repository.get_param("timings", default=[
+        {"party_size_min": 1, "party_size_max": 2, "duration_minutes": 90},
+        {"party_size_min": 3, "party_size_max": 4, "duration_minutes": 105},
+        {"party_size_min": 5, "party_size_max": 6, "duration_minutes": 120},
+        {"party_size_min": 7, "party_size_max": 12, "duration_minutes": 150},
+    ])
+    return {"timings": timings}
 
 @router.put("/timings")
-async def update_timings(data: dict, user: TokenData = Depends(require_role(["administradora"]))):
-    return {"timings": data.get("timings", []), "updated": True}
-
-
-from src.infrastructure.repositories.user_repository import user_repository
-from src.application.services.auth_service import auth_service
+async def update_timings(data: dict, user: TokenData = Depends(require_role(WRITE_ROLES))):
+    """Actualiza los rangos de tiempo en Airtable."""
+    success = await config_repository.set_param("timings", data.get("timings", []), "JSON")
+    return {"timings": data.get("timings", []), "updated": success}
 
 @router.get("/users")
-async def get_users(user: TokenData = Depends(require_role(["administradora"]))):
-    """Usuarios reales del sistema desde Airtable."""
+async def get_users(user: TokenData = Depends(require_role(["administradora", "tecnico"]))):
+    """Usuarios reales desde la tabla 'Usuarios' de Airtable."""
     db_users = await user_repository.list_all()
-    # Mapeo a frontend: usuario -> email, nombre -> name, etc.
     users_mapped = []
+    # Mapeo de roles usando el mapa global
     for u in db_users:
         users_mapped.append({
             "id": u.id,
             "name": u.nombre,
             "email": u.usuario,
             "phone": u.telefono or "",
-            "role": u.rol.value,
-            "is_active": u.activo,
-            "created_at": "2026-01-01T00:00:00"  # Opcional, db no lo expone siempre
+            "role": ROLE_MAP_DB_TO_UI.get(u.rol.value, "Waiter"),
+            "is_active": u.activo
         })
     return {"users": users_mapped}
 
-
 @router.post("/users")
-async def create_user(data: dict, user: TokenData = Depends(require_role(["administradora"]))):
-    # Generar hash de la contraseña (si viene vacía, por defecto 'admin123')
+async def create_user(data: dict, user: TokenData = Depends(require_role(["administradora", "tecnico"]))):
+    """Crea un nuevo usuario en Airtable con contraseña hasheada."""
     raw_password = data.get("password") or "admin123"
     password_hash = await auth_service.hash_password(raw_password)
     
+    # Mapeo de roles UI -> Airtable
+    db_role = ROLE_MAP_UI_TO_DB.get(data.get("role"), "camarero")
+
     nuevo = await user_repository.create(
         usuario=data.get("email"),
         nombre=data.get("name"),
         password_hash=password_hash,
-        rol=data.get("role", "camarero").lower(),
+        rol=db_role,
         telefono=data.get("phone")
     )
-    if data.get("is_active") is False:
-        await user_repository.deactivate(nuevo.id)
-    
-    return {
-        "id": nuevo.id,
-        "name": nuevo.nombre,
-        "email": nuevo.usuario,
-        "phone": nuevo.telefono,
-        "role": nuevo.rol.value,
-        "is_active": data.get("is_active", True)
-    }
-
+    return {"id": nuevo.id, "success": True}
 
 @router.put("/users/{user_id}")
-async def update_user(user_id: str, data: dict, user: TokenData = Depends(require_role(["administradora"]))):
-    updates = {
-        "usuario": data.get("email"),
-        "nombre": data.get("name"),
-        "rol": data.get("role", "").lower(),
-        "telefono": data.get("phone"),
-        "activo": data.get("is_active")
-    }
-    # Filtrar None values
-    updates = {k: v for k, v in updates.items() if v is not None}
+async def update_user(user_id: str, data: dict, user: TokenData = Depends(require_role(["administradora", "tecnico"]))):
+    """Actualiza datos de un usuario en Airtable."""
+    updates = {}
+    if data.get("email"): updates["usuario"] = data.get("email")
+    if data.get("name"): updates["nombre"] = data.get("name")
+    if data.get("role"): updates["rol"] = ROLE_MAP_UI_TO_DB.get(data.get("role"))
+    if data.get("phone"): updates["telefono"] = data.get("phone")
+    if "is_active" in data: updates["activo"] = data.get("is_active")
+
+    await user_repository.update(user_id, **updates)
     
-    updated_user = await user_repository.update(user_id, **updates)
-    
-    # Si viene password e input no esta vacio, actualizamos hash
+    # Actualizar contraseña si se proporciona una nueva
     pwd = data.get("password")
     if pwd and pwd.strip():
         new_hash = await auth_service.hash_password(pwd.strip())
@@ -213,9 +170,8 @@ async def update_user(user_id: str, data: dict, user: TokenData = Depends(requir
 
     return {"id": user_id, "updated": True}
 
-
 @router.delete("/users/{user_id}")
-async def delete_user(user_id: str, user: TokenData = Depends(require_role(["administradora"]))):
-    # En Airtable lo marcamos como inactivo (soft delete)
+async def delete_user(user_id: str, user: TokenData = Depends(require_role(["administradora", "tecnico"]))):
+    """Desactiva un usuario en Airtable."""
     await user_repository.deactivate(user_id)
     return {"deleted": True}

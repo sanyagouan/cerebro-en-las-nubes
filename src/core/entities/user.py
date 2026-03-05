@@ -15,6 +15,7 @@ class RolUsuario(str, Enum):
     ENCARGADA = "encargada"
     CAMARERO = "camarero"
     COCINA = "cocina"
+    TECNICO = "tecnico"
 
 
 @dataclass

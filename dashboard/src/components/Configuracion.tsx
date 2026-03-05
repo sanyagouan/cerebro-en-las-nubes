@@ -64,7 +64,7 @@ interface UserFormData {
   name: string;
   email: string;
   phone: string;
-  role: 'Waiter' | 'Cook' | 'Manager' | 'Admin';
+  role: 'Waiter' | 'Cook' | 'Manager' | 'Admin' | 'Technician';
   is_active: boolean;
   password?: string;
 }
@@ -866,7 +866,7 @@ interface UsuariosSectionProps {
 
 function UsuariosSection({ onEdit, onDelete, onCreateNew }: UsuariosSectionProps) {
   const { data, isLoading } = useUsers();
-  const [roleFilter, setRoleFilter] = useState<'all' | 'Waiter' | 'Cook' | 'Manager' | 'Admin'>('all');
+  const [roleFilter, setRoleFilter] = useState<'all' | 'Waiter' | 'Cook' | 'Manager' | 'Admin' | 'Technician'>('all');
 
   const filteredUsers = useMemo(() => {
     if (!data?.users) return [];
@@ -899,6 +899,7 @@ function UsuariosSection({ onEdit, onDelete, onCreateNew }: UsuariosSectionProps
             <option value="Cook">Cocineros</option>
             <option value="Manager">Encargados</option>
             <option value="Admin">Administradores</option>
+            <option value="Technician">Técnicos</option>
           </select>
           <button
             onClick={onCreateNew}
@@ -938,11 +939,13 @@ function UsuariosSection({ onEdit, onDelete, onCreateNew }: UsuariosSectionProps
                     <span
                       className={`px-2 py-1 rounded-full text-xs font-medium ${user.role === 'Admin'
                         ? 'bg-purple-100 text-purple-700'
-                        : user.role === 'Manager'
-                          ? 'bg-blue-100 text-blue-700'
-                          : user.role === 'Waiter'
-                            ? 'bg-green-100 text-green-700'
-                            : 'bg-orange-100 text-orange-700'
+                        : user.role === 'Technician'
+                          ? 'bg-indigo-100 text-indigo-700'
+                          : user.role === 'Manager'
+                            ? 'bg-blue-100 text-blue-700'
+                            : user.role === 'Waiter'
+                              ? 'bg-green-100 text-green-700'
+                              : 'bg-orange-100 text-orange-700'
                         }`}
                     >
                       {user.role}
@@ -1239,6 +1242,7 @@ function UserFormModal({ user, onClose, onSuccess, onError }: UserFormModalProps
               <option value="Cook">Cocinero</option>
               <option value="Manager">Encargado</option>
               <option value="Admin">Administrador</option>
+              <option value="Technician">Técnico</option>
             </select>
           </div>
 

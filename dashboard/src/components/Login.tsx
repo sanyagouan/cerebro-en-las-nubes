@@ -68,7 +68,7 @@ export default function Login({ onLogin }: LoginProps) {
               required
               autoComplete="username"
               className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all"
-              placeholder="correo@ejemplo.com"
+              placeholder="Introduce tu usuario"
               disabled={loading}
             />
           </div>
@@ -85,7 +85,7 @@ export default function Login({ onLogin }: LoginProps) {
               required
               autoComplete="current-password"
               className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all"
-              placeholder="••••••••"
+              placeholder="Introduce tu contraseña"
               disabled={loading}
             />
           </div>
