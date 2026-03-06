@@ -128,28 +128,22 @@ async def get_system_metrics(user: TokenData = Depends(require_role(ALLOWED_ROLE
     }
 
 
+from src.infrastructure.external.vapi_service import vapi_service
+from src.infrastructure.external.twilio_service import twilio_service
+
 @router.get("/vapi/logs")
 async def get_vapi_logs(
     limit: int = Query(100, ge=1, le=500),
     user: TokenData = Depends(require_role(ALLOWED_ROLES))
 ):
-    """Logs de llamadas VAPI. Limpio de datos mock."""
-    # En un sistema real, aquí consultaríamos la API de VAPI o una tabla de logs en DB
-    return {"calls": [], "total": 0, "message": "No hay llamadas recientes registradas"}
+    """Logs de llamadas VAPI reales."""
+    return await vapi_service.get_calls(limit=limit)
 
 
 @router.get("/vapi/analytics")
 async def get_vapi_analytics(user: TokenData = Depends(require_role(ALLOWED_ROLES))):
-    """Analíticas de VAPI. Limpio de datos mock."""
-    return {
-        "total_calls": 0,
-        "completed_calls": 0,
-        "failed_calls": 0,
-        "avg_duration_seconds": 0,
-        "total_cost": 0.0,
-        "conversion_rate": 0.0,
-        "reservations_created": 0,
-    }
+    """Analíticas de VAPI reales."""
+    return await vapi_service.get_analytics()
 
 
 @router.get("/whatsapp/logs")
@@ -157,23 +151,14 @@ async def get_whatsapp_logs(
     limit: int = Query(50, ge=1, le=200),
     user: TokenData = Depends(require_role(ALLOWED_ROLES))
 ):
-    """Logs de mensajes WhatsApp. Limpio de datos mock."""
-    return {"messages": [], "total": 0, "message": "No hay mensajes recientes en el log"}
+    """Logs de mensajes WhatsApp reales de Twilio."""
+    return await twilio_service.get_messages(limit=limit)
 
 
 @router.get("/whatsapp/analytics")
 async def get_whatsapp_analytics(user: TokenData = Depends(require_role(ALLOWED_ROLES))):
-    """Analíticas de WhatsApp. Limpio de datos mock."""
-    return {
-        "total_messages": 0,
-        "sent_messages": 0,
-        "delivered_messages": 0,
-        "read_messages": 0,
-        "failed_messages": 0,
-        "delivery_rate": 0.0,
-        "read_rate": 0.0,
-        "total_cost": 0.0,
-    }
+    """Analíticas de WhatsApp reales de Twilio."""
+    return await twilio_service.get_analytics()
 
 
 @router.get("/mobile/activity")
