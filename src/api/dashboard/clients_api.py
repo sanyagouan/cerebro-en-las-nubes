@@ -184,7 +184,7 @@ async def get_client_stats(user: TokenData = Depends(require_role(ALLOWED_ROLES)
         total_reservas_count += client["total_reservas"]
         # Reservas del mes actual
         for r in reservas:
-            fecha = r.get("fields", {}).get("Fecha", "")
+            fecha = r.get("fields", {}).get("Fecha de Reserva", "")
             if fecha.startswith(mes_actual):
                 stats["reservas_mes_actual"] += 1
 
@@ -257,7 +257,7 @@ async def get_client_reservations(
         reservations.append({
             "id": r.get("id"),
             "customer_id": customer_id,
-            "fecha": f.get("Fecha", ""),
+            "fecha": f.get("Fecha de Reserva", ""),
             "hora": f.get("Hora", ""),
             "pax": f.get("Pax", f.get("Comensales", 0)),
             "estado": f.get("Estado", ""),

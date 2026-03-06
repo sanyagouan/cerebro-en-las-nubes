@@ -84,7 +84,7 @@ async def get_reservations_in_period(
 ) -> List[Dict[str, Any]]:
     """Obtiene todas las reservas en un período"""
     try:
-        formula = f"AND(IS_AFTER({{fecha}}, '{start_date}'), IS_BEFORE({{fecha}}, '{end_date}'))"
+        formula = f"AND(IS_AFTER({{Fecha de Reserva}}, '{start_date}'), IS_BEFORE({{Fecha de Reserva}}, '{end_date}'))"
         result = await airtable.query_data_source(
             data_source_id="appQ2ZXAR68cqDmJt",
             filter={"formula": formula},
@@ -238,7 +238,7 @@ async def get_occupancy_stats(
     # Agrupar por día
     daily_occupancy: Dict[str, List[Dict]] = {}
     for r in reservations:
-        fecha_str = r.get("fields", {}).get("fecha", "")
+        fecha_str = r.get("fields", {}).get("Fecha de Reserva", "")
         if fecha_str:
             if fecha_str not in daily_occupancy:
                 daily_occupancy[fecha_str] = []
@@ -338,7 +338,7 @@ async def export_analytics_csv(
         fields = r.get("fields", {})
         row = [
             r.get("id", ""),
-            fields.get("fecha", ""),
+            fields.get("Fecha de Reserva", ""),
             fields.get("hora", ""),
             fields.get("nombre_cliente", ""),
             fields.get("telefono", ""),
