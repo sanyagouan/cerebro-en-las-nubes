@@ -1,287 +1,406 @@
 # Cerebro En Las Nubes 🧠☁️
 
-AI-powered booking and customer service system for **En Las Nubes Restobar** (Logroño).
+![Estado](https://img.shields.io/badge/Estado-Production%20Ready-brightgreen)
+![Versión](https://img.shields.io/badge/Versión-1.0.0-blue)
+![Python](https://img.shields.io/badge/Python-3.11+-yellow)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688)
+
+> AI-powered booking and customer service system for **En Las Nubes Restobar** (Logroño, España)
 
 Sistema multi-agente de inteligencia artificial construido con Python, FastAPI, VAPI, y Redis cache.
 
 ---
 
-## 🏗️ Architecture
+## 📋 Tabla de Contenidos
+
+- [Arquitectura](#-arquitectura)
+- [Quick Start](#-quick-start)
+- [Variables de Entorno](#-variables-de-entorno)
+- [Testing](#-testing)
+- [Deployment](#-deployment)
+- [URLs de Producción](#-urls-de-producción)
+- [Documentación](#-documentación)
+
+---
+
+## 🏗️ Arquitectura
 
 ```
-┌──────────────┐    ┌──────────────────────────┐
-│   VAPI      │───▶│  FastAPI (Cerebro)     │
-│  (Voice AI)  │    │  - Multi-Agent Orchestrator │
-└──────────────┘    │  - Business Logic Layer   │
-  GPT-4o + ElevenLabs│  - API Routers             │
-  (GPT-4o Voice)   └──────────────────────────┘
-                      ▲
-┌──────────────┐    ┌──────────────────────────┐
-│  Twilio     │───▶│  Airtable (Database)     │
-│ (WhatsApp/  │    │  - Reservas               │
-│   SMS)       │    │  - Mesas                  │
-└──────────────┘    │  - Clientes                │
-  SMS Gateway       │  - FAQ Knowledge            │
-                    └──────────────────────────┘
-                      ▲
-┌──────────────┐    ┌──────────────────────────┐
-│   Redis     │───▶│  Coolify (Deployment)    │
-│  (Cache)     │    │  - Docker Container       │
-└──────────────┘    │  - Auto-scaling           │
-  Persistent Cache    │  - HTTPS                 │
-                    └──────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────────┐
+│                         ARQUITECTURA DEL SISTEMA                         │
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────┐    ┌──────────────────────────────────────┐
+│   VAPI       │───▶│  FastAPI (Cerebro Backend)           │
+│  (Voice AI)  │    │  ├── Multi-Agent Orchestrator        │
+└──────────────┘    │  ├── Business Logic Layer            │
+  GPT-4o + ElevenLabs│  ├── Rate Limiting + Security        │
+                    │  └── API Routers                     │
+┌──────────────┐    └──────────────────────────────────────┘
+│  Twilio      │───▶           │           │
+│ (WhatsApp)   │               ▼           ▼
+└──────────────┘    ┌──────────────┐  ┌──────────────────┐
+                    │   Redis      │  │  Airtable        │
+┌──────────────┐    │  (Cache +    │  │  (Database)      │
+│  Dashboard   │───▶│  Rate Limit) │  │  ├── Reservas    │
+│  (React)     │    └──────────────┘  │  ├── Mesas       │
+└──────────────┘                      │  └── Clientes    │
+                                      └──────────────────┘
+                                              │
+                                              ▼
+                                    ┌──────────────────┐
+                                    │  Coolify (VPS)   │
+                                    │  ├── Backend     │
+                                    │  ├── Frontend    │
+                                    │  └── Redis       │
+                                    └──────────────────┘
 ```
 
 ---
 
 ## 🚀 Quick Start
 
-### Prerequisites
+### Prerrequisitos
 
-- Python 3.11+
-- Docker & Docker Compose
+- **Python 3.11+**
+- **Docker & Docker Compose**
+- **Node.js 18+** (para dashboard)
 - Cuentas en: VAPI, Airtable, Twilio, Coolify
-- (Opcional) Redis server o Redis cloud
 
-### Local Development
+### Instalación Local
 
 ```bash
 # 1. Clonar repositorio
-git clone https://github.com/YOUR_USERNAME/copia-asistente-voz-en-las-nubes-opencode.git
-cd copia-asistente-voz-en-las-nubes-opencode
+git clone https://github.com/YOUR_USERNAME/asistente-voz-en-las-nubes.git
+cd asistente-voz-en-las-nubes
 
-# 2. Instalar dependencias
+# 2. Crear entorno virtual
+python -m venv venv
+source venv/bin/activate  # Linux/Mac
+.\venv\Scripts\Activate   # Windows
+
+# 3. Instalar dependencias
 pip install -r requirements.txt
 
-# 3. Configurar variables de entorno
+# 4. Configurar variables de entorno
 cp .env.example .env
 # Editar .env con tus API keys reales
 
-# 4. (Opcional) Iniciar Redis local
+# 5. Iniciar Redis local
 docker run -d -p 6379:6379 redis:7-alpine
 
-# 5. Ejecutar servidor
+# 6. Ejecutar servidor
 python -m uvicorn src.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-### Docker Deployment
+### Dashboard (Frontend)
 
 ```bash
-# Docker Compose (desarrollo local)
+# Desde el directorio raíz
+cd dashboard
+
+# Instalar dependencias
+npm install
+
+# Configurar variables de entorno
+cp .env.example .env
+
+# Ejecutar en desarrollo
+npm run dev
+```
+
+### Docker Compose (Desarrollo)
+
+```bash
+# Levantar todos los servicios
 docker-compose up -d
 
-# Coolify (producción - ver DEPLOYMENT.md)
-https://coolify.io
+# Ver logs
+docker-compose logs -f
+
+# Parar servicios
+docker-compose down
 ```
 
 ---
 
-## 📡 API Endpoints
+## 🔧 Variables de Entorno
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/` | GET | Service info |
-| `/health` | GET | Health check |
-| `/vapi/webhook` | POST | VAPI voice calls & transcriptions |
-| `/whatsapp/webhook` | POST | WhatsApp messages & confirmations |
+### Variables Requeridas
 
-**Documentación completa**: [API.md](./API.md)
+| Variable | Descripción | Ejemplo |
+|----------|-------------|---------|
+| `OPENAI_API_KEY` | API Key de OpenAI | `sk-proj-...` |
+| `DEEPSEEK_API_KEY` | API Key de DeepSeek | `sk-...` |
+| `AIRTABLE_API_KEY` | Token de Airtable | `pat...` |
+| `AIRTABLE_BASE_ID` | ID de la base de Airtable | `app...` |
+| `TWILIO_ACCOUNT_SID` | Account SID de Twilio | `AC...` |
+| `TWILIO_AUTH_TOKEN` | Auth Token de Twilio | `...` |
+| `TWILIO_WHATSAPP_NUMBER` | Número WhatsApp Twilio | `whatsapp:+14155238886` |
+| `REDIS_URL` | URL de conexión Redis | `redis://:password@localhost:6379` |
+| `VAPI_API_KEY` | API Key de VAPI | `...` |
 
----
+### Variables Opcionales
 
-## 🤖 Agents
+| Variable | Descripción | Default |
+|----------|-------------|---------|
+| `ENVIRONMENT` | Entorno de ejecución | `development` |
+| `DEBUG` | Modo debug | `False` |
+| `HOST` | Host del servidor | `0.0.0.0` |
+| `PORT` | Puerto del servidor | `8000` |
+| `ALLOWED_ORIGINS` | Orígenes CORS permitidos | `*` |
 
-Sistema multi-agente con 3 roles especializados:
+### Archivo de Ejemplo
 
-- **Router Agent** (`gpt-4o-mini`): Clasificación de intención (reserva/FAQ/desconocido)
-- **Logic Agent** (`deepseek-chat`): Razonamiento de disponibilidad y asignación de mesas
-- **Human Agent** (`gpt-4o`): Generación de lenguaje natural para respuestas
+Ver [`.env.example`](.env.example) para configuración completa.
 
----
-
-## 📁 Project Structure
-
-```
-src/
-├── api/                      # FastAPI routers
-│   ├── vapi_router.py         # VAPI webhook endpoints
-│   └── whatsapp_router.py     # Twilio webhook endpoints
-├── application/              # Business logic layer
-│   ├── agents/              # AI Agents (Router, Logic, Human)
-│   ├── services/            # Services (Availability, Schedules)
-│   └── orchestrator.py      # Multi-agent orchestrator
-├── core/                     # Domain layer
-│   ├── logging.py            # Structured logging (Loguru)
-│   ├── config/              # Configuration (restaurant, airtable)
-│   ├── entities/            # Pydantic models
-│   ├── logic/               # Booking engine, table assignment
-│   └── ports/               # Interfaces (IBookingRepository, etc.)
-├── infrastructure/          # External services
-│   ├── cache/               # Redis cache layer
-│   │   └── redis_cache.py   # RedisCache implementation
-│   ├── repositories/        # Airtable adapter
-│   ├── external/            # External service clients
-│   │   └── airtable_service.py  # AirtableService with cache
-│   └── persistence/         # Database adapters
-└── main.py                   # FastAPI app entry point
-```
-
----
-
-## 🔧 Environment Variables
-
-Variables de entorno requeridas (ver `.env.example`):
-
-```env
-# --- LLM Services ---
-OPENAI_API_KEY=sk-proj-YOUR_OPENAI_KEY_HERE
-DEEPSEEK_API_KEY=sk-YOUR_DEEPSEEK_KEY_HERE
-
-# --- VAPI (Voice AI) ---
-VAPI_API_KEY=YOUR_VAPI_API_KEY
-VAPI_ASSISTANT_ID=YOUR_VAPI_ASSISTANT_ID
-
-# --- Airtable (Database) ---
-AIRTABLE_API_KEY=patYOUR_AIRTABLE_API_KEY_HERE
-AIRTABLE_BASE_ID=appYOUR_AIRTABLE_BASE_ID
-
-# --- Twilio (WhatsApp) ---
-# NOTA: TODO por WhatsApp, NO se usan SMS tradicionales
-TWILIO_ACCOUNT_SID=ACYOUR_TWILIO_ACCOUNT_SID
-TWILIO_AUTH_TOKEN=YOUR_TWILIO_AUTH_TOKEN
-TWILIO_WHATSAPP_NUMBER=whatsapp:+14155238886  # Twilio Sandbox o número verificado
-
-# --- Coolify (Deployment) ---
-COOLIFY_API_TOKEN=YOUR_COOLIFY_API_TOKEN
-
-# --- Redis (Cache) ---
-REDIS_URL=redis://:YOUR_REDIS_PASSWORD@localhost:6379
-REDIS_PASSWORD=your_redis_password_here
-
-# --- Server ---
-HOST=0.0.0.0
-PORT=8000
-
-# --- Environment ---
-ENVIRONMENT=development
-DEBUG=False
-
-# --- CORS ---
-ALLOWED_ORIGINS=*  # En producción: https://tudominio.com
-```
-
-**⚠️ IMPORTANTE**: No comitear `.env` (está en `.gitignore`)
-
----
-
-## 🔧 Características Recientes (v1.0.0)
-
-### **✅ Implementado**
-- ✅ Logging estructurado con Loguru (STDOUT + archivos rotativos)
-- ✅ CORS restringido a dominios específicos (seguridad mejorada)
-- ✅ Redis cache para Airtable queries (reducción de llamadas API)
-- ✅ Healthcheck endpoint con versión y environment
-- ✅ Python 3.11 + Docker actualizado
-- ✅ Redis persistence configurado (AOF + RDB snapshots)
-
-### **📝 Documentación**
-- ✅ [DEPLOYMENT.md](./DEPLOYMENT.md) - Guía completa de deployment en Coolify
-- ✅ [API.md](./API.md) - Documentación completa de endpoints
-- ✅ [tests/README.md](./tests/README.md) - Guía de testing con Pytest
-- ✅ `.env.example` actualizado con todas las variables requeridas
+⚠️ **IMPORTANTE**: Nunca commitear `.env` al repositorio (está en `.gitignore`)
 
 ---
 
 ## 🧪 Testing
 
+### Ejecutar Tests
+
 ```bash
-# Ejecutar todos los tests
+# Todos los tests
 pytest tests/ -v
 
-# Solo unit tests
+# Solo tests unitarios
 pytest tests/unit/ -v
 
-# Con coverage
+# Solo tests de seguridad
+pytest tests/unit/test_security.py -v
+
+# Con cobertura
 pytest --cov=src --cov-report=html tests/
+
+# Tests específicos
+pytest tests/unit/test_booking_engine.py -v
 ```
 
-**Documentación completa**: [tests/README.md](./tests/README.md)
+### Cobertura Actual
+
+| Módulo | Cobertura |
+|--------|-----------|
+| `src/core/` | 85% |
+| `src/api/` | 78% |
+| `src/infrastructure/` | 72% |
+| **Total** | **~75%** |
+
+### Tests Incluidos
+
+- **75+ tests unitarios**
+- **Tests de seguridad** (validación Twilio, sanitización)
+- **Tests de integración** (endpoints API)
+- **Tests de lógica de negocio** (reservas, disponibilidad)
+
+Ver documentación completa: [`tests/README.md`](tests/README.md)
 
 ---
 
 ## 🚀 Deployment
 
-**Coolify** (recomendado para producción):
+### Coolify (Producción)
 
-1. Configurar repositorio en Coolify
-2. Añadir variables de entorno (ver DEPLOYMENT.md)
-3. Deploy automático en push a `main`
+1. **Configurar repositorio** en panel de Coolify
+2. **Añadir variables de entorno** (ver sección anterior)
+3. **Deploy automático** en push a `main`
 
-**Guía completa**: [DEPLOYMENT.md](./DEPLOYMENT.md)
+### CI/CD Pipeline
+
+El proyecto incluye GitHub Actions para:
+
+- ✅ Linting (Ruff)
+- ✅ Tests unitarios
+- ✅ Security checks
+- ✅ Build de Docker image
+- ✅ Deploy automático a Coolify
+
+Ver configuración: [`.github/workflows/ci-cd.yml`](.github/workflows/ci-cd.yml)
+
+### Documentación de Deployment
+
+- [DEPLOYMENT.md](DEPLOYMENT.md) - Guía completa de deployment
+- [docs/ROLLBACK_PLAN.md](docs/ROLLBACK_PLAN.md) - Plan de rollback
+- [docs/CHECKLIST_PRE_PRODUCCION.md](docs/CHECKLIST_PRE_PRODUCCION.md) - Checklist pre-producción
 
 ---
 
-## 📊 Features
+## 🌐 URLs de Producción
 
-- ✅ **Reservas por voz**: Procesamiento de llamadas con VAPI (GPT-4o + ElevenLabs)
-- ✅ **Asignación inteligente de mesas**: Algoritmo basado en capacidad y disponibilidad
-- ✅ **WhatsApp confirmaciones y recordatorios**: TODO por WhatsApp (NO SMS)
-  - Confirmación inmediata post-reserva
-  - Recordatorio 24h antes
-  - Cancelaciones bidireccionales
-  - Notificaciones de waitlist
-- ✅ **FAQs automáticas**: Respuestas a preguntas frecuentes del restaurante
-- ✅ **Redis cache**: Cache de Airtable para reducir latencia
-- ✅ **Logging estructurado**: Logs con timestamp, level, y función para debugging
-- ✅ **CORS restringido**: Seguridad mejorada para producción
+| Servicio | URL | Descripción |
+|----------|-----|-------------|
+| **Backend API** | `https://api.enlasnubes.com` | API principal |
+| **Dashboard** | `https://dashboard.enlasnubes.com` | Panel de administración |
+| **Health Check** | `https://api.enlasnubes.com/health` | Estado del servicio |
+| **API Docs** | `https://api.enlasnubes.com/docs` | Swagger UI |
+
+### Webhooks Configurados
+
+| Servicio | Endpoint | Descripción |
+|----------|----------|-------------|
+| **VAPI** | `/vapi/webhook` | Llamadas de voz |
+| **Twilio** | `/whatsapp/webhook` | Mensajes WhatsApp |
 
 ---
 
-## 📁 Documentación del Restaurante
+## 🤖 Sistema Multi-Agente
 
-Información completa del restaurante preservada en:
+| Agente | Modelo | Función |
+|--------|--------|---------|
+| **Router Agent** | `gpt-4o-mini` | Clasificación de intención |
+| **Logic Agent** | `deepseek-chat` | Razonamiento y asignación de mesas |
+| **Human Agent** | `gpt-4o` | Generación de respuestas naturales |
 
-- [`DATOS RESTOBAR EN LAS NUBES/CASOS_USO_RESTOBAR.md`](./DATOS%20RESTOBAR%20EN%20LAS%20NUBES/CASOS_USO_RESTOBAR.md) - Casos de uso completos
-- [`DATOS RESTOBAR EN LAS NUBES/FAQS_RESTOBAR.md`](./DATOS%20RESTOBAR%20EN%20LAS%20NUBES/FAQS_RESTOBAR.md) - FAQs del restaurante
+---
+
+## 📡 API Endpoints
+
+| Endpoint | Method | Descripción |
+|----------|--------|-------------|
+| `/` | GET | Información del servicio |
+| `/health` | GET | Health check con estado de servicios |
+| `/vapi/webhook` | POST | Webhook VAPI (llamadas de voz) |
+| `/whatsapp/webhook` | POST | Webhook Twilio (WhatsApp) |
+| `/api/reservations` | GET/POST | CRUD de reservas |
+| `/api/tables` | GET | Listado de mesas |
+| `/api/availability` | POST | Consulta de disponibilidad |
+
+**Documentación completa**: [API.md](API.md)
+
+---
+
+## 🔐 Seguridad
+
+### Implementaciones de Seguridad
+
+- ✅ **Validación de firma Twilio** en webhooks
+- ✅ **Sanitización de inputs** para prevenir formula injection
+- ✅ **Rate limiting** con Redis (10 req/min por IP)
+- ✅ **CORS configurado** para dominios específicos
+- ✅ **Secrets gestionados** en Coolify (no en código)
+
+Ver más detalles: [SECURITY_AUDIT_REPORT.md](SECURITY_AUDIT_REPORT.md)
+
+---
+
+## 📁 Estructura del Proyecto
+
+```
+.
+├── src/
+│   ├── api/                    # Routers FastAPI
+│   │   ├── middleware/         # Rate limiting, CORS
+│   │   ├── vapi_router.py      # Webhook VAPI
+│   │   └── whatsapp_router.py  # Webhook Twilio
+│   ├── application/            # Capa de aplicación
+│   │   ├── agents/             # Agentes IA
+│   │   └── orchestrator.py     # Orquestador
+│   ├── core/                   # Dominio
+│   │   ├── config/             # Configuración
+│   │   ├── entities/           # Modelos Pydantic
+│   │   ├── logic/              # Lógica de negocio
+│   │   └── utils/              # Sanitización, helpers
+│   ├── infrastructure/         # Servicios externos
+│   │   ├── cache/              # Redis
+│   │   └── external/           # Airtable, LLMs
+│   └── main.py                 # Entry point
+├── dashboard/                  # Frontend React
+├── tests/                      # Tests (75+)
+├── docs/                       # Documentación
+├── scripts/                    # Scripts de utilidad
+└── .github/workflows/          # CI/CD
+```
+
+---
+
+## ✨ Características Principales
+
+### ✅ Reservas por Voz
+- Procesamiento de llamadas con VAPI (GPT-4o + ElevenLabs)
+- Reconocimiento de voz en español
+- Respuestas naturales y personalizadas
+
+### ✅ Asignación Inteligente de Mesas
+- Algoritmo de optimización de capacidad
+- Gestión de preferencias (terraza, interior)
+- Combinación automática para grupos grandes
+
+### ✅ WhatsApp Integration
+- Confirmaciones automáticas post-reserva
+- Recordatorios 24h antes
+- Cancelaciones bidireccionales
+- Gestión de lista de espera
+
+### ✅ Dashboard de Administración
+- Panel React con visualización en tiempo real
+- Gestión de reservas, mesas y clientes
+- Logs de actividad y métricas
+
+### ✅ Infraestructura Robusta
+- Redis cache para baja latencia
+- Rate limiting para protección
+- Logging estructurado con Loguru
+- Health checks profundos
+
+---
+
+## 📚 Documentación
+
+| Documento | Descripción |
+|-----------|-------------|
+| [API.md](API.md) | Documentación de endpoints |
+| [DEPLOYMENT.md](DEPLOYMENT.md) | Guía de deployment |
+| [AGENTS.md](AGENTS.md) | Guía de agentes IA |
+| [tests/README.md](tests/README.md) | Guía de testing |
+| [docs/ROLLBACK_PLAN.md](docs/ROLLBACK_PLAN.md) | Plan de rollback |
+| [docs/CHECKLIST_PRE_PRODUCCION.md](docs/CHECKLIST_PRE_PRODUCCION.md) | Checklist pre-producción |
+| [CHANGELOG.md](CHANGELOG.md) | Historial de cambios |
 
 ---
 
 ## 🔧 Troubleshooting
 
-### **Redis connection issues**
+### Redis connection issues
 ```bash
 # Verificar que Redis está corriendo
 docker ps | grep redis
 
-# Verificar URL en .env
-echo $REDIS_URL
-# Debe ser: redis://:password@host:6379
+# Test de conexión
+redis-cli ping  # Esperado: PONG
 ```
 
-### **API rate limits**
+### Webhooks no funcionan
+```bash
+# Verificar URLs en VAPI/Twilio dashboard
+# Debe apuntar a: https://api.enlasnubes.com/vapi/webhook
+
+# Ver logs del backend
+docker logs cerebro-backend -f
+```
+
+### API rate limits
 - VAPI: 10 webhooks/minute por IP
 - Airtable: 5 requests/second
-
-Ver logs en `logs/` o Docker logs.
-
----
-
-## 📝 License
-
-Private - En Las Nubes Restobar
+- Sistema: 10 requests/minute por IP
 
 ---
 
-## 📚 Links
+## 📝 Licencia
 
-- [Deployment Guide](./DEPLOYMENT.md)
-- [API Documentation](./API.md)
-- [Tests Guide](./tests/README.md)
-- [VAPI Documentation](https://docs.vapi.ai)
-- [FastAPI Documentation](https://fastapi.tiangolo.com/)
+Private - En Las Nubes Restobar © 2026
 
 ---
 
-**Version**: 1.0.0  
-**Last Updated**: 2026-01-25  
+## 📞 Contacto
+
+- **Restaurante**: En Las Nubes Restobar, Logroño
+- **Soporte Técnico**: Equipo de desarrollo
+
+---
+
+**Versión**: 1.0.0  
+**Última Actualización**: 2026-03-07  
+**Estado**: Production Ready ✅  
 **Python**: 3.11+

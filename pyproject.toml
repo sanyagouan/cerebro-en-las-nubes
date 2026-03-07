@@ -17,7 +17,9 @@ pyairtable = "^2.2.0"
 twilio = "^8.11.0"
 redis = "^5.0.1"
 loguru = "^0.7.2"
+slowapi = "^0.1.9"  # Rate limiting para prevenir abuso de API
 deepseek-api = "^0.1.0" # Placeholder, we'll use OpenAI client usually
+cachetools = "^5.3.0"  # TTL cache para sesiones en memoria
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.0.0"

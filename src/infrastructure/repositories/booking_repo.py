@@ -6,13 +6,14 @@ from src.core.ports.booking_repository import BookingRepository
 from src.core.entities.booking import Booking, BookingStatus, BookingChannel
 from src.core.entities.table import Table, TableStatus, normalize_zone
 from src.core.config.airtable_ids import TABLES, BASE_ID
+from src.core.logging import logger
 
 
 class AirtableBookingRepository(BookingRepository):
     def __init__(self):
         self.api_key = os.getenv("AIRTABLE_API_KEY")
         if not self.api_key:
-            print("❌ WARNING: AIRTABLE_API_KEY not found in env")
+            logger.warning("AIRTABLE_API_KEY not found in env")
         self.api = Api(self.api_key)
         self.base_id = BASE_ID
 
@@ -99,7 +100,7 @@ class AirtableBookingRepository(BookingRepository):
                 canal=BookingChannel.WHATSAPP,  # Default channel
             )
         except Exception as e:
-            print(f"Error mapping record {record.get('id')}: {e}")
+            logger.error(f"Error mapping record {record.get('id')}: {e}")
             return None
 
     # --- PUBLIC METHODS ---
@@ -131,13 +132,10 @@ class AirtableBookingRepository(BookingRepository):
                 )
                 tables.append(table)
 
-            print(f"✅ Cargadas {len(tables)} mesas desde Airtable")
+            logger.info(f"Cargadas {len(tables)} mesas desde Airtable")
             return tables
         except Exception as e:
-            print(f"❌ Error fetching tables: {e}")
-            import traceback
-
-            traceback.print_exc()
+            logger.exception(f"Error fetching tables: {e}")
             return []
 
     def get_bookings_for_date(self, date: datetime) -> List[Booking]:
@@ -160,7 +158,7 @@ class AirtableBookingRepository(BookingRepository):
 
             return bookings
         except Exception as e:
-            print(f"❌ Error fetching bookings: {e}")
+            logger.error(f"Error fetching bookings: {e}")
             return []
 
     def create_booking(self, booking: Booking) -> Booking:
@@ -176,11 +174,11 @@ class AirtableBookingRepository(BookingRepository):
 
             # Update ID and return
             booking.id = record["id"]
-            print(f"✅ Reserva creada: {booking.id}")
+            logger.info(f"Reserva creada: {booking.id}")
             return booking
 
         except Exception as e:
-            print(f"❌ Error creando reserva: {e}")
+            logger.error(f"Error creando reserva: {e}")
             raise e
 
     def update_booking_status(
@@ -195,11 +193,11 @@ class AirtableBookingRepository(BookingRepository):
                 fields["Mesa"] = [table_id]
 
             table_api.update(booking_id, fields)
-            print(f"✅ Reserva {booking_id} actualizada a {status}")
+            logger.info(f"Reserva {booking_id} actualizada a {status}")
             return True
 
         except Exception as e:
-            print(f"❌ Error actualizando reserva: {e}")
+            logger.error(f"Error actualizando reserva: {e}")
             return False
 
     def find_pending_booking_by_phone(self, phone: str) -> Optional[Booking]:
@@ -235,7 +233,7 @@ class AirtableBookingRepository(BookingRepository):
             return bookings[0] if bookings else None
 
         except Exception as e:
-            print(f"❌ Error finding booking by phone: {e}")
+            logger.error(f"Error finding booking by phone: {e}")
             return None
 
     def update_booking_notes(self, booking_id: str, new_note: str) -> bool:
@@ -250,10 +248,10 @@ class AirtableBookingRepository(BookingRepository):
             updated_note = f"{current_notes}\n[WhatsApp]: {new_note}".strip()
 
             table_api.update(booking_id, {"Notas": updated_note})
-            print(f"✅ Notas actualizadas para {booking_id}")
+            logger.info(f"Notas actualizadas para {booking_id}")
             return True
         except Exception as e:
-            print(f"❌ Error updating notes: {e}")
+            logger.error(f"Error updating notes: {e}")
             return False
 
     def list_by_date(self, fecha: datetime.date) -> List[Booking]:
@@ -284,11 +282,11 @@ class AirtableBookingRepository(BookingRepository):
                 if booking:
                     bookings.append(booking)
 
-            print(f"✅ Found {len(bookings)} bookings for {date_str}")
+            logger.info(f"Found {len(bookings)} bookings for {date_str}")
             return bookings
 
         except Exception as e:
-            print(f"❌ Error listing bookings by date: {e}")
+            logger.error(f"Error listing bookings by date: {e}")
             return []
 
     def update_booking_reminder_sent(self, booking_id: str) -> bool:
@@ -311,11 +309,11 @@ class AirtableBookingRepository(BookingRepository):
             }
 
             table_api.update(booking_id, fields)
-            print(f"✅ Recordatorio marcado como enviado para {booking_id}")
+            logger.info(f"Recordatorio marcado como enviado para {booking_id}")
             return True
 
         except Exception as e:
-            print(f"❌ Error marking reminder as sent: {e}")
+            logger.error(f"Error marking reminder as sent: {e}")
             return False
 
     def modify_booking(
@@ -362,15 +360,15 @@ class AirtableBookingRepository(BookingRepository):
                 fields["Cantidad de Personas"] = new_pax
 
             if not fields:
-                print("⚠️ No hay campos para modificar")
+                logger.warning("No hay campos para modificar")
                 return False
 
             table_api.update(booking_id, fields)
-            print(f"✅ Reserva {booking_id} modificada: {fields}")
+            logger.info(f"Reserva {booking_id} modificada: {fields}")
             return True
 
         except Exception as e:
-            print(f"❌ Error modificando reserva: {e}")
+            logger.error(f"Error modificando reserva: {e}")
             return False
 
     def find_any_booking_by_phone(
@@ -417,5 +415,5 @@ class AirtableBookingRepository(BookingRepository):
             return bookings[0] if bookings else None
 
         except Exception as e:
-            print(f"❌ Error finding any booking by phone: {e}")
+            logger.error(f"Error finding any booking by phone: {e}")
             return None

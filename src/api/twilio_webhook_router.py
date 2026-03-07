@@ -23,6 +23,7 @@ import logging
 from datetime import datetime
 import json
 from xml.sax.saxutils import escape as xml_escape
+from cachetools import TTLCache
 
 from src.application.orchestrator import Orchestrator
 from src.infrastructure.services.whatsapp_service import WhatsAppService
@@ -35,9 +36,9 @@ router = APIRouter(prefix="/twilio", tags=["twilio"])
 orchestrator = Orchestrator()
 whatsapp_service = WhatsAppService()
 
-# Contexto de sesiones en memoria (en producción usar Redis)
+# Contexto de sesiones con TTL (1 hora) y límite de 10,000 entradas
 # Estructura: {phone: {"last_intent": str, "booking_context": dict, "timestamp": datetime}}
-session_context: Dict[str, Dict[str, Any]] = {}
+session_context: TTLCache = TTLCache(maxsize=10000, ttl=3600)
 
 
 def _normalize_phone(phone: str) -> str:

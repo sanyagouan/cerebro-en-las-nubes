@@ -12,6 +12,7 @@ from src.core.logic.booking_engine import BookingEngine
 from src.core.entities.booking import Booking, BookingChannel
 from src.infrastructure.repositories.booking_repo import AirtableBookingRepository
 from src.core.config.restaurant import BUSINESS_HOURS, CLOSED_RULES
+from src.core.logging import logger
 
 
 def validate_business_hours(fecha: date, hora: time) -> Dict[str, Any]:
@@ -164,15 +165,15 @@ Prioriza el mejor ajuste (no desperdiciar sillas grandes para grupos pequeños).
         """
         try:
             # Debug logging
-            print(f"🔍 [LOGIC_AGENT] context received: {context}")
+            logger.debug(f"[LOGIC_AGENT] context received: {context}")
 
             # Build booking request
             date_str = context.get("date", datetime.now().strftime("%Y-%m-%d"))
             time_str = context.get("time", "14:00")
             action = context.get("action", "check_availability")
 
-            print(
-                f"🔍 [LOGIC_AGENT] date_str={date_str}, time_str={time_str}, pax={context.get('pax', 2)}"
+            logger.debug(
+                f"[LOGIC_AGENT] date_str={date_str}, time_str={time_str}, pax={context.get('pax', 2)}"
             )
 
             # Parse date and time separately for Booking entity v2
@@ -181,7 +182,7 @@ Prioriza el mejor ajuste (no desperdiciar sillas grandes para grupos pequeños).
                 hora_parts = time_str.split(":")
                 hora_parsed = time(int(hora_parts[0]), int(hora_parts[1]))
             except (ValueError, IndexError) as parse_err:
-                print(f"🔍 [LOGIC_AGENT] Date/time parse error: {parse_err}")
+                logger.warning(f"[LOGIC_AGENT] Date/time parse error: {parse_err}")
                 return {
                     "available": False,
                     "error": f"Fecha/hora inválida: {date_str} {time_str}",

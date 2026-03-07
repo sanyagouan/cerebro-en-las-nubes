@@ -5,8 +5,11 @@ Implementa límites de tasa usando slowapi para prevenir:
 - Ataques DDoS
 - Abuso de webhooks
 - Spam de API
+
+En producción usa Redis para soporte multi-instancia.
 """
 
+import os
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
@@ -38,11 +41,16 @@ def get_identifier(request: Request) -> str:
     return get_remote_address(request)
 
 
+# Usar Redis para rate limiting en producción (soporte multi-instancia)
+# Fallback a memoria si Redis no está configurado
+redis_url = os.getenv("REDIS_URL", "memory://")
+logger.info(f"Rate limiter storage: {'Redis' if 'redis' in redis_url else 'Memory'}")
+
 # Initialize limiter
 limiter = Limiter(
     key_func=get_identifier,
     default_limits=["60/minute"],  # Default: 60 requests por minuto
-    storage_uri="memory://",  # Use Redis in production for distributed systems
+    storage_uri=redis_url,  # Redis en producción, memoria en desarrollo
     headers_enabled=True,  # Add rate limit headers to responses
 )
 

@@ -162,19 +162,29 @@ class RedisCache:
             return
 
         try:
-            # Create connection pool
-            self.connection_pool = ConnectionPool.from_url(
-                redis_url,
-                max_connections=max_connections,
-                decode_responses=True,
-                retry_on_timeout=True,
-                socket_keepalive=True,
-                socket_keepalive_options={
+            # FIX: Handle TCP keepalive constants that may not exist on all platforms
+            tcp_keepalive_options = None
+            try:
+                tcp_keepalive_options = {
                     socket.TCP_KEEPIDLE: 300,
                     socket.TCP_KEEPINTVL: 60,
                     socket.TCP_KEEPCNT: 3,
-                },
-            )
+                }
+            except AttributeError as e:
+                logger.warning(f"TCP keepalive constants not available (platform limitation): {e}")
+                # Graceful fallback: continue without keepalive options
+            
+            # Create connection pool with platform-safe configuration
+            pool_kwargs = {
+                "max_connections": max_connections,
+                "decode_responses": True,
+                "retry_on_timeout": True,
+                "socket_keepalive": True,
+            }
+            if tcp_keepalive_options:
+                pool_kwargs["socket_keepalive_options"] = tcp_keepalive_options
+            
+            self.connection_pool = ConnectionPool.from_url(redis_url, **pool_kwargs)
 
             # Initialize Redis client with connection pool
             self.redis_client = redis.Redis(
@@ -209,7 +219,7 @@ class RedisCache:
                     backoff = 2**attempt  # Exponential backoff
                     logger.warning(
                         f"Redis connection attempt {attempt + 1} failed, "
-                        f"retrying in {backoff}s..."
+                        f"retrying in {backoff}s... Error: {type(e).__name__}: {e}"
                     )
                     time.sleep(backoff)
                 else:
@@ -306,10 +316,13 @@ class RedisCache:
             return False
 
         start_time = time.time()
+        # FIX: Use mutable container to capture compression state from inner closure
+        _was_compressed = [False]
 
         def _set():
             serialized = json.dumps(value, default=str)
             compressed = self._compress_if_large(serialized)
+            _was_compressed[0] = len(compressed) != len(serialized)
             self.redis_client.setex(key, ttl, compressed)
             return True
 
@@ -318,11 +331,10 @@ class RedisCache:
             latency_ms = (time.time() - start_time) * 1000
             self.metrics.record_latency("set", latency_ms)
             if result:
-                logger.debug(
-                    f"Cached key '{key}' (compressed: {len(compressed) > self.compress_threshold})"
-                )
+                logger.debug(f"Cached key '{key}' (compressed: {_was_compressed[0]})")
             return result
         except Exception as e:
+            logger.error(f"Redis SET error for key '{key}': {type(e).__name__}: {e}")
             return False
 
     def delete(self, key: str) -> bool:
@@ -362,10 +374,14 @@ class RedisCache:
 
         def _delete_pattern():
             keys = []
-            cursor = "0"
+            # FIX: Use int cursor (redis-py 5.x returns int, not string)
+            # Use do-while pattern to ensure at least one iteration
+            cursor = 0
+            first_iteration = True
 
-            # Use SCAN to iterate through all keys matching pattern
-            while cursor != 0:
+            # Use SCAN to iterate through all keys matching pattern (O(N) safe)
+            while first_iteration or cursor != 0:
+                first_iteration = False
                 cursor, batch_keys = self.redis_client.scan(
                     cursor=cursor,
                     match=pattern,

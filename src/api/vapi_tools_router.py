@@ -15,6 +15,7 @@ from src.application.services.schedule_service import (
     Servicio,
     get_schedule_service,
 )
+from src.application.services.table_assignment import get_table_assignment_service
 from src.infrastructure.repositories.table_repository import (
     TableRepository,
     table_repository,
@@ -398,6 +399,47 @@ async def tool_check_availability(request: Request):
                     }
                 ]
             }
+
+        # === VERIFICAR DISPONIBILIDAD REAL DE MESAS ===
+        try:
+            assignment_service = get_table_assignment_service()
+            
+            # Asignar mesa (verifica disponibilidad real)
+            resultado = await assignment_service.asignar_mesa(
+                pax=int(personas) if personas else 2,
+                fecha=fecha,
+                turno=turno
+            )
+            
+            if not resultado.exito:
+                # Si requiere escalado (grupos >10), derivar a humano
+                if resultado.requiere_escalado:
+                    return {
+                        "results": [
+                            {
+                                "toolCallId": tool_call_id,
+                                "result": f"Para grupos de {personas} personas necesitamos que hables con el encargado para confirmar la disponibilidad. ¿Puedes llamar al 941 57 84 51?",
+                            }
+                        ]
+                    }
+                
+                # No hay mesas disponibles
+                return {
+                    "results": [
+                        {
+                            "toolCallId": tool_call_id,
+                            "result": f"Vaya, lo siento mucho, pero no nos queda sitio para {personas} personas el {dia_nombre} a esa hora. ¿Te vendría bien una hora antes o después? También puedo mirar otro día si lo prefieres.",
+                        }
+                    ]
+                }
+            
+            # Hay disponibilidad confirmada
+            logger.info(f"Mesa asignada: {resultado.mesa_nombre} en {resultado.zona}")
+            
+        except Exception as e:
+            logger.error(f"Error verificando disponibilidad real de mesas: {e}")
+            # Continuar con respuesta optimista si hay error en el servicio
+            logger.warning("Continuando sin verificación real de mesas por error en servicio")
 
         # Si llegamos aquí, está disponible
         return {

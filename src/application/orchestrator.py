@@ -9,6 +9,7 @@ from src.application.agents.router_agent import RouterAgent
 from src.application.agents.logic_agent import LogicAgent
 from src.application.agents.human_agent import HumanAgent
 from src.infrastructure.services.whatsapp_service import WhatsAppService
+from src.core.logging import logger
 
 
 class Orchestrator:
@@ -93,9 +94,9 @@ class Orchestrator:
             extracted_pax = routing.get("new_pax") or guest_count
 
             # Debug logging
-            print(f"🔍 [ORCHESTRATOR] routing dict: {routing}")
-            print(
-                f"🔍 [ORCHESTRATOR] extracted_date={extracted_date}, extracted_time={extracted_time}, extracted_pax={extracted_pax}"
+            logger.debug(f"[ORCHESTRATOR] routing dict: {routing}")
+            logger.debug(
+                f"[ORCHESTRATOR] extracted_date={extracted_date}, extracted_time={extracted_time}, extracted_pax={extracted_pax}"
             )
 
             logic_result = await self.logic.process(
@@ -111,7 +112,7 @@ class Orchestrator:
                 }
             )
 
-            print(f"🔍 [ORCHESTRATOR] logic_result: {logic_result}")
+            logger.debug(f"[ORCHESTRATOR] logic_result: {logic_result}")
 
             result["booking_result"] = logic_result
 

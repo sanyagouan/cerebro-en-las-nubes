@@ -1,4 +1,5 @@
 import os
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
@@ -48,10 +49,37 @@ if settings_errors:
         logger.error(f"Config error: {err}")
     raise RuntimeError("Invalid configuration. Fix settings before starting.")
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """
+    Lifespan context manager para gestionar startup/shutdown.
+    Reemplaza los decoradores @app.on_event deprecados.
+    """
+    # === STARTUP ===
+    logger.info("🚀 Starting Cerebro En Las Nubes Backend...")
+    logger.info("Starting background services...")
+    scheduler = get_scheduler()
+    if scheduler:
+        await scheduler.start()
+        logger.info("Background services started successfully")
+    
+    yield  # La aplicación corre aquí
+    
+    # === SHUTDOWN ===
+    logger.info("🛑 Stopping Cerebro En Las Nubes Backend...")
+    logger.info("Stopping background services...")
+    scheduler = get_scheduler()
+    if scheduler:
+        await scheduler.stop()
+        logger.info("Background services stopped successfully")
+
+
 app = FastAPI(
     title="Cerebro En Las Nubes",
     description="AI Booking Agent Core & Multi-Agent Orchestrator",
     version="1.0.0",
+    lifespan=lifespan,
 )
 
 # Register rate limiter state
@@ -92,30 +120,6 @@ logger.info(
 logger.info(
     "🔧 BUILD VERSION: v3.11-booking-v2-fields - Fixed WhatsAppService & scheduler_service to use Booking v2 fields (telefono, nombre, fecha, hora)"
 )
-
-
-@app.on_event("startup")
-async def startup_event():
-    """
-    Evento de inicio de la aplicación.
-    Inicia servicios en background como el scheduler.
-    """
-    logger.info("Starting background services...")
-    scheduler = get_scheduler()
-    await scheduler.start()
-    logger.info("Background services started successfully")
-
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    """
-    Evento de cierre de la aplicación.
-    Detiene servicios en background gracefully.
-    """
-    logger.info("Stopping background services...")
-    scheduler = get_scheduler()
-    await scheduler.stop()
-    logger.info("Background services stopped successfully")
 
 
 @app.get("/health")

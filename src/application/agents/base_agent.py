@@ -3,9 +3,13 @@ Base Agent class for the Multi-Agent System.
 All specialized agents (Router, Logic, Human) inherit from this.
 """
 import os
+import asyncio
 from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional
 from openai import AsyncOpenAI
+
+from src.core.logging import logger
+
 
 class BaseAgent(ABC):
     """Abstract base class for AI Agents."""
@@ -22,18 +26,28 @@ class BaseAgent(ABC):
         """Process input and return structured output."""
         pass
 
-    async def _call_llm(self, system_prompt: str, user_message: str, temperature: float = 0.7) -> str:
-        """Low-level LLM call with error handling."""
+    async def _call_llm(
+        self, 
+        system_prompt: str, 
+        user_message: str, 
+        temperature: float = 0.7,
+        timeout: float = 30.0
+    ) -> str:
+        """Low-level LLM call with error handling and timeout protection."""
         try:
-            response = await self.client.chat.completions.create(
-                model=self.model,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_message}
-                ],
-                temperature=temperature
-            )
-            return response.choices[0].message.content or ""
+            async with asyncio.timeout(timeout):
+                response = await self.client.chat.completions.create(
+                    model=self.model,
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_message}
+                    ],
+                    temperature=temperature
+                )
+                return response.choices[0].message.content or ""
+        except asyncio.TimeoutError:
+            logger.error(f"LLM timeout después de {timeout}s para modelo {self.model}")
+            raise TimeoutError(f"LLM no respondió en {timeout}s")
         except Exception as e:
-            print(f"❌ LLM Error ({self.model}): {e}")
+            logger.error(f"LLM Error ({self.model}): {e}")
             return ""

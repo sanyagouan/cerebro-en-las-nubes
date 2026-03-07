@@ -14,8 +14,7 @@ def test_create_reservation_success():
     """Testea el flujo feliz de crear una reserva."""
     payload = {
         "message": {
-            "type": "tool-calls",
-            "toolCallList": [
+            "toolCalls": [
                 {
                     "id": "call_123",
                     "function": {
@@ -35,10 +34,8 @@ def test_create_reservation_success():
         mock_airtable.return_value = mock_instance
         
         # OJO: create_record en vapi_tools_router está siendo llamado con await, por tanto mockeamos como AsyncMock
-        import asyncio
-        future = asyncio.Future()
-        future.set_result({"id": "rec123"})
-        mock_instance.create_record.return_value = future
+        from unittest.mock import AsyncMock
+        mock_instance.create_record = AsyncMock(return_value={"id": "rec123"})
         
         mock_twilio.return_value = "MSxxxxx"
 
@@ -49,7 +46,7 @@ def test_create_reservation_success():
         assert "results" in data
         assert len(data["results"]) > 0
         assert data["results"][0]["toolCallId"] == "call_123"
-        # Comprobar que devuelve la frase hablada de confirmación
+        # Comprobar que devuelve la frase hablada de confirmación (mensaje actualizado)
         assert "¡Perfecto, Juan Perez!" in data["results"][0]["result"]
 
 def test_create_reservation_airtable_failure_graceful_recovery():
