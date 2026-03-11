@@ -263,12 +263,17 @@ export default function SystemHealth() {
                   {formatUptime(uptime.uptime_seconds || 0)}
                 </p>
                 <p className="text-sm text-slate-600 mt-1">
-                  Desde {new Date(uptime.started_at || '').toLocaleString('es-ES', {
-                    day: '2-digit',
-                    month: 'short',
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  })}
+                  Desde {(() => {
+                    if (!uptime.started_at) return 'N/A';
+                    const d = new Date(uptime.started_at);
+                    if (isNaN(d.getTime())) return 'N/A';
+                    return d.toLocaleString('es-ES', {
+                      day: '2-digit',
+                      month: 'short',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    });
+                  })()}
                 </p>
               </div>
             )}
