@@ -16,6 +16,7 @@ from src.application.services.schedule_service import (
     get_schedule_service,
 )
 from src.application.services.table_assignment import get_table_assignment_service
+from src.application.services.reservation_service import ReservationService
 from src.infrastructure.repositories.table_repository import (
     TableRepository,
     table_repository,
@@ -467,7 +468,11 @@ async def tool_check_availability(request: Request):
 @router.post("/create_reservation")
 async def tool_create_reservation(request: Request):
     """
-    Tool: Crear reserva en Airtable y enviar WhatsApp de confirmacion.
+    Tool: Crear reserva con detección automática de tipo de teléfono.
+    
+    Flujos diferenciados:
+    - Móviles: Estado=Pre-reserva, se envía WhatsApp de confirmación
+    - Fijos: Estado=Pre-reserva, requiere confirmación verbal inmediata en llamada
     """
     try:
         data = await request.json()
@@ -496,86 +501,120 @@ async def tool_create_reservation(request: Request):
             telefono = f"+34{telefono.lstrip('0')}"  # Añadir +34 para España
 
         # Formatear Hora en formato ISO 8601 para Airtable
-        # Airtable espera: "2026-02-09T21:00:00.000Z"
         hora_iso = hora_str
         try:
-            from datetime import datetime
-
             # Combinar fecha y hora
             dt = datetime.strptime(f"{fecha_str} {hora_str}", "%Y-%m-%d %H:%M")
             hora_iso = dt.strftime("%Y-%m-%dT%H:%M:%S.000Z")
         except Exception as e:
             logger.warning(f"No se pudo formatear hora ISO: {e}, usando hora original")
 
-        # Crear en Airtable
+        # === USO DEL NUEVO ReservationService ===
         try:
-            airtable_service = get_airtable_service_lazy()
-            record = await airtable_service.create_record(
-                {
-                    "Nombre del Cliente": nombre,
-                    "Teléfono": telefono,
-                    "Fecha de Reserva": fecha_str,
-                    "Hora": hora_iso,
-                    "Cantidad de Personas": int(personas),
-                    "Notas": notas,
-                    "Estado de Reserva": "Pendiente",
-                },
-                table_name="Reservas",
-            )
-
-            logger.info(f"Reserva creada en Airtable: {record}")
-
-            # Enviar WhatsApp de confirmación
-            try:
-                from src.infrastructure.external.twilio_service import TwilioService
-
-                twilio = TwilioService()
-
-                # Formatear fecha para el mensaje
-                fecha_formateada = fecha_str
-                try:
-                    from datetime import datetime
-
-                    fecha_dt = datetime.strptime(fecha_str, "%Y-%m-%d")
-                    dias = [
-                        "Lunes",
-                        "Martes",
-                        "Miércoles",
-                        "Jueves",
-                        "Viernes",
-                        "Sábado",
-                        "Domingo",
+            reservation_service = ReservationService()
+            
+            # Preparar datos para el servicio
+            reservation_data = {
+                "nombre": nombre,
+                "telefono": telefono,
+                "fecha": fecha_str,
+                "hora": hora_iso,
+                "personas": int(personas),
+                "notas": notas
+            }
+            
+            # Crear reserva (el servicio detecta automáticamente tipo de teléfono)
+            result = await reservation_service.create_reservation(reservation_data)
+            
+            if not result.get("success"):
+                return {
+                    "results": [
+                        {
+                            "toolCallId": tool_call_id,
+                            "result": "Ay, perdona, tengo un problemita técnico guardando la reserva. ¿Te importaría llamar al 941 57 84 51?",
+                        }
                     ]
-                    fecha_formateada = (
-                        f"{dias[fecha_dt.weekday()]} {fecha_dt.strftime('%d/%m/%Y')}"
+                }
+            
+            logger.info(f"Reserva creada exitosamente: {result}")
+            
+            tipo_telefono = result.get("tipo_telefono")
+            reservation_id = result.get("reservation_id")
+            
+            # Formatear fecha para el mensaje
+            fecha_formateada = fecha_str
+            try:
+                fecha_dt = datetime.strptime(fecha_str, "%Y-%m-%d")
+                dias = [
+                    "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"
+                ]
+                fecha_formateada = f"{dias[fecha_dt.weekday()]} {fecha_dt.strftime('%d/%m/%Y')}"
+            except:
+                pass
+            
+            # === FLUJOS DIFERENCIADOS SEGÚN TIPO DE TELÉFONO ===
+            
+            # CASO 1: Teléfono FIJO -> Requiere confirmación verbal INMEDIATA
+            if result.get("requires_verbal_confirmation"):
+                logger.info(f"Reserva {reservation_id}: Requiere confirmación verbal (teléfono fijo)")
+                return {
+                    "results": [
+                        {
+                            "toolCallId": tool_call_id,
+                            "result": f"¡Perfecto, {nombre}! Te he anotado una mesa para {personas} personas el {fecha_formateada} a las {hora_str}. Como veo que me estás llamando desde un fijo, ¿confirmas que te viene bien esta reserva? (Responde SÍ o NO)",
+                        }
+                    ]
+                }
+            
+            # CASO 2: Teléfono MÓVIL -> Enviar WhatsApp de confirmación
+            elif result.get("requires_whatsapp_confirmation"):
+                logger.info(f"Reserva {reservation_id}: Enviando WhatsApp de confirmación (teléfono móvil)")
+                
+                # Enviar WhatsApp de confirmación
+                try:
+                    from src.infrastructure.external.twilio_service import TwilioService
+                    
+                    twilio = TwilioService()
+                    content_variables = {
+                        "1": nombre,
+                        "2": fecha_formateada,
+                        "3": hora_str
+                    }
+                    
+                    sid = twilio.send_whatsapp_template(
+                        telefono,
+                        "HXdb0dca8764f0021f9ff2fd197ba22497",
+                        content_variables
                     )
-                except:
-                    pass
-
-                content_variables = {
-                    "1": nombre,
-                    "2": fecha_formateada,
-                    "3": hora_str
+                    logger.info(f"WhatsApp Template enviado con SID: {sid}")
+                    
+                except Exception as e:
+                    logger.error(f"Error enviando WhatsApp Template: {e}")
+                    # No fallar la reserva si el WhatsApp falla
+                
+                return {
+                    "results": [
+                        {
+                            "toolCallId": tool_call_id,
+                            "result": f"¡Perfecto, {nombre}! Acabo de anotarte la mesa y dejarla reservada. En unos segundos te va a llegar un mensaje por WhatsApp con los detalles de tu reserva para el {fecha_formateada}. ¡Qué ganas de veros por En Las Nubes!",
+                        }
+                    ]
+                }
+            
+            # CASO 3: Tipo desconocido -> Asumir flujo WhatsApp por defecto
+            else:
+                logger.warning(f"Reserva {reservation_id}: Tipo de teléfono desconocido, asumiendo flujo WhatsApp")
+                return {
+                    "results": [
+                        {
+                            "toolCallId": tool_call_id,
+                            "result": f"¡Perfecto, {nombre}! Acabo de anotarte la mesa para el {fecha_formateada}. Si el número es un móvil, te llegará un WhatsApp con los detalles.",
+                        }
+                    ]
                 }
 
-                sid = twilio.send_whatsapp_template(telefono, "HXdb0dca8764f0021f9ff2fd197ba22497", content_variables)
-                logger.info(f"WhatsApp Template enviado con SID: {sid}")
-
-            except Exception as e:
-                logger.error(f"Error enviando WhatsApp Template: {e}")
-                # No fallar la reserva si el WhatsApp falla
-
-            return {
-                "results": [
-                    {
-                        "toolCallId": tool_call_id,
-                        "result": f"¡Perfecto, {nombre}! Acabo de anotarte la mesa y dejarla reservada. En unos segundos te va a llegar un mensaje por WhatsApp con los detalles de tu reserva para el {fecha_formateada}. ¡Qué ganas de veros por En Las Nubes!",
-                    }
-                ]
-            }
-
         except Exception as e:
-            logger.error(f"Error creando reserva en Airtable: {e}")
+            logger.error(f"Error creando reserva con ReservationService: {e}", exc_info=True)
             return {
                 "results": [
                     {
@@ -586,7 +625,7 @@ async def tool_create_reservation(request: Request):
             }
 
     except Exception as e:
-        logger.error(f"Error in create_reservation: {e}")
+        logger.error(f"Error in create_reservation: {e}", exc_info=True)
         tc_id = tool_call_id if 'tool_call_id' in locals() else "unknown"
         return {
             "results": [

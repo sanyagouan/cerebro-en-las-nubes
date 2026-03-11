@@ -11,7 +11,8 @@ class TwilioService:
     def __init__(self):
         self.sid = os.getenv("TWILIO_ACCOUNT_SID")
         self.token = os.getenv("TWILIO_AUTH_TOKEN")
-        self.whatsapp_from = os.getenv("TWILIO_WHATSAPP_FROM", "whatsapp:+14155238886")
+        self.whatsapp_from = os.getenv("TWILIO_WHATSAPP_NUMBER", "whatsapp:+14155238886")
+        logger.info(f"WhatsApp From Number configurado: {self.whatsapp_from}")
         
         if self.sid and self.token:
             self.client = Client(self.sid, self.token)
@@ -19,13 +20,21 @@ class TwilioService:
             self.client = None
             logger.warning("Twilio SID o Token no configurados. Las notificaciones estarán desactivadas.")
 
-    def send_whatsapp(self, to_number: str, message_body: str) -> Optional[str]:
+    def send_whatsapp(self, to_number: str, message_body: str, reservation_data: Optional[Dict] = None) -> Optional[str]:
         """
         Envía un mensaje de texto por WhatsApp.
+        Solo envía a números móviles - filtra teléfonos fijos.
         """
         if not self.client:
             logger.error("Cliente de Twilio no inicializado.")
             return None
+
+        # Filtrar teléfonos no móviles
+        if reservation_data:
+            tipo_telefono = reservation_data.get("Tipo_Telefono", "desconocido")
+            if tipo_telefono != "movil":
+                logger.info(f"Omitiendo WhatsApp para {to_number} (tipo: {tipo_telefono})")
+                return None
 
         # Asegurar formato whatsapp:+
         if not to_number.startswith("whatsapp:"):

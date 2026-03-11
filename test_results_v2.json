@@ -1,0 +1,315 @@
+[
+  {
+    "endpoint": "/health",
+    "method": "GET",
+    "status": "OK",
+    "code": 200,
+    "observation": "Status: healthy, Version: 1.0.0",
+    "response": {
+      "status": "healthy",
+      "service": "Cerebro En Las Nubes",
+      "version": "1.0.0",
+      "environment": "production"
+    }
+  },
+  {
+    "endpoint": "/",
+    "method": "GET",
+    "status": "OK",
+    "code": 200,
+    "observation": "Root endpoint OK",
+    "response": {
+      "message": "Cerebro Logic is Running. Agents are standing by.",
+      "endpoints": {
+        "vapi": "/vapi/webhook",
+        "whatsapp": "/whatsapp/webhook",
+        "twilio": "/twilio/whatsapp/incoming",
+        "mobile_api": "/api/mobile",
+        "websocket": "/ws/reservations",
+        "health": "/health"
+      }
+    }
+  },
+  {
+    "endpoint": "/cache/stats",
+    "method": "GET",
+    "status": "OK",
+    "code": 200,
+    "observation": "Cache stats OK",
+    "response": {
+      "cache": {
+        "enabled": true,
+        "circuit_breaker": {
+          "state": "closed",
+          "failures": 0
+        },
+        "operations": {
+          "get": {
+            "hits": 0,
+            "misses": 0,
+            "errors": 0,
+            "hit_rate": 0.0,
+            "avg_latency_ms": null,
+            "total_requests": 0
+          },
+          "set": {
+            "hits": 0,
+            "misses": 0,
+            "errors": 0,
+            "hit_rate": 0.0,
+            "avg_latency_ms": null,
+            "total_requests": 0
+          },
+          "delete": {
+            "hits": 0,
+            "misses": 0,
+            "errors": 0,
+            "hit_rate": 0.0,
+            "avg_latency_ms": null,
+            "total_requests": 0
+          },
+          "delete_pattern": {
+            "hits": 0,
+            "misses": 0,
+            "errors": 0,
+            "hit_rate": 0.0,
+            "avg_latency_ms": null,
+            "total_requests": 0
+          }
+        }
+      },
+      "timestamp": "2026-03-08T11:28:16.236632"
+    }
+  },
+  {
+    "endpoint": "/api/auth/login",
+    "method": "POST",
+    "status": "OK",
+    "code": 200,
+    "observation": "Login exitoso. User: Alba, Role: administradora",
+    "response": {
+      "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJyZ...",
+      "user": {
+        "id": "reck9DZOGExbriPJK",
+        "email": "administradora",
+        "name": "Alba",
+        "role": "administradora"
+      }
+    }
+  },
+  {
+    "endpoint": "/api/auth/refresh",
+    "method": "POST",
+    "status": "OK",
+    "code": 200,
+    "observation": "Token refrescado OK",
+    "response": {
+      "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJyZ..."
+    }
+  },
+  {
+    "endpoint": "/api/auth/me",
+    "method": "GET",
+    "status": "OK",
+    "code": 200,
+    "observation": "User: Alba, Role: administradora",
+    "response": {
+      "id": "reck9DZOGExbriPJK",
+      "email": "administradora",
+      "name": "Alba",
+      "role": "administradora"
+    }
+  },
+  {
+    "endpoint": "/api/auth/logout",
+    "method": "POST",
+    "status": "OK",
+    "code": 200,
+    "observation": "Logout: Logout exitoso",
+    "response": {
+      "message": "Logout exitoso"
+    }
+  },
+  {
+    "endpoint": "/api/mesas/health",
+    "method": "GET",
+    "status": "OK",
+    "code": 200,
+    "observation": "Mesas service: ok",
+    "response": {
+      "status": "ok",
+      "service": "mesas-tetris"
+    }
+  },
+  {
+    "endpoint": "/api/mesas/disponibilidad/2026-03-08/T1",
+    "method": "GET",
+    "status": "OK",
+    "code": 200,
+    "observation": "Mesas disponibles: 0",
+    "response": {
+      "fecha": "2026-03-08",
+      "turno": "T1",
+      "party_size": 4,
+      "available_count": 0,
+      "available_tables": []
+    }
+  },
+  {
+    "endpoint": "/api/mesas/asignar",
+    "method": "POST",
+    "status": "OK",
+    "code": 200,
+    "observation": "Mesa asignada: None, Zona: Interior",
+    "response": {
+      "success": true,
+      "table_id": "COMBO-8",
+      "table_name": null,
+      "tables": [
+        "Mesa 6",
+        "AUX-4"
+      ],
+      "zone": "Interior",
+      "uses_combo": true,
+      "uses_aux": true,
+      "score": 24.0,
+      "warnings": [
+        "🔧 Requiere mesa auxiliar"
+      ],
+      "reason": null,
+      "needs_human": false,
+      "suggest_waitlist": false,
+      "hold_id": null
+    }
+  },
+  {
+    "endpoint": "/vapi/tools/get_info",
+    "method": "POST",
+    "status": "OK",
+    "code": 200,
+    "observation": "Info del restaurante OK",
+    "response": {
+      "results": [
+        {
+          "toolCallId": "test_001",
+          "result": "INFORMACIÓN DEL RESTAURANTE:\n- Nombre: En Las Nubes Restobar\n- Dirección: María Teresa Gil de Gárate 16, Logroño (La calle es peatonal, no se puede aparcar en la puerta)\n- Parking: Calle Pérez Galdós, República Argentina, o Parking Gran Vía\n- Teléfono: 941 57 84 51\n- Especialidad: Cachopos y cocina alemana (salchichas, codillo)\n- Carta sin gluten: Amplia carta sin gluten disponible\n- Mascotas: Solo permitidas en terraza"
+        }
+      ]
+    }
+  },
+  {
+    "endpoint": "/vapi/tools/get_horarios",
+    "method": "POST",
+    "status": "OK",
+    "code": 200,
+    "observation": "Horarios OK",
+    "response": {
+      "results": [
+        {
+          "toolCallId": "test_002",
+          "result": "**Lunes 09/03/2026:**\n❌ CERRADO todo el día"
+        }
+      ]
+    }
+  },
+  {
+    "endpoint": "/vapi/tools/check_availability",
+    "method": "POST",
+    "status": "OK",
+    "code": 200,
+    "observation": "Disponibilidad OK",
+    "response": {
+      "results": [
+        {
+          "toolCallId": "test_003",
+          "result": "Los lunes estamos de descanso. ¿Te interesaría mirar mesa para otro día de la semana?"
+        }
+      ]
+    }
+  },
+  {
+    "endpoint": "/whatsapp/status",
+    "method": "GET",
+    "status": "OK",
+    "code": 200,
+    "observation": "WhatsApp: active",
+    "response": {
+      "status": "active",
+      "channel": "WhatsApp"
+    }
+  },
+  {
+    "endpoint": "/whatsapp/webhook",
+    "method": "POST",
+    "status": "WARNING",
+    "code": 500,
+    "observation": "Respuesta inesperada: Internal Server Error",
+    "response": null
+  },
+  {
+    "endpoint": "/api/analytics/summary",
+    "method": "GET",
+    "status": "ERROR",
+    "code": 403,
+    "observation": "Error analytics",
+    "response": {
+      "detail": "Acceso denegado. Roles requeridos: ['manager', 'admin']"
+    }
+  },
+  {
+    "endpoint": "/api/analytics/dashboard-metrics",
+    "method": "GET",
+    "status": "ERROR",
+    "code": 403,
+    "observation": "Error metrics",
+    "response": {
+      "detail": "Acceso denegado. Roles requeridos: ['manager', 'admin']"
+    }
+  },
+  {
+    "endpoint": "/api/analytics/occupancy",
+    "method": "GET",
+    "status": "ERROR",
+    "code": 403,
+    "observation": "Error occupancy",
+    "response": {
+      "detail": "Acceso denegado. Roles requeridos: ['manager', 'admin']"
+    }
+  },
+  {
+    "endpoint": "/ws/reservations",
+    "method": "WS",
+    "status": "ERROR",
+    "code": 403,
+    "observation": "WebSocket rechazado (403 Forbidden) - Requiere token JWT",
+    "response": {
+      "error": "Handshake status 403 Forbidden -+-+- {'alt-svc': 'h3=\":443\"; ma=2592000', 'content-length': '0', 'content-type': 'text/plain', 'date': 'Sun, 08 Mar 2026 11:28:19 GMT'} -+-+- b''"
+    }
+  },
+  {
+    "endpoint": "/health (rate limit)",
+    "method": "GET",
+    "status": "WARNING",
+    "code": "N/A",
+    "observation": "Rate limiting NO detectado en 20 requests",
+    "response": null
+  },
+  {
+    "endpoint": "/vapi/webhook",
+    "method": "POST",
+    "status": "OK",
+    "code": 200,
+    "observation": "VAPI webhook OK",
+    "response": {
+      "status": "ok"
+    }
+  },
+  {
+    "endpoint": "/twilio/whatsapp/incoming",
+    "method": "POST",
+    "status": "OK",
+    "code": 200,
+    "observation": "Twilio webhook OK",
+    "response": null
+  }
+]

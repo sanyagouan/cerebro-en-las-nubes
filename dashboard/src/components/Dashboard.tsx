@@ -16,6 +16,7 @@ import {
 import { useReservations, Reservation } from '../hooks/useReservations';
 import { useActivity } from '../hooks/useActivity';
 import { useWebSocket } from '../hooks/useWebSocket';
+import { useAuth } from '../contexts/AuthContext';
 import { useMemo, useEffect, useState } from 'react';
 import { isToday, parseISO, format, formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -93,8 +94,10 @@ export default function Dashboard() {
 
   // WebSocket integration for real-time updates
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const { token } = useAuth();
 
   useWebSocket({
+    token,
     autoConnect: true,
     onReservationEvent: (event) => {
       const messages = {

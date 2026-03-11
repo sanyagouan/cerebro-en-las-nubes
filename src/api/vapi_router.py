@@ -14,6 +14,7 @@ from src.core.entities.booking import (
     Booking,
 )  # FIXED: era src.domain.models.reservation
 from src.application.services.waitlist_service import WaitlistService
+from src.application.services.reservation_service import ReservationService
 # from src.api.middleware.rate_limiting import webhook_limit  # TODO: Re-enable after fixing slowapi
 
 # Configuración de logs
@@ -97,20 +98,82 @@ Tu misión es gestionar las mesas del restaurante por teléfono con naturalidad 
 
 # FORMATO (RULES & CONSTRAINTS)
 1. HABLA Y ESCUCHA: Si el cliente te interrumpe, cállate e interrumpe tu habla inmediatamente.
-2. NUEVAS RESERVAS: VERIFICA DISPONIBILIDAD PRIMERO. NUNCA confirmes mesa sin verificar. Si hay sitio, pide nombre completo y teléfono móvil, y crea la reserva advirtiendo que recibirán un WhatsApp en segundos.
+2. NUEVAS RESERVAS: VERIFICA DISPONIBILIDAD PRIMERO. NUNCA confirmes mesa sin verificar. Si hay sitio, pide nombre completo y teléfono, y crea la reserva.
 3. LISTA DE ESPERA: Si solicitan mesa y estamos llenos, pide perdón cortésmente y OFRECE apuntarles a la lista de espera (necesitas nombre, teléfono y comensales).
 4. CANCELACIONES: Si quieren cancelar, pide su número de teléfono.
 5. RESTAURANTE: Especialidad CACHOPOS y cocina ALEMANA. Las comidas son 13:00-17:00 y las cenas 20:00-23:30. Lunes cerrado, martes/miércoles noches cerrado, domingo noche cerrado. Teléfono real: 941578451.
 6. NOTAS/ALERGIAS: Pregunta siempre si traen carritos, sillas de ruedas, tronas o tienen alergias. Registra cualquier petición especial METICULOSAMENTE en el campo 'notas' al usar herramientas.
 7. SIN GLUTEN: Los cachopos especiales Celiacos requieren pedirse o avisarse 24h antes por precaución cruzada.
 
-# EJEMPLOS (FLUJO ESPERADO)
-[Cliente]: Hola, quería reservar mesa para el viernes.
-[Nube]: ¡Hola! Claro, para el viernes. ¿Para qué hora te vendría bien y cuántos seríais?
-[Cliente]: A las diez de la noche, somos cuatro personas y un carrito de bebé.
-[Nube]: Perfecto, déjame revisar la agenda un segundito...
-(AQUÍ LLAMAS A LA HERRAMIENTA CHECK_AVAILABILITY)
-[Nube]: ¡Qué suerte! Sí me queda una mesa. Para dejártela confirmada a tu nombre y que la tengan lista con hueco para el carrito, ¿me puedes dar tu nombre y un número de móvil?
+# DETECCIÓN DE TIPO DE TELÉFONO Y CONFIRMACIÓN
+El sistema te proporciona el número del cliente. Debes detectar si es móvil o fijo para ajustar el flujo de confirmación:
+
+## CÓMO DETECTAR EL TIPO:
+- Si el teléfono empieza por +346 o +347 → ES MÓVIL (puede recibir WhatsApp)
+- Si el teléfono empieza por +349 → ES FIJO (NO puede recibir WhatsApp, necesita confirmación verbal)
+- Otros prefijos → Tratar como móvil por defecto
+
+## FLUJO PARA MÓVIL (+346XX, +347XX):
+Después de crear la reserva con `create_reservation`, di:
+"¡Perfecto [NOMBRE]! Te he reservado la mesa para [N] personas el [FECHA] a las [HORA].
+Te voy a enviar un WhatsApp a este número para que confirmes. Responde SÍ o NO al mensaje."
+→ NO pedir confirmación verbal. El sistema enviará WhatsApp automáticamente.
+
+## FLUJO PARA FIJO (+349XX) - CONFIRMACIÓN VERBAL INMEDIATA:
+Después de crear la reserva con `create_reservation`, di:
+"¡Perfecto [NOMBRE]! Te he reservado la mesa para [N] personas el [FECHA] a las [HORA].
+Como me llamas desde un teléfono fijo, te confirmo ahora mismo verbalmente, ¿de acuerdo?
+¿Confirmas que vendréis?"
+
+ESPERA LA RESPUESTA DEL CLIENTE Y ACTÚA:
+- Si dice "SÍ", "VALE", "DE ACUERDO", "CLARO", "CONFIRMO" → LLAMA a `confirm_verbal` con confirmed=true
+- Si dice "NO", duda, pide tiempo para pensarlo, o no responde claramente → LLAMA a `confirm_verbal` con confirmed=false
+
+## CUÁNDO USAR LA TOOL confirm_verbal:
+- SOLO cuando el cliente llama desde FIJO (+349XX)
+- SOLO después de crear la reserva con `create_reservation`
+- SOLO después de preguntar "¿Confirmas que vendréis?" y recibir respuesta
+
+## RESPUESTAS DESPUÉS DE confirm_verbal:
+- Si confirmed=true: "¡Genial! Tu reserva está confirmada. Nos vemos el [FECHA]. ¡Hasta luego!"
+- Si confirmed=false: "Entendido. He cancelado la reserva. Si cambias de opinión, llámanos de nuevo al 941578451. ¡Hasta otra!"
+
+# EJEMPLOS DE DIÁLOGO
+
+## Ejemplo 1: Cliente con Móvil (+346XX)
+[Teléfono cliente: +34678123456]
+Cliente: "Hola, quería reservar mesa para el viernes."
+Nube: "¡Hola! Claro, para el viernes. ¿Para qué hora te vendría bien y cuántos seríais?"
+Cliente: "A las diez de la noche, somos cuatro personas y un carrito de bebé."
+Nube: "Perfecto, déjame revisar la agenda un segundito..."
+[LLAMA check_availability]
+Nube: "¡Qué suerte! Sí me queda una mesa. ¿Me das tu nombre completo y número de teléfono?"
+Cliente: "María García, 678123456"
+Nube: [LLAMA create_reservation]
+"¡Perfecto María! Te he reservado la mesa. Te voy a enviar un WhatsApp para que confirmes. Responde SÍ o NO. ¿Hay algo más?"
+
+## Ejemplo 2: Cliente con Fijo (+349XX) - Confirma
+[Teléfono cliente: +34941234567]
+Cliente: "Quiero reservar para 2 personas el viernes a las 2"
+Nube: "¡Hola! Para el viernes a las 14:00 para 2 personas. Déjame comprobar..."
+[LLAMA check_availability]
+Nube: "¡Tengo mesa disponible! ¿Me das tu nombre completo?"
+Cliente: "Juan Martínez"
+Nube: [LLAMA create_reservation]
+"¡Listo Juan! Te he reservado la mesa para 2 personas el viernes a las 14:00.
+Como me llamas desde un fijo, te confirmo ahora verbalmente, ¿de acuerdo?
+¿Confirmas que vendréis?"
+Cliente: "Sí, confirmo"
+Nube: [LLAMA confirm_verbal con phone=+34941234567, confirmed=true]
+"¡Genial! Tu reserva está confirmada. Te esperamos el viernes a las 14:00. ¡Hasta luego!"
+
+## Ejemplo 3: Cliente con Fijo (+349XX) - No confirma
+[Teléfono cliente: +34941234567]
+Nube: [Tras crear la reserva]
+"¡Listo! Te he apuntado la mesa. Como es un fijo, ¿confirmas ahora mismo?"
+Cliente: "Lo tengo que consultar con mi mujer"
+Nube: [LLAMA confirm_verbal con phone=+34941234567, confirmed=false]
+"Entendido. He cancelado la reserva temporal. Cuando lo decidáis, llamadme de nuevo. ¡Gracias!"
 """
 
 # --- ENDPOINTS ---
@@ -272,6 +335,37 @@ async def get_assistant_config(request: Request):
                             },
                         },
                         {
+                            "name": "get_reservation",
+                            "description": "Llama a esta herramienta CUANDO el cliente quiera consultar/buscar su reserva existente. Necesitas su número de teléfono.",
+                            "parameters": {
+                                "type": "object",
+                                "properties": {
+                                    "phone": {"type": "string", "description": "Teléfono del cliente para buscar su reserva"},
+                                },
+                                "required": ["phone"],
+                            },
+                            "server": {
+                                "url": f"{base_url}/vapi/tools/get_reservation"
+                            },
+                        },
+                        {
+                            "name": "update_reservation",
+                            "description": "Llama a esta herramienta CUANDO el cliente quiera modificar su reserva (cambiar fecha, hora o número de personas). Necesitas su teléfono y al menos un campo a modificar.",
+                            "parameters": {
+                                "type": "object",
+                                "properties": {
+                                    "phone": {"type": "string", "description": "Teléfono del cliente"},
+                                    "new_date": {"type": "string", "description": "Nueva fecha en formato YYYY-MM-DD (opcional)"},
+                                    "new_time": {"type": "string", "description": "Nueva hora en formato HH:MM (opcional)"},
+                                    "new_guests": {"type": "integer", "description": "Nuevo número de personas (opcional)"},
+                                },
+                                "required": ["phone"],
+                            },
+                            "server": {
+                                "url": f"{base_url}/vapi/tools/update_reservation"
+                            },
+                        },
+                        {
                             "name": "cancel_reservation",
                             "description": "Llama a esta herramienta SOLAMENTE CUANDO el cliente pida firmemente cancelar su reserva DEBES HABERLE PEDIDO SU NÚMERO DE TELÉFONO ANTES de invocarla.",
                             "parameters": {
@@ -284,6 +378,27 @@ async def get_assistant_config(request: Request):
                             },
                             "server": {
                                 "url": f"{base_url}/vapi/tools/cancel_reservation"
+                            },
+                        },
+                        {
+                            "name": "confirm_verbal",
+                            "description": "Llama a esta herramienta ÚNICAMENTE cuando el cliente llame desde un TELÉFONO FIJO (prefijo +349XX) y hayas preguntado si confirma la reserva. USA confirmed=true si el cliente dijo SÍ, VALE, DE ACUERDO o CONFIRMO. USA confirmed=false si dijo NO, dudó o pidió tiempo para pensarlo. JAMÁS uses esta herramienta para teléfonos móviles (+346XX, +347XX).",
+                            "parameters": {
+                                "type": "object",
+                                "properties": {
+                                    "phone": {
+                                        "type": "string",
+                                        "description": "Número de teléfono del cliente en formato E.164 (ej: +34941234567)",
+                                    },
+                                    "confirmed": {
+                                        "type": "boolean",
+                                        "description": "true si el cliente confirmó verbalmente, false si declinó o dudó",
+                                    },
+                                },
+                                "required": ["phone", "confirmed"],
+                            },
+                            "server": {
+                                "url": f"{base_url}/vapi/tools/confirm_verbal"
                             },
                         },
                     ],
@@ -327,6 +442,349 @@ async def get_assistant_config(request: Request):
 # async def tool_create_reservation(request: Request):
 #     """DISABLED - Use vapi_tools_router.py version instead"""
 #     pass
+
+
+@router.post("/tools/get_reservation")
+async def tool_get_reservation(request: Request):
+    """
+    Herramienta para BUSCAR una reserva existente por teléfono.
+
+    Parámetros esperados del tool call:
+    - phone: Teléfono del cliente (para identificar la reserva)
+
+    Returns:
+        JSON con resultado para VAPI
+    """
+    try:
+        body = await request.json()
+        logger.info(f"Get Reservation Tool Call: {body}")
+
+        message = body.get("message", {})
+        tool_calls = message.get("toolCalls", [])
+
+        if not tool_calls:
+            return {
+                "results": [
+                    {"result": "No te he escuchado bien, ¿podrías repetirme tu número de teléfono?"}
+                ]
+            }
+
+        tool_call = tool_calls[0]
+        params = tool_call.get("function", {}).get("arguments", {})
+
+        # Obtener parámetro
+        phone = params.get("phone", "").strip()
+
+        if not phone:
+            return {
+                "results": [
+                    {
+                        "toolCallId": tool_call["id"],
+                        "result": "Para buscar tu reserva, necesito que me digas tu número de teléfono, por favor.",
+                    }
+                ]
+            }
+
+        # Importar cliente Airtable
+        from src.infrastructure.mcp.airtable_client import airtable_client
+        from src.api.mobile.airtable_helpers import AIRTABLE_FIELD_MAP
+        from datetime import date
+
+        AIRTABLE_BASE_ID = "appQ2ZXAR68cqDmJt"
+        RESERVATIONS_TABLE_NAME = "Reservas"
+
+        # Buscar reserva activa (Pendiente o Confirmada) del cliente para hoy o futuras
+        filter_formula = f"AND({{{AIRTABLE_FIELD_MAP['telefono']}}}='{phone}', IS_AFTER({{{AIRTABLE_FIELD_MAP['fecha']}}}, DATEADD(TODAY(), -1, 'days')), OR({{{AIRTABLE_FIELD_MAP['estado']}}}='Pendiente', {{{AIRTABLE_FIELD_MAP['estado']}}}='Confirmada'))"
+
+        records_result = await airtable_client.list_records(
+            base_id=AIRTABLE_BASE_ID,
+            table_name=RESERVATIONS_TABLE_NAME,
+            filterByFormula=filter_formula,
+            sort=[{AIRTABLE_FIELD_MAP['fecha']: 'desc'}],
+            max_records=1,
+        )
+
+        records = records_result.get("records", [])
+
+        if not records:
+            return {
+                "results": [
+                    {
+                        "toolCallId": tool_call["id"],
+                        "result": f"Pues he estado mirando y no encuentro ninguna reserva activa con ese teléfono. ¿Seguro que es el número correcto?",
+                    }
+                ]
+            }
+
+        # Obtener la reserva más reciente
+        record = records[0]
+        reservation_id = record["id"]
+        fields = record.get("fields", {})
+        
+        nombre = fields.get(AIRTABLE_FIELD_MAP["nombre"], "Cliente")
+        fecha = fields.get(AIRTABLE_FIELD_MAP["fecha"], "")
+        hora = fields.get(AIRTABLE_FIELD_MAP["hora"], "")
+        pax = fields.get(AIRTABLE_FIELD_MAP["pax"], "")
+        estado = fields.get(AIRTABLE_FIELD_MAP["estado"], "")
+        mesa_asignada = fields.get(AIRTABLE_FIELD_MAP["mesa_asignada"], [])
+        
+        # Formatear mesa
+        mesa_str = mesa_asignada[0] if isinstance(mesa_asignada, list) and mesa_asignada else "Sin asignar"
+
+        logger.info(
+            f"Reservation found: {reservation_id} - {nombre}, {fecha} {hora}"
+        )
+
+        # Respuesta a VAPI para que se la diga al cliente
+        respuesta_cliente = (
+            f"¡Sí! Aquí está tu reserva {nombre}: "
+            f"es para {pax} personas el día {fecha} a las {hora}. "
+            f"Estado: {estado}."
+        )
+        
+        if mesa_str != "Sin asignar":
+            respuesta_cliente += f" Mesa asignada: {mesa_str}."
+
+        return {
+            "results": [{"toolCallId": tool_call["id"], "result": respuesta_cliente}]
+        }
+
+    except Exception as e:
+        logger.error(f"Error getting reservation: {str(e)}", exc_info=True)
+        return {
+            "results": [
+                {
+                    "toolCallId": tool_call.get("id"),
+                    "result": "Ay, perdona, se me ha quedado pillado el sistema buscando tu reserva. ¿Puedes llamar a mis compañeros al 941 57 84 51 para que te la consulten?",
+                }
+            ]
+        }
+
+
+@router.post("/tools/update_reservation")
+async def tool_update_reservation(request: Request):
+    """
+    Herramienta para ACTUALIZAR una reserva existente (fecha, hora o número de personas).
+
+    Parámetros esperados del tool call:
+    - phone: Teléfono del cliente (obligatorio)
+    - new_date: Nueva fecha en formato YYYY-MM-DD (opcional)
+    - new_time: Nueva hora en formato HH:MM (opcional)
+    - new_guests: Nuevo número de personas (opcional)
+
+    Returns:
+        JSON con resultado para VAPI
+    """
+    try:
+        body = await request.json()
+        logger.info(f"Update Reservation Tool Call: {body}")
+
+        message = body.get("message", {})
+        tool_calls = message.get("toolCalls", [])
+
+        if not tool_calls:
+            return {
+                "results": [
+                    {"result": "No te he escuchado bien, ¿qué querías cambiar de tu reserva?"}
+                ]
+            }
+
+        tool_call = tool_calls[0]
+        params = tool_call.get("function", {}).get("arguments", {})
+
+        # Obtener parámetros
+        phone = params.get("phone", "").strip()
+        new_date = params.get("new_date", "").strip()
+        new_time = params.get("new_time", "").strip()
+        new_guests = params.get("new_guests")
+
+        if not phone:
+            return {
+                "results": [
+                    {
+                        "toolCallId": tool_call["id"],
+                        "result": "Para modificar tu reserva, necesito tu número de teléfono por favor.",
+                    }
+                ]
+            }
+
+        # Validar que al menos un campo a actualizar esté presente
+        if not any([new_date, new_time, new_guests]):
+            return {
+                "results": [
+                    {
+                        "toolCallId": tool_call["id"],
+                        "result": "Dime qué quieres cambiar: ¿la fecha, la hora o el número de personas?",
+                    }
+                ]
+            }
+
+        # Importar cliente Airtable
+        from src.infrastructure.mcp.airtable_client import airtable_client
+        from src.api.mobile.airtable_helpers import AIRTABLE_FIELD_MAP
+        from datetime import date, datetime
+
+        AIRTABLE_BASE_ID = "appQ2ZXAR68cqDmJt"
+        RESERVATIONS_TABLE_NAME = "Reservas"
+
+        # Buscar reserva activa
+        filter_formula = f"AND({{{AIRTABLE_FIELD_MAP['telefono']}}}='{phone}', IS_AFTER({{{AIRTABLE_FIELD_MAP['fecha']}}}, DATEADD(TODAY(), -1, 'days')), OR({{{AIRTABLE_FIELD_MAP['estado']}}}='Pendiente', {{{AIRTABLE_FIELD_MAP['estado']}}}='Confirmada'))"
+
+        records_result = await airtable_client.list_records(
+            base_id=AIRTABLE_BASE_ID,
+            table_name=RESERVATIONS_TABLE_NAME,
+            filterByFormula=filter_formula,
+            max_records=1,
+        )
+
+        records = records_result.get("records", [])
+
+        if not records:
+            return {
+                "results": [
+                    {
+                        "toolCallId": tool_call["id"],
+                        "result": f"No encuentro ninguna reserva activa con ese teléfono. ¿Seguro que tienes una reserva con nosotros?",
+                    }
+                ]
+            }
+
+        # Obtener la reserva
+        record = records[0]
+        reservation_id = record["id"]
+        fields = record.get("fields", {})
+        
+        nombre = fields.get(AIRTABLE_FIELD_MAP["nombre"], "Cliente")
+        current_date = fields.get(AIRTABLE_FIELD_MAP["fecha"], "")
+        current_time = fields.get(AIRTABLE_FIELD_MAP["hora"], "")
+        current_pax = fields.get(AIRTABLE_FIELD_MAP["pax"], 0)
+
+        # Preparar campos a actualizar
+        update_fields = {}
+        cambios_realizados = []
+
+        # Actualizar fecha
+        if new_date:
+            try:
+                # Validar formato de fecha
+                datetime.strptime(new_date, "%Y-%m-%d")
+                update_fields[AIRTABLE_FIELD_MAP["fecha"]] = new_date
+                cambios_realizados.append(f"fecha a {new_date}")
+            except ValueError:
+                return {
+                    "results": [
+                        {
+                            "toolCallId": tool_call["id"],
+                            "result": "El formato de fecha no es válido. Necesito algo como 2026-03-20.",
+                        }
+                    ]
+                }
+
+        # Actualizar hora
+        if new_time:
+            try:
+                # Validar formato de hora
+                datetime.strptime(new_time, "%H:%M")
+                # Airtable espera formato completo con fecha si es DateTime
+                # Usar la fecha actual o la nueva si se proporcionó
+                fecha_base = new_date if new_date else current_date
+                datetime_str = f"{fecha_base}T{new_time}:00.000Z"
+                update_fields[AIRTABLE_FIELD_MAP["hora"]] = datetime_str
+                cambios_realizados.append(f"hora a {new_time}")
+            except ValueError:
+                return {
+                    "results": [
+                        {
+                            "toolCallId": tool_call["id"],
+                            "result": "El formato de hora no es válido. Necesito algo como 21:00.",
+                        }
+                    ]
+                }
+
+        # Actualizar número de personas
+        if new_guests:
+            try:
+                guests_int = int(new_guests)
+                if guests_int < 1 or guests_int > 20:
+                    return {
+                        "results": [
+                            {
+                                "toolCallId": tool_call["id"],
+                                "result": "El número de personas debe estar entre 1 y 20. Para grupos mayores necesito que hables con mis compañeros.",
+                            }
+                        ]
+                    }
+                update_fields[AIRTABLE_FIELD_MAP["pax"]] = guests_int
+                cambios_realizados.append(f"personas a {guests_int}")
+            except ValueError:
+                return {
+                    "results": [
+                        {
+                            "toolCallId": tool_call["id"],
+                            "result": "El número de personas no es válido.",
+                        }
+                    ]
+                }
+
+        # TODO: Verificar disponibilidad para los nuevos valores
+        # Por ahora actualizamos directamente, pero en producción deberíamos
+        # llamar al servicio de disponibilidad
+
+        # Actualizar en Airtable
+        await airtable_client.update_record(
+            base_id=AIRTABLE_BASE_ID,
+            table_name=RESERVATIONS_TABLE_NAME,
+            record_id=reservation_id,
+            fields=update_fields,
+        )
+
+        logger.info(
+            f"Reservation {reservation_id} updated: {', '.join(cambios_realizados)}"
+        )
+
+        # Enviar confirmación por WhatsApp
+        try:
+            cambios_texto = ", ".join(cambios_realizados)
+            await twilio_service.send_whatsapp(
+                to=phone,
+                message=f"Hola {nombre}, tu reserva ha sido modificada. Cambios: {cambios_texto}. Si tienes dudas, contáctanos al 941 57 84 51. - En Las Nubes Resto Bar",
+            )
+        except Exception as e:
+            logger.error(f"Error sending WhatsApp confirmation: {e}")
+
+        # Broadcast WebSocket
+        from src.api.websocket.connection_manager import manager
+
+        await manager.broadcast_reservation_update(
+            {
+                "id": reservation_id,
+                "updated_fields": list(update_fields.keys()),
+                "updated_via": "voice",
+            },
+            event_type="updated",
+        )
+
+        # Respuesta a VAPI
+        respuesta_cliente = (
+            f"¡Perfecto {nombre}! Ya he actualizado tu reserva. "
+            f"He cambiado: {', '.join(cambios_realizados)}. "
+            f"Te llegará un WhatsApp confirmando los cambios."
+        )
+
+        return {
+            "results": [{"toolCallId": tool_call["id"], "result": respuesta_cliente}]
+        }
+
+    except Exception as e:
+        logger.error(f"Error updating reservation: {str(e)}", exc_info=True)
+        return {
+            "results": [
+                {
+                    "toolCallId": tool_call.get("id"),
+                    "result": "Ay, perdona, el sistema no me deja modificar la reserva ahora. ¿Puedes llamar a mis compañeros al 941 57 84 51 para que te la cambien?",
+                }
+            ]
+        }
 
 
 @router.post("/tools/cancel_reservation")
@@ -600,6 +1058,156 @@ async def tool_add_to_waitlist(request: Request):
 
     except Exception as e:
         logger.error(f"Error in add_to_waitlist tool: {str(e)}", exc_info=True)
+        return {
+            "results": [
+                {
+                    "toolCallId": tool_call.get("id"),
+                    "result": "Madre mía, qué desastre, el sistema no me deja guardar nada ahora. Llama a mis compañeros al 941 57 84 51, por favor.",
+                }
+            ]
+        }
+
+
+@router.post("/tools/confirm_verbal")
+async def tool_confirm_verbal(request: Request):
+    """
+    Her CONFIRMAR VERBALMENTE una reserva durante la llamada (teléfonos fijos).
+    
+    Este endpoint se invoca cuando el cliente llama desde un teléfono fijo y debe confirmar
+    inmediatamente durante la llamada, ya que no puede recibir WhatsApp.
+    
+    Parámetros esperados del tool call:
+    - phone: Teléfono del cliente (obligatorio)
+    - confirmed: Boolean - True si cliente confirmó verbalmente, False si declinó
+    
+    Returns:
+        JSON con resultado para VAPI
+    """
+    try:
+        body = await request.json()
+        logger.info(f"Confirm Verbal Tool Call: {body}")
+        
+        message = body.get("message", {})
+        tool_calls = message.get("toolCalls", [])
+        
+        if not tool_calls:
+            return {
+                "results": [
+                    {"result": "No te he escuchado bien, ¿confirmas tu reserva o no?"}
+                ]
+            }
+        
+        tool_call = tool_calls[0]
+        params = tool_call.get("function", {}).get("arguments", {})
+        
+        # Obtener parámetros
+        phone = params.get("phone", "").strip()
+        confirmed = params.get("confirmed")
+        
+        # Validaciones
+        if not phone:
+            return {
+                "results": [
+                    {
+                        "toolCallId": tool_call["id"],
+                        "result": "Para confirmar tu reserva, necesito que me digas tu número de teléfono por favor.",
+                    }
+                ]
+            }
+        
+        if confirmed is None:
+            return {
+                "results": [
+                    {
+                        "toolCallId": tool_call["id"],
+                        "result": "No he entendido bien, ¿CONFIRMAS la reserva o prefieres cancelarla? Por favor, responde SÍ o NO.",
+                    }
+                ]
+            }
+        
+        # Usar ReservationService para confirmar o cancelar
+        reservation_service = ReservationService()
+        
+        result = await reservation_service.confirm_verbal(phone, confirmed)
+        
+        if not result.get("success"):
+            # Error al procesar
+            error_msg = result.get("error", "Error desconocido")
+            logger.error(f"Error in confirm_verbal: {error_msg}")
+            
+            return {
+                "results": [
+                    {
+                        "toolCallId": tool_call["id"],
+                        "result": "Ay, perdona, el sistema no me deja actualizar la reserva. ¿Puedes llamar a mis compañeros al 941 57 84 51 para confirmarlo directamente?",
+                    }
+                ]
+            }
+        
+        # Éxito - diferenciar respuesta según confirmación o cancelación
+        if confirmed:
+            # Cliente CONFIRMÓ
+            reservation_id = result.get("reservation_id", "")
+            
+            logger.info(
+                f"Reservation {reservation_id} confirmed verbally by phone {phone}"
+            )
+            
+            # Broadcast WebSocket
+            from src.api.websocket.connection_manager import manager
+            
+            await manager.broadcast_reservation_update(
+                {
+                    "id": reservation_id,
+                    "estado": "Confirmada",
+                    "tipo_confirmacion": "verbal",
+                    "confirmed_via": "voice",
+                },
+                event_type="confirmed",
+            )
+            
+            respuesta_cliente = (
+                "¡Perfecto! Tu reserva está confirmada. "
+                "Te esperamos en En Las Nubes Restobar. ¡Hasta pronto!"
+            )
+        
+        else:
+            # Cliente DECLINÓ - reserva cancelada
+            reservation_id = result.get("reservation_id", "")
+            
+            logger.info(
+                f"Reservation {reservation_id} declined verbally by phone {phone}"
+            )
+            
+            # Broadcast WebSocket
+            from src.api.websocket.connection_manager import manager
+            
+            await manager.broadcast_reservation_update(
+                {
+                    "id": reservation_id,
+                    "estado": "Cancelada",
+                    "cancelled_via": "voice",
+                    "reason": "Cliente no confirmó verbalmente durante la llamada"
+                },
+                event_type="cancelled",
+            )
+            
+            respuesta_cliente = (
+                "Vale, entendido. La reserva ha sido cancelada. "
+                "Si cambias de opinión, llámanos al 941 57 84 51. ¡Hasta otra!"
+            )
+        
+        return {
+            "results": [
+                {
+                    "toolCallId": tool_call["id"],
+                    "result": respuesta_cliente
+                }
+            ]
+        }
+    
+    except Exception as e:
+        logger.error(f"Error in confirm_verbal tool: {str(e)}", exc_info=True)
         return {
             "results": [
                 {
