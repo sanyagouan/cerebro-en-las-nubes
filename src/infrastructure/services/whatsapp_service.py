@@ -2,6 +2,12 @@ import os
 from twilio.rest import Client
 from src.core.entities.booking import Booking
 from src.infrastructure.templates.whatsapp_messages import confirmacion_reserva_template
+from src.infrastructure.templates.content_sids import (
+    RESERVA_CONFIRMACION_NUBES_SID,
+    RESERVA_RECORDATORIO_NUBES_SID,
+    RESERVA_CANCELADA_NUBES_SID,
+    MESA_DISPONIBLE_NUBES_SID
+)
 
 
 class WhatsAppService:
@@ -107,6 +113,136 @@ class WhatsAppService:
     def send_reconfirmation_success(self, client_phone: str):
         msg = "✅ *Reserva Confirmada*.\n\n¡Gracias! Su mesa está asegurada. Nos vemos pronto. 🥂"
         return self.send_message(client_phone, msg)
+
+    def send_template_confirmation(
+        self, telefono: str, nombre_cliente: str, fecha: str, hora: str
+    ) -> bool:
+        """Sends a template-based confirmation message using Content API."""
+        if not self.client:
+            print("❌ WhatsAppService not initialized (missing creds)")
+            return False
+
+        try:
+            if not telefono.startswith("whatsapp:"):
+                telefono = f"whatsapp:{telefono}"
+
+            # Prepare variables for the template
+            variables = {
+                "1": nombre_cliente,
+                "2": fecha,
+                "3": hora
+            }
+
+            # Send using Content API
+            message = self.client.messages.create(
+                from_=self.from_number,
+                content_sid=RESERVA_CONFIRMACION_NUBES_SID,
+                content_variables=variables,
+                to=telefono
+            )
+            print(f"✅ WhatsApp template confirmation sent to {telefono}: {message.sid}")
+            return True
+        except Exception as e:
+            print(f"❌ Error sending WhatsApp template confirmation: {e}")
+            return False
+
+    def send_template_reminder(
+        self, telefono: str, nombre_cliente: str, fecha: str, hora: str, num_personas: str
+    ) -> bool:
+        """Sends a template-based reminder message using Content API."""
+        if not self.client:
+            print("❌ WhatsAppService not initialized (missing creds)")
+            return False
+
+        try:
+            if not telefono.startswith("whatsapp:"):
+                telefono = f"whatsapp:{telefono}"
+
+            # Prepare variables for the template
+            variables = {
+                "1": nombre_cliente,
+                "2": fecha,
+                "3": hora,
+                "4": num_personas
+            }
+
+            # Send using Content API
+            message = self.client.messages.create(
+                from_=self.from_number,
+                content_sid=RESERVA_RECORDATORIO_NUBES_SID,
+                content_variables=variables,
+                to=telefono
+            )
+            print(f"✅ WhatsApp template reminder sent to {telefono}: {message.sid}")
+            return True
+        except Exception as e:
+            print(f"❌ Error sending WhatsApp template reminder: {e}")
+            return False
+
+    def send_template_cancellation(
+        self, telefono: str, nombre_cliente: str, fecha: str, hora: str
+    ) -> bool:
+        """Sends a template-based cancellation message using Content API."""
+        if not self.client:
+            print("❌ WhatsAppService not initialized (missing creds)")
+            return False
+
+        try:
+            if not telefono.startswith("whatsapp:"):
+                telefono = f"whatsapp:{telefono}"
+
+            # Prepare variables for the template
+            variables = {
+                "1": nombre_cliente,
+                "2": fecha,
+                "3": hora
+            }
+
+            # Send using Content API
+            message = self.client.messages.create(
+                from_=self.from_number,
+                content_sid=RESERVA_CANCELADA_NUBES_SID,
+                content_variables=variables,
+                to=telefono
+            )
+            print(f"✅ WhatsApp template cancellation sent to {telefono}: {message.sid}")
+            return True
+        except Exception as e:
+            print(f"❌ Error sending WhatsApp template cancellation: {e}")
+            return False
+
+    def send_template_mesa_disponible(
+        self, telefono: str, nombre_cliente: str, num_personas: str, fecha: str, hora: str
+    ) -> bool:
+        """Sends a template-based available table notification using Content API."""
+        if not self.client:
+            print("❌ WhatsAppService not initialized (missing creds)")
+            return False
+
+        try:
+            if not telefono.startswith("whatsapp:"):
+                telefono = f"whatsapp:{telefono}"
+
+            # Prepare variables for the template
+            variables = {
+                "1": nombre_cliente,
+                "2": num_personas,
+                "3": fecha,
+                "4": hora
+            }
+
+            # Send using Content API
+            message = self.client.messages.create(
+                from_=self.from_number,
+                content_sid=MESA_DISPONIBLE_NUBES_SID,
+                content_variables=variables,
+                to=telefono
+            )
+            print(f"✅ WhatsApp template mesa disponible sent to {telefono}: {message.sid}")
+            return True
+        except Exception as e:
+            print(f"❌ Error sending WhatsApp template mesa disponible: {e}")
+            return False
 
     def send_cancellation_success(self, client_phone: str):
         msg = "👋 *Reserva Cancelada*.\n\nEntendido. Esperamos poder recibirle en otra ocasión. ¡Gracias por avisar!"

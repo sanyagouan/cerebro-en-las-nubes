@@ -11,7 +11,7 @@ class TwilioService:
     def __init__(self):
         self.sid = os.getenv("TWILIO_ACCOUNT_SID")
         self.token = os.getenv("TWILIO_AUTH_TOKEN")
-        self.whatsapp_from = os.getenv("TWILIO_WHATSAPP_NUMBER", "whatsapp:+14155238886")
+        self.whatsapp_from = os.getenv("TWILIO_WHATSAPP_NUMBER", "whatsapp:+358454910405")
         logger.info(f"WhatsApp From Number configurado: {self.whatsapp_from}")
         
         if self.sid and self.token:
@@ -56,7 +56,7 @@ class TwilioService:
         self, to_number: str, template_sid: str, variables: Dict[str, str]
     ) -> Optional[str]:
         """
-        Envía una plantilla de WhatsApp pre-aprobada.
+        Envía una plantilla de WhatsApp pre-aprobada usando Content API.
         Variables: Diccionario con los valores para la plantilla.
         """
         if not self.client:
@@ -68,14 +68,11 @@ class TwilioService:
             to_formatted = to_number
 
         try:
-            # Twilio templates se envían de forma distinta según la API usada. 
-            # Aquí usamos el enfoque estándar de Content SID si está disponible, 
-            # o enviamos el body completo si es una plantilla de texto simple.
-            # Por ahora, implementamos envío de mensaje con parámetros.
-            
+            # Enviar usando el Content SID y variables para la plantilla aprobada
             message = self.client.messages.create(
                 from_=self.whatsapp_from,
-                body=self._format_template_body(template_sid, variables),
+                content_sid=template_sid,
+                content_variables=variables,
                 to=to_formatted
             )
             logger.info(f"Plantilla WhatsApp enviada a {to_number}: SID {message.sid}")

@@ -10,6 +10,7 @@ import logging
 from src.core.entities.waitlist import WaitlistEntry, WaitlistStatus
 from src.infrastructure.repositories.waitlist_repository import waitlist_repository
 from src.infrastructure.external.twilio_service import TwilioService
+from src.infrastructure.templates.content_sids import MESA_DISPONIBLE_NUBES_SID
 
 logger = logging.getLogger(__name__)
 
@@ -112,12 +113,23 @@ class WaitlistService:
                 logger.info("No hay entradas waiting compatibles para notificar")
                 return None
             
-            # Enviar WhatsApp
-            mensaje = self._build_availability_message(entry, fecha, hora)
+            # Enviar WhatsApp usando plantilla aprobada (Content API)
+            fecha_str = fecha.strftime("%d/%m/%Y")
+            hora_str = hora.strftime("%H:%M")
             
-            whatsapp_sid = self.twilio_service.send_whatsapp(
+            # Variables para la plantilla mesa_disponible_nubes
+            # {{1}} = nombre_cliente, {{2}} = num_personas, {{3}} = fecha, {{4}} = hora
+            template_variables = {
+                "1": entry.nombre_cliente,
+                "2": str(entry.num_personas),
+                "3": fecha_str,
+                "4": hora_str
+            }
+            
+            whatsapp_sid = self.twilio_service.send_whatsapp_template(
                 to_number=entry.telefono_cliente,
-                message_body=mensaje
+                template_sid=MESA_DISPONIBLE_NUBES_SID,
+                variables=template_variables
             )
             
             if not whatsapp_sid:

@@ -16,6 +16,12 @@ from src.core.entities.waitlist import WaitlistStatus
 from src.infrastructure.repositories.booking_repo import AirtableBookingRepository
 from src.infrastructure.external.twilio_service import TwilioService
 from src.infrastructure.templates.whatsapp_messages import recordatorio_24h_template
+from src.infrastructure.templates.content_sids import (
+    RESERVA_CONFIRMACION_NUBES_SID,
+    RESERVA_RECORDATORIO_NUBES_SID,
+    RESERVA_CANCELADA_NUBES_SID,
+    MESA_DISPONIBLE_NUBES_SID
+)
 
 logger = logging.getLogger(__name__)
 
@@ -197,10 +203,18 @@ class SchedulerService:
                         mesa_asignada=booking.mesa_asignada,  # Puede ser None
                     )
 
-                    # Enviar WhatsApp via Twilio
-                    # TwilioService.send_whatsapp(to_number: str, message_body: str)
-                    success = self.twilio_service.send_whatsapp(
-                        to_number=booking.telefono, message_body=mensaje
+                    # Enviar WhatsApp vía Twilio usando plantilla Content API
+                    # Usar el método send_whatsapp_template que aprovecha content_sid y content_variables
+                    variables = {
+                        "1": booking.nombre,
+                        "2": str(booking.fecha),
+                        "3": str(booking.hora),
+                        "4": str(booking.pax)
+                    }
+                    success = self.twilio_service.send_whatsapp_template(
+                        to_number=booking.telefono,
+                        template_sid=RESERVA_RECORDATORIO_NUBES_SID,
+                        variables=variables
                     )
 
                     if success:

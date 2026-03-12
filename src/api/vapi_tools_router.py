@@ -570,9 +570,10 @@ async def tool_create_reservation(request: Request):
             elif result.get("requires_whatsapp_confirmation"):
                 logger.info(f"Reserva {reservation_id}: Enviando WhatsApp de confirmación (teléfono móvil)")
                 
-                # Enviar WhatsApp de confirmación
+                # Enviar WhatsApp de confirmación usando la nueva plantilla Content API
                 try:
                     from src.infrastructure.external.twilio_service import TwilioService
+                    from src.infrastructure.templates.content_sids import RESERVA_CONFIRMACION_NUBES_SID
                     
                     twilio = TwilioService()
                     content_variables = {
@@ -581,10 +582,11 @@ async def tool_create_reservation(request: Request):
                         "3": hora_str
                     }
                     
+                    # Usar el método existente que ya implementa Content API correctamente
                     sid = twilio.send_whatsapp_template(
-                        telefono,
-                        "HXdb0dca8764f0021f9ff2fd197ba22497",
-                        content_variables
+                        to_number=telefono,
+                        template_sid=RESERVA_CONFIRMACION_NUBES_SID,  # Usar el SID de la plantilla Content API
+                        variables=content_variables
                     )
                     logger.info(f"WhatsApp Template enviado con SID: {sid}")
                     

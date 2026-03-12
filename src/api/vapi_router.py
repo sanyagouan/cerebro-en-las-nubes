@@ -742,13 +742,28 @@ async def tool_update_reservation(request: Request):
             f"Reservation {reservation_id} updated: {', '.join(cambios_realizados)}"
         )
 
-        # Enviar confirmación por WhatsApp
+        # Enviar confirmación por WhatsApp usando plantilla Content API
         try:
-            cambios_texto = ", ".join(cambios_realizados)
-            await twilio_service.send_whatsapp(
-                to=phone,
-                message=f"Hola {nombre}, tu reserva ha sido modificada. Cambios: {cambios_texto}. Si tienes dudas, contáctanos al 941 57 84 51. - En Las Nubes Resto Bar",
+            from src.infrastructure.templates.content_sids import RESERVA_CONFIRMACION_NUBES_SID
+            
+            # Formatear fecha para la plantilla
+            fecha_formateada = new_date if new_date else current_date
+            hora_formateada = new_time if new_time else current_time
+            
+            # Variables para la plantilla de confirmación (reutilizada para modificaciones)
+            variables = {
+                "1": nombre,
+                "2": str(guests_int if new_guests else current_pax),
+                "3": fecha_formateada,
+                "4": hora_formateada
+            }
+            
+            await twilio_service.send_whatsapp_template(
+                to_number=phone,
+                template_sid=RESERVA_CONFIRMACION_NUBES_SID,
+                variables=variables
             )
+            logger.info(f"WhatsApp modificación enviado a {phone} usando plantilla")
         except Exception as e:
             logger.error(f"Error sending WhatsApp confirmation: {e}")
 
@@ -905,14 +920,25 @@ async def tool_cancel_reservation(request: Request):
             f"Reservation {reservation_id} cancelled via voice: {nombre}, {fecha} {hora}"
         )
 
-        # Enviar confirmación por WhatsApp
+        # Enviar confirmación por WhatsApp usando plantilla Content API
         try:
-            await twilio_service.send_whatsapp(
-                to=telefono,
-                message=f"Hola {nombre}, tu reserva para {fecha} a las {hora} ha sido cancelada. Si tienes dudas, contáctanos al 941 57 84 51. - En Las Nubes Resto Bar",
+            from src.infrastructure.templates.content_sids import RESERVA_CANCELADA_NUBES_SID
+            
+            # Variables para la plantilla de cancelación
+            variables = {
+                "1": nombre,
+                "2": fecha,
+                "3": hora
+            }
+            
+            await twilio_service.send_whatsapp_template(
+                to_number=telefono,
+                template_sid=RESERVA_CANCELADA_NUBES_SID,
+                variables=variables
             )
+            logger.info(f"WhatsApp cancelación enviado a {telefono} usando plantilla")
         except Exception as e:
-            logger.error(f"Error sending WhatsApp confirmation: {e}")
+            logger.error(f"Error sending WhatsApp cancellation: {e}")
 
         # Broadcast WebSocket
         from src.api.websocket.connection_manager import manager

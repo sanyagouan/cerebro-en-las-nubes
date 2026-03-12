@@ -1238,14 +1238,20 @@ async def cancel_reservation(
         if request.notificar_cliente and cliente_telefono:
             try:
                 from src.infrastructure.services.twilio_service import twilio_service
+                from src.infrastructure.templates.content_sids import RESERVA_CANCELADA_NUBES_SID
 
-                mensaje = (
-                    f"Hola {cliente_nombre}, tu reserva para {fecha_reserva} a las {hora_reserva} "
-                    f"ha sido cancelada. "
-                    f"Si tienes dudas, contáctanos. - En Las Nubes Resto Bar"
+                # Enviar notificación de cancelación usando plantilla Content API
+                variables = {
+                    "1": cliente_nombre,
+                    "2": fecha_reserva,
+                    "3": hora_reserva
+                }
+
+                await twilio_service.send_whatsapp_template(
+                    to_number=cliente_telefono,
+                    template_sid=RESERVA_CANCELADA_NUBES_SID,
+                    variables=variables
                 )
-
-                await twilio_service.send_whatsapp(to=cliente_telefono, message=mensaje)
                 sms_sent = True
                 logger.info(
                     f"WhatsApp sent to {cliente_telefono} for cancellation {reservation_id}"
