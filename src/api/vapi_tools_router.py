@@ -379,16 +379,24 @@ async def tool_check_availability(request: Request):
                 ]
             }
 
-        # Martes y Miércoles noche = cerrado
-        if weekday in [1, 2] and servicio == "Cena":
-            return {
-                "results": [
-                    {
-                        "toolCallId": tool_call_id,
-                        "result": f"Los {dia_nombre}s no abrimos por la noche. Tan solo damos servicio de comidas. ¿Te vendría bien la comida de ese día?",
-                    }
-                ]
-            }
+        # Validación de horarios basada en la configuración central
+        from src.core.config.restaurant import BUSINESS_HOURS
+        dia_nombre_lower = dia_nombre.lower()
+        dias_es = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"]
+        dia_actual = dias_es[weekday]
+        
+        day_hours = BUSINESS_HOURS.get(dia_actual)
+        if day_hours:
+            dinner_hours = day_hours.get("dinner")
+            if servicio == "Cena" and not dinner_hours:
+                return {
+                    "results": [
+                        {
+                            "toolCallId": tool_call_id,
+                            "result": f"Los {dia_nombre}s no abrimos por la noche. Tan solo damos servicio de comidas. ¿Te vendría bien la comida de ese día?",
+                        }
+                    ]
+                }
 
         # Domingo noche = cerrado
         if weekday == 6 and servicio == "Cena":
@@ -598,7 +606,7 @@ async def tool_create_reservation(request: Request):
                     "results": [
                         {
                             "toolCallId": tool_call_id,
-                            "result": f"¡Perfecto, {nombre}! Acabo de anotarte la mesa y dejarla reservada. En unos segundos te va a llegar un mensaje por WhatsApp con los detalles de tu reserva para el {fecha_formateada}. ¡Qué ganas de veros por En Las Nubes!",
+                            "result": f"¡Perfecto, {nombre}! Acabo de anotarte la mesa y dejarla reservada. En unos segundos te va a llegar un mensaje por WhatsApp con los detalles de tu reserva para el {fecha_formateada}. ¡Qué ganas de veros en En Las Nubes!",
                         }
                     ]
                 }
