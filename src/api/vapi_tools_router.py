@@ -366,8 +366,9 @@ async def tool_check_availability(request: Request):
         
         # Importar configuración de horarios
         from src.core.config.restaurant import BUSINESS_HOURS
-        dias_es = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"]
-        dia_actual = dias_es[weekday]
+        # BUSINESS_HOURS usa claves en inglés
+        dias_en = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
+        dia_actual = dias_en[weekday]
         day_hours = BUSINESS_HOURS.get(dia_actual, {})
         
         # Determinar si es hora de comida o cena
