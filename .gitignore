@@ -152,5 +152,8 @@ workflows/
 calls.json
 coolify_logs.txt
 
-*.txt
+# ========================================
+# ARCHivos de prueba de VAPI
+# ========================================
+test_vapi_payload*.json*.txt
 *.log
