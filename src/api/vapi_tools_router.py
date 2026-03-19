@@ -361,20 +361,76 @@ async def tool_check_availability(request: Request):
                 ]
             }
 
-        # Determinar servicio por hora
+        # Determinar servicio por hora usando configuración central
         hora_int = hora.hour
+        
+        # Importar configuración de horarios
+        from src.core.config.restaurant import BUSINESS_HOURS
+        dias_es = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"]
+        dia_actual = dias_es[weekday]
+        day_hours = BUSINESS_HOURS.get(dia_actual, {})
+        
+        # Determinar si es hora de comida o cena
         if 13 <= hora_int < 17:
             servicio = "Comida"
             turno = "T1" if hora_int < 15 else "T2"
-        elif 20 <= hora_int <= 23:
+            lunch_hours = day_hours.get("lunch") if day_hours else None
+            if not lunch_hours:
+                return {
+                    "results": [
+                        {
+                            "toolCallId": tool_call_id,
+                            "result": f"Lo siento, el {dia_nombre} no abrimos para comer. ¿Te interesa otro día?",
+                        }
+                    ]
+                }
+        elif hora_int >= 20 or hora_int == 0:
+            # Incluir hora 0 (medianoche) para cenas que cierran tarde
             servicio = "Cena"
             turno = "T1" if hora_int < 22 else "T2"
+            dinner_hours = day_hours.get("dinner") if day_hours else None
+            
+            if not dinner_hours:
+                return {
+                    "results": [
+                        {
+                            "toolCallId": tool_call_id,
+                            "result": f"Los {dia_nombre}s no abrimos para cenar. ¿Te viene bien la comida o prefieres otro día?",
+                        }
+                    ]
+                }
+            
+            # Verificar que la hora esté dentro del horario de cierre real
+            if dinner_hours:
+                close_str = dinner_hours.get("close", "23:30")
+                close_parts = close_str.split(":")
+                close_hour = int(close_parts[0])
+                close_min = int(close_parts[1]) if len(close_parts) > 1 else 0
+                
+                # Convertir hora de cierre a entero para comparación (minutos desde medianoche)
+                close_minutes = close_hour * 60 + close_min
+                request_minutes = hora_int * 60 + hora.minute
+                
+                # Para horas después de medianoche (00:XX), sumar 24*60
+                if hora_int == 0:
+                    request_minutes = 24 * 60 + hora.minute
+                
+                if request_minutes > close_minutes:
+                    return {
+                        "results": [
+                            {
+                                "toolCallId": tool_call_id,
+                                "result": f"Lo siento, el {dia_nombre} cerramos la cocina a las {close_str}. ¿Te viene bien algo más temprano?",
+                            }
+                        ]
+                    }
         else:
+            # Hora fuera de los rangos permitidos
             return {
                 "results": [
                     {
                         "toolCallId": tool_call_id,
-                        "result": f"❌ A las {hora.strftime('%H:%M')} no servimos. Comida: 13:00-17:00, Cena: 20:00-23:30",
+                        "result": f"A las {hora.strftime('%H:%M')} no servimos. Nuestros horarios son: Comida de 13:00 a 17:00 y Cena de 20:00 hasta el cierre según día. ¿Te viene bien alguno de estos horarios?",
                     }
                 ]
             }
@@ -504,9 +560,159 @@ async def tool_create_reservation(request: Request):
                 ]
             }
 
+        # === OPCIÓN A: VALIDACIÓN DE HORARIOS (SEGURIDAD) ===
+        # Esta validación es una medida de seguridad para evitar reservas en horarios no permitidos
+        # incluso si el LLM de VAPI no la validó correctamente antes de llamar a esta tool.
+        try:
+            # Parsear fecha y hora con tolerancia
+            fecha_clean = fecha_str[:10] if fecha_str else ""
+            fecha = datetime.strptime(fecha_clean, "%Y-%m-%d").date()
+            
+            hora_clean = hora_str.replace("Z", "").split(".")[0] if hora_str else ""
+            if len(hora_clean) > 5 and ":" in hora_clean:
+                parts = hora_clean.split(":")
+                hora_clean = f"{parts[0]}:{parts[1]}"
+            hora = datetime.strptime(hora_clean, "%H:%M").time()
+            
+            # Día de la semana (0=Lunes, 6=Domingo)
+            weekday = fecha.weekday()
+            dias = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
+            dia_nombre = dias[weekday]
+            
+            # VALIDACIÓN 1: Lunes = cerrado
+            if weekday == 0:
+                logger.warning(f"Reserva rechazada: Lunes cerrado - {fecha_str}")
+                return {
+                    "results": [
+                        {
+                            "toolCallId": tool_call_id,
+                            "result": f"Lo siento {nombre}, los lunes estamos de descanso y no podemos hacer reservas. ¿Te interesaría mirar mesa para otro día de la semana?",
+                        }
+                    ]
+                }
+            
+            # VALIDACIÓN 2: Determinar servicio por hora usando configuración central
+            hora_int = hora.hour
+            
+            # Importar configuración de horarios
+            from src.core.config.restaurant import BUSINESS_HOURS
+            dias_es = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"]
+            dia_actual = dias_es[weekday]
+            day_hours = BUSINESS_HOURS.get(dia_actual, {})
+            
+            # Determinar si es hora de comida o cena
+            if 13 <= hora_int < 17:
+                servicio = "Comida"
+                lunch_hours = day_hours.get("lunch") if day_hours else None
+                if not lunch_hours:
+                    logger.warning(f"Reserva rechazada: {dia_nombre} sin servicio de comida - {fecha_str}")
+                    return {
+                        "results": [
+                            {
+                                "toolCallId": tool_call_id,
+                                "result": f"Lo siento {nombre}, el {dia_nombre} no abrimos para comer. ¿Te interesa otro día?",
+                            }
+                        ]
+                    }
+            elif hora_int >= 20 or hora_int == 0:
+                # Incluir hora 0 (medianoche) para cenas que cierran tarde
+                servicio = "Cena"
+                dinner_hours = day_hours.get("dinner") if day_hours else None
+                
+                if not dinner_hours:
+                    logger.warning(f"Reserva rechazada: {dia_nombre} sin servicio de cena - {fecha_str}")
+                    return {
+                        "results": [
+                            {
+                                "toolCallId": tool_call_id,
+                                "result": f"Lo siento {nombre}, los {dia_nombre}s no abrimos para cenar. ¿Te viene bien la comida o prefieres otro día?",
+                            }
+                        ]
+                    }
+                
+                # Verificar que la hora esté dentro del horario de cierre real
+                if dinner_hours:
+                    close_str = dinner_hours.get("close", "23:30")
+                    close_parts = close_str.split(":")
+                    close_hour = int(close_parts[0])
+                    close_min = int(close_parts[1]) if len(close_parts) > 1 else 0
+                    
+                    # Convertir hora de cierre a entero para comparación (minutos desde medianoche)
+                    close_minutes = close_hour * 60 + close_min
+                    request_minutes = hora_int * 60 + hora.minute
+                    
+                    # Para horas después de medianoche (00:XX), sumar 24*60
+                    if hora_int == 0:
+                        request_minutes = 24 * 60 + hora.minute
+                    
+                    if request_minutes > close_minutes:
+                        logger.warning(f"Reserva rechazada: Hora {hora_str} posterior al cierre {close_str} - {fecha_str}")
+                        return {
+                            "results": [
+                                {
+                                    "toolCallId": tool_call_id,
+                                    "result": f"Lo siento {nombre}, el {dia_nombre} cerramos la cocina a las {close_str}. ¿Te viene bien algo más temprano?",
+                                }
+                            ]
+                        }
+            else:
+                # Hora fuera de los rangos permitidos
+                logger.warning(f"Reserva rechazada: Fuera de horario - {hora_str}")
+                return {
+                    "results": [
+                        {
+                            "toolCallId": tool_call_id,
+                            "result": f"Lo siento {nombre}, a las {hora.strftime('%H:%M')} no servimos. Nuestros horarios son: Comida de 13:00 a 17:00 y Cena de 20:00 hasta el cierre según día. ¿Te viene bien alguno de estos horarios?",
+                        }
+                    ]
+                }
+            
+            # VALIDACIÓN 3: Domingo noche = cerrado
+            if weekday == 6 and servicio == "Cena":
+                logger.warning(f"Reserva rechazada: Domingo noche cerrado - {fecha_str}")
+                return {
+                    "results": [
+                        {
+                            "toolCallId": tool_call_id,
+                            "result": f"Lo siento {nombre}, los domingos no abrimos para cenar, solo damos servicio de comidas. ¿Te viene bien la comida del domingo o prefieres otro día?",
+                        }
+                    ]
+                }
+            
+            # VALIDACIÓN 4: Verificar horarios según configuración central (días sin cena)
+            from src.core.config.restaurant import BUSINESS_HOURS
+            dias_es = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"]
+            dia_actual = dias_es[weekday]
+            
+            day_hours = BUSINESS_HOURS.get(dia_actual)
+            if day_hours:
+                dinner_hours = day_hours.get("dinner")
+                if servicio == "Cena" and not dinner_hours:
+                    logger.warning(f"Reserva rechazada: {dia_nombre} sin servicio de cena - {fecha_str}")
+                    return {
+                        "results": [
+                            {
+                                "toolCallId": tool_call_id,
+                                "result": f"Lo siento {nombre}, los {dia_nombre}s no abrimos por la noche, solo damos servicio de comidas. ¿Te vendría bien la comida de ese día?",
+                            }
+                        ]
+                    }
+            
+            logger.info(f"Validación de horarios OK: {fecha_str} {hora_str} - {servicio}")
+            
+        except Exception as e:
+            logger.error(f"Error en validación de horarios: {e}")
+            # Si hay error en la validación, continuar con precaución (no bloquear la reserva)
+            # pero registrar el error para revisión
+            logger.warning("Continuando con la reserva a pesar del error de validación")
+        # === FIN VALIDACIÓN DE HORARIOS ===
+
         # Formatear teléfono si no tiene formato E.164
         if telefono and not telefono.startswith("+"):
-            telefono = f"+34{telefono.lstrip('0')}"  # Añadir +34 para España
+            # Quitar SOLO un cero inicial si existe (lstrip elimina TODOS los ceros)
+            if telefono.startswith("0"):
+                telefono = telefono[1:]
+            telefono = f"+34{telefono}"  # Añadir +34 para España
 
         # Formatear Hora en formato ISO 8601 para Airtable
         hora_iso = hora_str
