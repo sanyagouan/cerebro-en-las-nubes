@@ -3,11 +3,9 @@
   "orgId": "b5b7310a-c483-4b48-b04f-0f520e262f95",
   "name": "Nube - En Las Nubes",
   "voice": {
-    "model": "eleven_multilingual_v2",
-    "voiceId": "cgSgspJ2msm6clMCkdW9",
-    "provider": "11labs",
-    "stability": 0.5,
-    "similarityBoost": 0.75
+    "provider": "azure",
+    "voiceId": "es-ES-ElviraNeural",
+    "language": "es-ES"
   },
   "createdAt": "2026-01-24T16:04:44.735Z",
   "updatedAt": "2026-03-03T23:01:42.701Z",

@@ -1,14 +1,47 @@
-# Plantillas de WhatsApp - SIDs generados automáticamente
-# NO EDITAR MANUALMENTE - Actualizado por create_whatsapp_templates.py
+"""
+Content SIDs para plantillas WhatsApp - En Las Nubes Restobar
+Actualizado: 2026-03-26 06:00:54
 
-WHATSAPP_TEMPLATE_SIDS = {
-    "reserva_confirmacion_nubes": "HX5352b9aa7f916c818e2407dccb671a74",
-    "reserva_recordatorio_nubes": "HXfd2da5b5d0be89ee94da39c32087c2dd",
-    "reserva_cancelada_nubes": "HX00f05a592e1cc7d1236fddd557483131",
-    "mesa_disponible_nubes": "HX59e92f47f2a3fa3d81f472eac4092737",
+Estos SIDs se generan automaticamente desde Twilio Content API.
+Las plantillas fueron enviadas a Meta para aprobacion.
+"""
+
+# SIDs de plantillas WhatsApp
+CONTENT_SIDS = {
+    "reserva_confirmacion": "HX501f76efa2d23dd2ccf4e86da3c01035",
+    "reserva_recordatorio": "HX88be82bdddd2533f8c00fef3bf4ea410",
+    "reserva_cancelada": "HX4afa946a6d0cf3a2f32f0a35cca05e47",
+    "mesa_disponible": "HX2f6c7acdc8e74e47e3a4ccc887fbacfc",
 }
 
-RESERVA_CONFIRMACION_NUBES_SID = "HX5352b9aa7f916c818e2407dccb671a74"
-RESERVA_RECORDATORIO_NUBES_SID = "HXfd2da5b5d0be89ee94da39c32087c2dd"
-RESERVA_CANCELADA_NUBES_SID = "HX00f05a592e1cc7d1236fddd557483131"
-MESA_DISPONIBLE_NUBES_SID = "HX59e92f47f2a3fa3d81f472eac4092737"
+# Alias para compatibilidad con nombres legacy
+RESERVA_CONFIRMACION_SID = CONTENT_SIDS["reserva_confirmacion"]
+RESERVA_RECORDATORIO_SID = CONTENT_SIDS["reserva_recordatorio"]
+RESERVA_CANCELADA_SID = CONTENT_SIDS["reserva_cancelada"]
+MESA_DISPONIBLE_SID = CONTENT_SIDS["mesa_disponible"]
+
+# Alias para compatibilidad con scripts que usan nombres con sufijo _nubes
+WHATSAPP_TEMPLATE_SIDS = {
+    "reserva_recordatorio_nubes": CONTENT_SIDS["reserva_recordatorio"],
+    "reserva_confirmacion_nubes": CONTENT_SIDS["reserva_confirmacion"],
+    "reserva_cancelada_nubes": CONTENT_SIDS["reserva_cancelada"],
+    "mesa_disponible_nubes": CONTENT_SIDS["mesa_disponible"],
+}
+
+
+def get_template_sid(template_name: str) -> str:
+    """
+    Obtener el SID de una plantilla por su nombre.
+    
+    Args:
+        template_name: Nombre de la plantilla (sin sufijo _nubes)
+    
+    Returns:
+        SID de la plantilla o None si no existe
+    """
+    return CONTENT_SIDS.get(template_name)
+
+
+def get_all_sids() -> dict:
+    """Retornar todos los SIDs de plantillas."""
+    return CONTENT_SIDS.copy()
