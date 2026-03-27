@@ -26,10 +26,10 @@ if sys.platform == 'win32':
 
 # Plantillas a verificar (SIDs proporcionados por el usuario)
 TEMPLATES_TO_CHECK = {
-    "mesa_disponibilidad_enlasnubes_es": "HX2bbf4bf865ac57eafe90051a41c42c3e",
-    "reserva_cancelacion_enlasnubes_es": "HXa09aef98872394b339fdb50bf8ec72e",
-    "reserva_recordatorio_enlasnubes_es": "HX2cc2087501d3f98701961631697c0b37",
-    "reserva_confirmacion_enlasnubes_es": "HXa529c4953d53a2cbb9ff5b5699ee3c3f"
+    "mesa_disponibilidad_enlasnubes_es": os.getenv("TEMPLATE_SID_DISPONIBILIDAD", "PLACEHOLDER"),
+    "reserva_cancelacion_enlasnubes_es": os.getenv("TEMPLATE_SID_CANCELACION", "PLACEHOLDER"),
+    "reserva_recordatorio_enlasnubes_es": os.getenv("TEMPLATE_SID_RECORDATORIO", "PLACEHOLDER"),
+    "reserva_confirmacion_enlasnubes_es": os.getenv("TEMPLATE_SID_CONFIRMACION", "PLACEHOLDER")
 }
 
 def main():
