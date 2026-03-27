@@ -156,3 +156,14 @@ coolify_logs.txt
 # ARCHIVOS DE prueba de VAPI
 # ========================================
 test_vapi_payload*.json
+
+# ========================================
+# ARCHIVOS DE DEBUG / RESULTADOS DE TEST
+# ========================================
+test_results.json
+test_results_v2.json
+call_logs.json
+call_msgs.json
+call_res_msgs.json
+call_tools.json
+call_error.json
