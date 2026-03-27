@@ -251,11 +251,11 @@ Basado en la investigación, estas son las opciones disponibles:
         print("5. PRÓXIMOS PASOS RECOMENDADOS")
         print("=" * 80)
         print("""
-1. ✅ Ejecutar este script para ver si tus plantillas ya fueron migradas
+ 1. ✅ Ejecutar este script para ver si tus plantillas ya fueron migradas
 2. Si NO aparecen en LegacyContent:
    a. Contactar a soporte de Twilio (soporte@twilio.com)
    b. Incluir:
-      - Account SID: ACd37052c7a26448d2e12e20c68ecdca09
+      - Account SID: (tu TWILIO_ACCOUNT_SID)
       - WABA ID: (tu WhatsApp Business Account ID)
       - Nombres de plantillas: reserva_cancelada_nubes, mesa_disponible_nubes, etc.
    c. Solicitar migración manual

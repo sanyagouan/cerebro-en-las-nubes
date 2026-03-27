@@ -39,8 +39,13 @@ def main():
     print("=" * 70)
     
     # Obtener credenciales
-    account_sid = os.getenv('TWILIO_ACCOUNT_SID', 'ACd37052c7a26448d2e12e20c68ecdca09')
+    account_sid = os.getenv('TWILIO_ACCOUNT_SID')
     auth_token = os.getenv('TWILIO_AUTH_TOKEN')
+    
+    if not account_sid:
+        print("\n❌ ERROR: TWILIO_ACCOUNT_SID no está configurado")
+        print("   Ejecuta: . .\\scripts\\load_mcp_secrets.ps1")
+        sys.exit(1)
     
     if not auth_token:
         print("\n❌ ERROR: TWILIO_AUTH_TOKEN no está configurado")

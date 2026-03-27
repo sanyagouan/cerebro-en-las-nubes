@@ -18,8 +18,13 @@ from pathlib import Path
 from datetime import datetime
 
 # Credenciales de Twilio
-TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID", "ACd37052c7a26448d2e12e20c68ecdca09")
+TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID")
 TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN")
+
+if not TWILIO_ACCOUNT_SID:
+    print("ERROR: TWILIO_ACCOUNT_SID no esta configurado")
+    print("Ejecuta: $env:TWILIO_ACCOUNT_SID='tu_account_sid'")
+    sys.exit(1)
 
 if not TWILIO_AUTH_TOKEN:
     print("ERROR: TWILIO_AUTH_TOKEN no esta configurado")

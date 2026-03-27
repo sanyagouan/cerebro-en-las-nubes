@@ -15,8 +15,12 @@ if sys.platform == 'win32':
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 
 # Credenciales
-ACCOUNT_SID = os.getenv('TWILIO_ACCOUNT_SID', 'ACd37052c7a26448d2e12e20c68ecdca09')
+ACCOUNT_SID = os.getenv('TWILIO_ACCOUNT_SID')
 AUTH_TOKEN = os.getenv('TWILIO_AUTH_TOKEN')
+
+if not ACCOUNT_SID:
+    print("ERROR: TWILIO_ACCOUNT_SID no esta configurado")
+    sys.exit(1)
 
 if not AUTH_TOKEN:
     print("ERROR: TWILIO_AUTH_TOKEN no esta configurado")

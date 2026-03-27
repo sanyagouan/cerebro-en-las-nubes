@@ -8,8 +8,12 @@ import requests
 from requests.auth import HTTPBasicAuth
 
 # Credenciales de Twilio
-TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID", "ACd37052c7a26448d2e12e20c68ecdca09")
+TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID")
 TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN", "")
+
+if not TWILIO_ACCOUNT_SID:
+    print("ERROR: TWILIO_ACCOUNT_SID no esta configurado")
+    sys.exit(1)
 
 # Plantillas a verificar (SIDs actualizados - aprobados por Meta 2026-03-26)
 TEMPLATES_TO_CHECK = {
