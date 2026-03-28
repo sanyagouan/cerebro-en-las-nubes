@@ -26,12 +26,13 @@ if not AUTH_TOKEN:
     print("ERROR: TWILIO_AUTH_TOKEN no esta configurado")
     sys.exit(1)
 
-# Plantillas configuradas
+# Plantillas configuradas - Los SIDs se cargan desde variables de entorno o content_sids.py
+# Estos son placeholders que deben ser reemplazados por los SIDs reales
 CONFIGURED_TEMPLATES = {
-    "reserva_confirmacion_nubes": "HXd7ce27ac9661f249829fc837325e1612",
-    "reserva_recordatorio_nubes": "HXb3e508a6f995764a7a7672ae82d21449",
-    "reserva_cancelada_nubes": "HXeb899f313378eff3a08c182a972c5a59",
-    "mesa_disponible_nubes": "HX4af239d8593e7f5d7f676c669804cf32"
+    "reserva_confirmacion_nubes": os.getenv("TEMPLATE_SID_CONFIRMACION", "PLACEHOLDER"),
+    "reserva_recordatorio_nubes": os.getenv("TEMPLATE_SID_RECORDATORIO", "PLACEHOLDER"),
+    "reserva_cancelada_nubes": os.getenv("TEMPLATE_SID_CANCELADA", "PLACEHOLDER"),
+    "mesa_disponible_nubes": os.getenv("TEMPLATE_SID_DISPONIBLE", "PLACEHOLDER")
 }
 
 def main():

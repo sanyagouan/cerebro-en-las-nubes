@@ -1,32 +1,43 @@
 version: '3.8'
-
 services:
   brain:
-    build: .
+    build:
+      context: .
+      args:
+        CACHEBUST: ${CACHEBUST:-1}
+        CACHEBUST_SRC: ${CACHEBUST_SRC:-1}
     container_name: cerebro-brain
-    restart: always
+    restart: unless-stopped
     ports:
       - "8000:8000"
+    env_file:
+      - .env
     environment:
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - VAPI_API_KEY=${VAPI_API_KEY}
-      - AIRTABLE_API_KEY=${AIRTABLE_API_KEY}
-      - AIRTABLE_BASE_ID=${AIRTABLE_BASE_ID}
-      - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID}
-      - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN}
-      - TWILIO_WHATSAPP_ID=${TWILIO_WHATSAPP_ID}
-    volumes:
-      - ./src:/app/src
-    command: poetry run uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload
-
+      - REDIS_URL=redis://redis:6379/0
+      - ENVIRONMENT=development
+      - TWILIO_SKIP_VALIDATION=true
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
   redis:
-    image: redis:alpine
+    image: redis:7-alpine
     container_name: cerebro-redis
-    restart: always
+    restart: unless-stopped
     ports:
       - "6379:6379"
     volumes:
       - redis_data:/data
-
+    command: redis-server --appendonly yes --maxmemory 128mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 volumes:
   redis_data:

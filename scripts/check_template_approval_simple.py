@@ -15,12 +15,13 @@ if not TWILIO_ACCOUNT_SID:
     print("ERROR: TWILIO_ACCOUNT_SID no esta configurado")
     sys.exit(1)
 
-# Plantillas a verificar (SIDs actualizados - aprobados por Meta 2026-03-26)
+# Plantillas a verificar - Los SIDs se cargan desde variables de entorno
+# Estos son placeholders que deben ser reemplazados por los SIDs reales
 TEMPLATES_TO_CHECK = {
-    "reserva_confirmacion": "HX501f76efa2d23dd2ccf4e86da3c01035",
-    "reserva_recordatorio": "HX88be82bdddd2533f8c00fef3bf4ea410",
-    "reserva_cancelada": "HX4afa946a6d0cf3a2f32f0a35cca05e47",
-    "mesa_disponible": "HX2f6c7acdc8e74e47e3a4ccc887fbacfc"
+    "reserva_confirmacion": os.getenv("TEMPLATE_SID_CONFIRMACION", "PLACEHOLDER"),
+    "reserva_recordatorio": os.getenv("TEMPLATE_SID_RECORDATORIO", "PLACEHOLDER"),
+    "reserva_cancelada": os.getenv("TEMPLATE_SID_CANCELADA", "PLACEHOLDER"),
+    "mesa_disponible": os.getenv("TEMPLATE_SID_DISPONIBLE", "PLACEHOLDER")
 }
 
 def get_auth():

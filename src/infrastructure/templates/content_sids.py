@@ -19,6 +19,10 @@ RESERVA_CONFIRMACION_SID = CONTENT_SIDS["reserva_confirmacion"]
 RESERVA_RECORDATORIO_SID = CONTENT_SIDS["reserva_recordatorio"]
 RESERVA_CANCELADA_SID = CONTENT_SIDS["reserva_cancelada"]
 MESA_DISPONIBLE_SID = CONTENT_SIDS["mesa_disponible"]
+MESA_DISPONIBLE_NUBES_SID = CONTENT_SIDS["mesa_disponible"]
+RESERVA_CONFIRMACION_NUBES_SID = CONTENT_SIDS["reserva_confirmacion"]
+RESERVA_RECORDATORIO_NUBES_SID = CONTENT_SIDS["reserva_recordatorio"]
+RESERVA_CANCELADA_NUBES_SID = CONTENT_SIDS["reserva_cancelada"]
 
 # Alias para compatibilidad con scripts que usan nombres con sufijo _nubes
 WHATSAPP_TEMPLATE_SIDS = {
