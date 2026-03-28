@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Request, HTTPException
 from typing import Dict, Any, Optional
 import os
-import logging
 from datetime import datetime
+from loguru import logger
 
 from src.application.services.schedule_service import ScheduleService
 from src.infrastructure.repositories.mock_reservation_repository import (
@@ -16,10 +16,6 @@ from src.core.entities.booking import (
 from src.application.services.waitlist_service import WaitlistService
 from src.application.services.reservation_service import ReservationService
 # from src.api.middleware.rate_limiting import webhook_limit  # TODO: Re-enable after fixing slowapi
-
-# Configuración de logs
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/vapi", tags=["VAPI"])
 
@@ -218,9 +214,9 @@ async def get_assistant_config(request: Request):
             "assistant": {
                 "model": {
                     "provider": "openai",
-                    "model": "gpt-4o",
+                    "model": "gpt-4o-mini",
                     "messages": [{"role": "system", "content": dynamic_system_prompt}],
-                    "temperature": 0.7,
+                    "temperature": 0.3,
                     "functions": [
                         {
                             "name": "get_info",
@@ -550,7 +546,7 @@ async def tool_get_reservation(request: Request):
         }
 
     except Exception as e:
-        logger.error(f"Error getting reservation: {str(e)}", exc_info=True)
+        logger.error(f"Error getting reservation: {str(e)}")
         return {
             "results": [
                 {
@@ -791,7 +787,7 @@ async def tool_update_reservation(request: Request):
         }
 
     except Exception as e:
-        logger.error(f"Error updating reservation: {str(e)}", exc_info=True)
+        logger.error(f"Error updating reservation: {str(e)}")
         return {
             "results": [
                 {
@@ -966,7 +962,7 @@ async def tool_cancel_reservation(request: Request):
         }
 
     except Exception as e:
-        logger.error(f"Error cancelling reservation: {str(e)}", exc_info=True)
+        logger.error(f"Error cancelling reservation: {str(e)}")
         return {
             "results": [
                 {
@@ -1069,7 +1065,7 @@ async def tool_add_to_waitlist(request: Request):
             }
 
         except Exception as e:
-            logger.error(f"Error adding to waitlist: {e}", exc_info=True)
+            logger.error(f"Error adding to waitlist: {e}")
             return {
                 "results": [
                     {
@@ -1083,7 +1079,7 @@ async def tool_add_to_waitlist(request: Request):
             }
 
     except Exception as e:
-        logger.error(f"Error in add_to_waitlist tool: {str(e)}", exc_info=True)
+        logger.error(f"Error in add_to_waitlist tool: {str(e)}")
         return {
             "results": [
                 {
@@ -1233,7 +1229,7 @@ async def tool_confirm_verbal(request: Request):
         }
     
     except Exception as e:
-        logger.error(f"Error in confirm_verbal tool: {str(e)}", exc_info=True)
+        logger.error(f"Error in confirm_verbal tool: {str(e)}")
         return {
             "results": [
                 {

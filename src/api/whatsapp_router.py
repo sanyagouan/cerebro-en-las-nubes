@@ -4,13 +4,12 @@ WhatsApp Router: Handles incoming messages from Twilio WhatsApp.
 
 from fastapi import APIRouter, Request, Form
 from fastapi.responses import Response
-import logging
 
 from src.application.orchestrator import Orchestrator
 # from src.api.middleware.rate_limiting import webhook_limit  # TODO: Re-enable after fixing slowapi
 
 router = APIRouter(prefix="/whatsapp", tags=["WhatsApp"])
-logger = logging.getLogger(__name__)
+from loguru import logger
 
 # Lazy-loaded orchestrator
 _orchestrator = None

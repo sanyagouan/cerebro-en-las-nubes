@@ -6,7 +6,7 @@ from src.core.ports.booking_repository import BookingRepository
 from src.core.entities.booking import Booking, BookingStatus, BookingChannel
 from src.core.entities.table import Table, TableStatus, normalize_zone
 from src.core.config.airtable_ids import TABLES, BASE_ID
-from src.core.logging import logger
+from loguru import logger
 
 
 class AirtableBookingRepository(BookingRepository):

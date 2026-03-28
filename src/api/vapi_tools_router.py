@@ -4,11 +4,12 @@ Apunta a /vapi/tools/* (no /vapi/webhook que es solo para Twilio)
 v2.0 - Versión limpia y corregida
 """
 
+import asyncio
+import json
 from fastapi import APIRouter, Request, HTTPException
 from typing import Dict, Any, Optional, List
 from datetime import datetime, date, timedelta
-import logging
-import json
+from loguru import logger
 
 from src.application.services.schedule_service import (
     ScheduleService,
@@ -23,8 +24,6 @@ from src.infrastructure.repositories.table_repository import (
 )
 from src.infrastructure.external.airtable_service import AirtableService
 from src.infrastructure.cache.redis_cache import get_cache
-
-logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/vapi/tools", tags=["VAPI Tools"])
 
@@ -518,7 +517,7 @@ async def tool_check_availability(request: Request):
         }
 
     except Exception as e:
-        logger.error(f"Error in check_availability: {e}", exc_info=True)
+        logger.error(f"Error in check_availability: {e}")
         tc_id = tool_call_id if 'tool_call_id' in locals() else "unknown"
         return {
             "results": [
@@ -786,28 +785,29 @@ async def tool_create_reservation(request: Request):
                 logger.info(f"Reserva {reservation_id}: Enviando WhatsApp de confirmación (teléfono móvil)")
                 
                 # Enviar WhatsApp de confirmación usando la nueva plantilla Content API
-                try:
-                    from src.infrastructure.external.twilio_service import TwilioService
-                    from src.infrastructure.templates.content_sids import RESERVA_CONFIRMACION_NUBES_SID
-                    
-                    twilio = TwilioService()
-                    content_variables = {
-                        "1": nombre,
-                        "2": fecha_formateada,
-                        "3": hora_str
-                    }
-                    
-                    # Usar el método existente que ya implementa Content API correctamente
-                    sid = twilio.send_whatsapp_template(
-                        to_number=telefono,
-                        template_sid=RESERVA_CONFIRMACION_NUBES_SID,  # Usar el SID de la plantilla Content API
-                        variables=content_variables
-                    )
-                    logger.info(f"WhatsApp Template enviado con SID: {sid}")
-                    
-                except Exception as e:
-                    logger.error(f"Error enviando WhatsApp Template: {e}")
-                    # No fallar la reserva si el WhatsApp falla
+                # OPT-3: WhatsApp send as fire-and-forget background task
+                async def _send_whatsapp_bg():
+                    try:
+                        from src.infrastructure.external.twilio_service import TwilioService
+                        from src.infrastructure.templates.content_sids import RESERVA_CONFIRMACION_NUBES_SID
+
+                        twilio = TwilioService()
+                        content_variables = {
+                            "1": nombre,
+                            "2": fecha_formateada,
+                            "3": hora_str
+                        }
+
+                        sid = twilio.send_whatsapp_template(
+                            to_number=telefono,
+                            template_sid=RESERVA_CONFIRMACION_NUBES_SID,
+                            variables=content_variables
+                        )
+                        logger.info(f"WhatsApp Template enviado con SID: {sid}")
+                    except Exception as e:
+                        logger.error(f"Error enviando WhatsApp Template: {e}")
+
+                asyncio.create_task(_send_whatsapp_bg())
                 
                 return {
                     "results": [
@@ -831,7 +831,7 @@ async def tool_create_reservation(request: Request):
                 }
 
         except Exception as e:
-            logger.error(f"Error creando reserva con ReservationService: {e}", exc_info=True)
+            logger.error(f"Error creando reserva con ReservationService: {e}")
             return {
                 "results": [
                     {
@@ -842,7 +842,7 @@ async def tool_create_reservation(request: Request):
             }
 
     except Exception as e:
-        logger.error(f"Error in create_reservation: {e}", exc_info=True)
+        logger.error(f"Error in create_reservation: {e}")
         tc_id = tool_call_id if 'tool_call_id' in locals() else "unknown"
         return {
             "results": [
